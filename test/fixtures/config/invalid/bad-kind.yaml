@@ -1,0 +1,9 @@
+# expect: /project/kind
+liftoff: 1
+plugin:
+  version: "1.4"
+project:
+  name: acme
+  kind: legacy
+agents:
+  targets: [copilot]

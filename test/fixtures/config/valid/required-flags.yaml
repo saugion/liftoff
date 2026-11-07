@@ -1,0 +1,16 @@
+liftoff: 1
+plugin:
+  version: "1.4"
+project:
+  name: acme
+  kind: new
+  required: false
+agents:
+  targets: [copilot]
+  required: true
+stack:
+  required: true
+modules:
+  required: false
+constraints:
+  required: true

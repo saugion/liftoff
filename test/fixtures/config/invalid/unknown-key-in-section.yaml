@@ -1,0 +1,10 @@
+# expect: /project/colour
+liftoff: 1
+plugin:
+  version: "1.4"
+project:
+  name: acme
+  kind: new
+  colour: red
+agents:
+  targets: [copilot]

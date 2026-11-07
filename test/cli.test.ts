@@ -74,8 +74,8 @@ describe("run()", () => {
     expect(r.stderr).toContain("boom");
   });
 
-  it("the three v1 commands are registered stubs (exit 2, internal) until their tasks land", () => {
-    for (const c of ["validate", "check-config", "render"]) {
+  it("check-config and render are registered stubs (exit 2, internal) until their tasks land", () => {
+    for (const c of ["check-config", "render"]) {
       const r = run([c], dir);
       expect(r.exitCode).toBe(2);
       expect(parse(r.stdout).errors[0].code).toBe("internal");

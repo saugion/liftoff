@@ -1,46 +1,10 @@
 import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import type { Handler, RunResult } from "./types.js";
+import { validate } from "./validate.js";
 
-export type ErrorCode =
-  | "config-missing"
-  | "config-invalid"
-  | "plugin-outdated"
-  | "render-invalid"
-  | "agents-md-missing"
-  | "agents-md-invalid"
-  | "path-escape"
-  | "write-failed"
-  | "usage"
-  | "internal";
-
-export interface CliError {
-  code: ErrorCode;
-  message: string;
-  path?: string; // JSON pointer, config problems only
-  file?: string; // file path relative to root, file problems only
-  line?: number;
-  col?: number;
-}
-
-export interface RunResult {
-  stdout: string; // exactly one JSON document, newline-terminated
-  stderr: string; // only for unexpected crashes
-  exitCode: 0 | 1 | 2;
-}
-
-export interface Context {
-  root: string; // absolute
-  overwrite: string[];
-}
-
-// What a command handler returns; `run` adds `root` and serializes it.
-export interface Outcome {
-  exitCode: 0 | 1 | 2;
-  body: Record<string, unknown>;
-}
-
-export type Handler = (ctx: Context) => Outcome;
+export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
   "liftoff <validate|check-config|render> [--root <abs-dir>] [--overwrite <path>]... | --help";
@@ -52,7 +16,7 @@ const notImplemented: Handler = () => ({
 
 // ponytail: stubs until each command's task lands; replace entries, keep the registry.
 export const handlers: Record<string, Handler> = {
-  validate: notImplemented,
+  validate,
   "check-config": notImplemented,
   render: notImplemented,
 };

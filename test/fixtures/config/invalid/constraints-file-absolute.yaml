@@ -1,0 +1,11 @@
+# expect: /constraints/file
+liftoff: 1
+plugin:
+  version: "1.4"
+project:
+  name: acme-billing
+  kind: new
+agents:
+  targets: [claude-code]
+constraints:
+  file: /etc/CONSTRAINTS.md

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/saugion/liftoff/v0.1.0/schema/liftoff.schema.json
+liftoff: 1
+plugin:
+  required: true
+  version: "1.4.2"
+project:
+  name: acme-billing
+  kind: existing
+agents:
+  targets: [claude-code, copilot]
+stack:
+  languages: [typescript]
+  frameworks: [nestjs]
+modules:
+  items:
+    - id: api
+      path: src/api
+      description: HTTP layer
+    - id: web-app
+      path: apps/web/
+constraints:
+  file: docs/CONSTRAINTS.md
+tracker: {}
+codeHost: {}

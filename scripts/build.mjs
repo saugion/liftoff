@@ -11,7 +11,10 @@ export async function buildBundle(outfile = "dist/liftoff.mjs") {
     platform: "node",
     target: "node22",
     format: "esm",
-    banner: { js: "#!/usr/bin/env node" },
+    // CJS dependencies (yaml, ajv) call require() on node builtins; an ESM bundle needs a real require.
+    banner: {
+      js: '#!/usr/bin/env node\nimport { createRequire as __liftoffCreateRequire } from "node:module";\nconst require = __liftoffCreateRequire(import.meta.url);',
+    },
     legalComments: "eof",
     logLevel: "warning",
   });
