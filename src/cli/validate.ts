@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { readConfig } from "../config/read.js";
-import type { ConfigError } from "../config/types.js";
+import { type ConfigError, configHash, readConfig } from "../config/index.js";
 import type { CliError, Handler } from "./types.js";
 
 export const CONFIG_FILE = "liftoff.yaml";
@@ -16,5 +15,5 @@ export const validate: Handler = ({ root }) => {
   }
   const result = readConfig(file);
   if (!result.ok) return { exitCode: 1, body: { ok: false, errors: result.errors.map(toCliError) } };
-  return { exitCode: 0, body: { ok: true } };
+  return { exitCode: 0, body: { ok: true, configHash: configHash(result.value) } };
 };

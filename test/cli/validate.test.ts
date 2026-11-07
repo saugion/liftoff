@@ -21,6 +21,15 @@ describe("liftoff validate", () => {
     const { exitCode, body } = out(dir);
     expect(exitCode).toBe(0);
     expect(body).toMatchObject({ ok: true, root: dir });
+    expect(body.configHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it("configHash equals the library hash and survives reformatting of the file", () => {
+    const a = out(repoWith("valid/minimal.yaml")).body.configHash;
+    const dir = tempDir();
+    const text = readFileSync(join(FIXTURES, "valid/minimal.yaml"), "utf8");
+    writeFileSync(join(dir, "liftoff.yaml"), "# note\r\n" + text.replace(/\n/g, "\r\n"));
+    expect(out(dir).body.configHash).toBe(a);
   });
 
   it("schema error: exit 1, config-invalid with a JSON pointer", () => {
