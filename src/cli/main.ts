@@ -1,6 +1,7 @@
 import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { render } from "./apply.js";
 import type { Handler, RunResult } from "./types.js";
 import { validate } from "./validate.js";
 
@@ -18,7 +19,7 @@ const notImplemented: Handler = () => ({
 export const handlers: Record<string, Handler> = {
   validate,
   "check-config": notImplemented,
-  render: notImplemented,
+  render,
 };
 
 function json(root: string, exitCode: RunResult["exitCode"], body: Record<string, unknown>, stderr = ""): RunResult {
