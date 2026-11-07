@@ -1,0 +1,18 @@
+liftoff: 1
+plugin:
+  version: "0.1"
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [claude-code]
+modules:
+  items:
+    - id: api
+      path: src/api/
+    - id: web
+      path: ./apps/web
+    - id: core
+      path: 'libs\core\'
+    - id: ab
+      path: a//b
