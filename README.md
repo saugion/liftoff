@@ -225,6 +225,25 @@ Teams are mixed: some engineers use Claude Code, others GitHub Copilot. LiftOff 
 - PRs and ticket updates created through LiftOff are **accepted without edits** — measured as a % per connector.
 - A new teammate gets the same agent behavior as everyone else by cloning the repo and running the plugin.
 
+## Install
+
+LiftOff v1 is one plugin, published from this repo as a git marketplace. It needs Node 22.12 or newer (the CLI is a single bundled file inside the plugin: no `npm install`, no network).
+
+**Claude Code**
+
+```
+/plugin marketplace add saugion/liftoff#v0.1.0
+/plugin install liftoff@liftoff
+```
+
+(`/plugin install liftoff --marketplace saugion/liftoff` also works on Claude Code 2.1.275 or later.) Then, in a repo, run `/liftoff:liftoff-init`. Using the tag (`#v0.1.0`) installs exactly that release.
+
+**A teammate** who clones a repo that already ran Init gets the plugin from the committed `.claude/settings.json`: Claude Code registers the marketplace after you trust the folder. Run the skill to apply the team config; there are no questions.
+
+**VS Code with GitHub Copilot** reads the same plugin: enable `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install `liftoff`, and run the `liftoff-init` skill. Plugin support in VS Code is partly experimental; the pilot is checking this path.
+
+**Pinning.** A repo pins the plugin to a release tag (`ref` in `.claude/settings.json`) and to a minimum version in `liftoff.yaml`; the pin is per user, not per repo. See [`SPEC-plugin-packaging.md`](SPEC-plugin-packaging.md).
+
 ## Pilot
 
 The first users are internal: the product owner and close colleagues at their company. The pilot is how we find out whether LiftOff works before building more.
