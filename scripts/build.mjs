@@ -1,16 +1,30 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
 const SKILL_SCRIPT = "plugin/skills/liftoff-init/scripts/liftoff.mjs";
 const ENTRY_FRAGMENT = "plugin/skills/liftoff-init/assets/marketplace-entry.json";
 
+// src/cli/version.ts imports package.json for its version. Embed the version only: not the scripts and the
+// devDependencies, and not a stale artifact every time someone edits an unrelated line of package.json.
+const packageVersionOnly = {
+  name: "package-version-only",
+  setup(b) {
+    const file = resolve("package.json");
+    b.onLoad({ filter: /package\.json$/ }, (args) => {
+      if (args.path !== file) return undefined;
+      return { contents: JSON.stringify({ version: JSON.parse(readFileSync(file, "utf8")).version }), loader: "json" };
+    });
+  },
+};
+
 // One self-contained ESM file: no node_modules needed at runtime (the plugin ships no install step).
 async function bundle(outfile) {
   const result = await build({
     entryPoints: ["src/cli/bin.ts"],
     outfile,
+    plugins: [packageVersionOnly],
     bundle: true,
     platform: "node",
     target: "node22",

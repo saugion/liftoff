@@ -14681,32 +14681,7 @@ var validate2 = ({ root }) => {
 };
 
 // package.json
-var package_default = {
-  name: "liftoff",
-  version: "0.1.0",
-  private: true,
-  description: "LiftOff: turn a repo into an AI-native one, for Claude Code and GitHub Copilot.",
-  license: "Apache-2.0",
-  repository: "github:saugion/liftoff",
-  type: "module",
-  bin: { liftoff: "dist/liftoff.mjs" },
-  engines: { node: ">=22.12" },
-  scripts: {
-    build: "npm run typecheck && node scripts/build.mjs",
-    typecheck: "tsc --noEmit",
-    test: "vitest run"
-  },
-  dependencies: {
-    ajv: "^8.20.0",
-    yaml: "^2.9.1"
-  },
-  devDependencies: {
-    "@types/node": "^22.20.5",
-    esbuild: "0.28.2",
-    typescript: "^7.0.2",
-    vitest: "~5.1.0"
-  }
-};
+var package_default = { version: "0.1.0" };
 
 // src/cli/version.ts
 var INSTALLED_VERSION = package_default.version;

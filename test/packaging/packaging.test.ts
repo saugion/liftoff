@@ -45,6 +45,12 @@ describe("the committed artifact", () => {
     expect(readFileSync(ARTIFACT, "utf8") === readFileSync(fresh, "utf8")).toBe(true);
   });
 
+  it("embeds the package version only, not the whole package.json (scripts, devDependencies)", () => {
+    const text = readFileSync(ARTIFACT, "utf8");
+    expect(text).toContain(`var package_default = { version: "${INSTALLED_VERSION}" };`); // the only thing taken from package.json
+    for (const leaked of ['"devDependencies"', '"scripts"', '"vitest"', '"esbuild"']) expect(text, leaked).not.toContain(leaked);
+  });
+
   it("is LF only and starts with the shebang", () => {
     const text = readFileSync(ARTIFACT, "utf8");
     expect(text.includes("\r")).toBe(false);
