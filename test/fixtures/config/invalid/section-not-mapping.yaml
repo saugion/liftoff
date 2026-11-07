@@ -1,0 +1,10 @@
+# expect: /stack
+liftoff: 1
+plugin:
+  version: "1.4"
+project:
+  name: acme-billing
+  kind: new
+agents:
+  targets: [claude-code]
+stack: [typescript]

@@ -1,0 +1,17 @@
+# expect: /modules/items/2/id
+liftoff: 1
+plugin:
+  version: "1.4"
+project:
+  name: acme-billing
+  kind: new
+agents:
+  targets: [claude-code]
+modules:
+  items:
+    - id: api
+      path: src/api
+    - id: web
+      path: src/web
+    - id: api
+      path: src/other

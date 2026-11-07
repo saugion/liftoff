@@ -18,7 +18,7 @@ Verified against current docs (context7, 2026-10-05):
 
 - **`yaml`** (eemeli/yaml). Use `parseDocument()`: one document only (more than one is an error), duplicate keys are an error by default (`uniqueKeys`), syntax problems land in `doc.errors` with `linePos`. `doc.toJS()` gives the value. Check `doc.errors` before using the value.
 - **Ajv** v8, default export, JSON Schema **draft-07**. Options: `allErrors: true`, `strict: true`. Strict mode never rejects unknown keys in the *data*; the schema does that with `additionalProperties: false`. If the schema ever uses `format`, `ajv-formats` becomes a new dependency ("Ask first").
-- To check at scaffold time: `import Ajv from "ajv"` type-checks under TS `module: NodeNext` (known default-export interop issue).
+- Checked at scaffold time (T1, 2026-11-07): under TS `module: NodeNext` the default `import Ajv from "ajv"` does **not** type-check ("not constructable"). Use the named export, `import { Ajv } from "ajv"`: it type-checks, runs, and bundles with esbuild.
 - Node LTS, ESM, TypeScript. Test runner (Vitest) is fixed in the `cli` spec with the repo scaffold.
 
 ## Config shape (v1)
@@ -115,7 +115,8 @@ export function requiredSections(config: Config): string[];             // secti
 
 **Secret guard (in code, not in the schema).** Runs on the parsed value:
 - Keys, anywhere in the document: normalize (lowercase, strip `_` and `-`) and reject exact matches of `token`, `password`, `passwd`, `secret`, `apikey`, `privatekey`, `auth`, `pat`. Exact match, not substring: `tokenizer` and `authorEmail` pass.
-- String values: reject URLs with userinfo (`https://user:pass@host`) and known token prefixes (`ghp_`, `github_pat_`, `glpat-`, `lin_api_`, `xox`).
+- String values: reject URLs with a password (`https://user:pass@host`; `ssh://git@host` passes) and known token prefixes followed by token-like characters (T3, 2026-11-07): `ghp_`, `github_pat_`, `glpat-`, `lin_api_` plus at least 8 more `[A-Za-z0-9_-]`, and Slack `xox[abeprs]-` with a digit in the rest. A bare `xox` prefix would flag names like `xoxo-app`; a bare `ghp_` in prose passes.
+- A secret-looking key is also an unknown key for the schema: only the secret message is reported for that path.
 - This is a guard against accidents, not a guarantee. Say so in the error text.
 
 ## Project Structure

@@ -1,0 +1,6 @@
+# expect: /project
+liftoff: 1
+plugin:
+  version: "1.4"
+agents:
+  targets: [copilot]

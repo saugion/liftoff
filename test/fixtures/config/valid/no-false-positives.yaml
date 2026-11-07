@@ -1,0 +1,15 @@
+liftoff: 1
+plugin:
+  version: "1.4"
+project:
+  name: xoxo-tokenizer
+  kind: new
+agents:
+  targets: [copilot]
+stack:
+  frameworks: [author-lib]
+modules:
+  items:
+    - id: tokens
+      path: src/auth
+      description: docs mention the ghp_ prefix and ssh://git@github.com/acme/repo.git

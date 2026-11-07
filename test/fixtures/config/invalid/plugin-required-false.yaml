@@ -1,0 +1,10 @@
+# expect: /plugin/required
+liftoff: 1
+plugin:
+  version: "1.4"
+  required: false
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [copilot]

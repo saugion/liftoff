@@ -1,0 +1,5 @@
+# expect: /liftoff
+liftoff: 2
+brand-new-section: {}
+plugin:
+  version: "9.0"
