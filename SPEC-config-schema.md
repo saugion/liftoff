@@ -18,7 +18,7 @@ Verified against current docs (context7, 2026-10-05):
 
 - **`yaml`** (eemeli/yaml). Use `parseDocument()`: one document only (more than one is an error), duplicate keys are an error by default (`uniqueKeys`), syntax problems land in `doc.errors` with `linePos`. `doc.toJS()` gives the value. Check `doc.errors` before using the value.
 - **Ajv** v8, default export, JSON Schema **draft-07**. Options: `allErrors: true`, `strict: true`. Strict mode never rejects unknown keys in the *data*; the schema does that with `additionalProperties: false`. If the schema ever uses `format`, `ajv-formats` becomes a new dependency ("Ask first").
-- To check at scaffold time: `import Ajv from "ajv"` type-checks under TS `module: NodeNext` (known default-export interop issue).
+- Checked at scaffold time (T1, 2026-11-07): under TS `module: NodeNext` the default `import Ajv from "ajv"` does **not** type-check ("not constructable"). Use the named export, `import { Ajv } from "ajv"`: it type-checks, runs, and bundles with esbuild.
 - Node LTS, ESM, TypeScript. Test runner (Vitest) is fixed in the `cli` spec with the repo scaffold.
 
 ## Config shape (v1)

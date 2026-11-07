@@ -24,7 +24,7 @@ Verified 2026-11-07 (npm registry, nodejs.org, local Node 24 checks):
 - Dev deps: `typescript`, `vitest` (5.1.x), `esbuild`, `@types/node`. Runtime deps (bundled): `yaml`, `ajv`.
 - Arg parsing: `node:util` `parseArgs` (`type: "string", multiple: true` collects repeated `--overwrite`). No CLI framework.
 - **No linter in v1**: `tsc --strict` covers it. ESLint is a new dependency set ("Ask first").
-- Scaffold smoke test: `import Ajv from "ajv"` type-checks and bundles under `NodeNext`.
+- Scaffold smoke test: `import { Ajv } from "ajv"` (the named export; the default import does not type-check under `NodeNext`) type-checks and bundles.
 
 ## Commands
 
@@ -186,7 +186,7 @@ Command-level tests run the handlers on a temp directory (`mkdtemp`, root resolv
   - *Primary, static:* `test/static-guard.test.ts` scans `src/` and the built `dist/liftoff.mjs`, rejecting imports of `node:net|dns|http|https|http2|tls|dgram|child_process|worker_threads` and any `fetch(`, `WebSocket`, dynamic `import(`.
   - *Belt and braces, runtime:* the Vitest setup patches `net`, `tls`, `dns`, `http(s)` to throw and calls `module.syncBuiltinESMExports()` so named imports are covered.
   - *Binary test:* run the built artifact copied into a directory **with no `node_modules`**, under `node --permission --allow-fs-read=<bundle-dir>,<tmp> --allow-fs-write=<tmp>` with no `--allow-child-process` (proves it is self-contained, spawns nothing, and writes only inside the root). Needs Node ≥24 (`--permission`; on 22.12 the flag is experimental), so this test runs in CI on 24 and is skipped on 22. Node's permission model does **not** cover the network: that guarantee rests on the static guard.
-- **Scaffold smoke:** `import Ajv from "ajv"` works under `NodeNext`; version in `package.json` equals `plugin/.claude-plugin/plugin.json`.
+- **Scaffold smoke:** `import { Ajv } from "ajv"` works under `NodeNext`; version in `package.json` equals `plugin/.claude-plugin/plugin.json`.
 
 ## Boundaries
 
