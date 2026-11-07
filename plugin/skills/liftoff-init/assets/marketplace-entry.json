@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "liftoff": {
+      "source": {
+        "source": "github",
+        "repo": "saugion/liftoff",
+        "ref": "v0.1.0"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "liftoff@liftoff": true
+  }
+}

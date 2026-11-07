@@ -1,0 +1,11 @@
+{
+  "name": "liftoff",
+  "owner": { "name": "saugion" },
+  "plugins": [
+    {
+      "name": "liftoff",
+      "source": "./plugin",
+      "description": "Turn a repo into an AI-native one for Claude Code and GitHub Copilot."
+    }
+  ]
+}

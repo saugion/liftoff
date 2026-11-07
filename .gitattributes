@@ -1,0 +1,3 @@
+# The plugin is installed from git on every OS: keep LF so the committed artifact is byte-identical to a fresh build.
+plugin/** text eol=lf
+.claude-plugin/** text eol=lf

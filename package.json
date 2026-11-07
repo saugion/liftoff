@@ -9,7 +9,7 @@
   "bin": { "liftoff": "dist/liftoff.mjs" },
   "engines": { "node": ">=22.12" },
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "npm run typecheck && node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
