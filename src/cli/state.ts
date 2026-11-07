@@ -56,6 +56,26 @@ export function readApplied(realRoot: string): AppliedState {
   return ok ? { kind: "ok", record: raw as AppliedRecord } : { kind: "corrupt" };
 }
 
+export const PERSONAL_PATH = `${LIFTOFF_DIR}/personal.json`;
+
+// Personal preferences, hand-edited and optional. Anything unreadable or of the wrong type falls back to the
+// default: a typo in a preference must never block anyone.
+export function readPersonal(realRoot: string): { warnOnConfigUpdate: boolean } {
+  const text = readIfExists(join(realRoot, PERSONAL_PATH));
+  if (text !== undefined) {
+    try {
+      const raw: unknown = JSON.parse(text);
+      if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+        const flag = (raw as Record<string, unknown>).warn_on_config_update;
+        if (typeof flag === "boolean") return { warnOnConfigUpdate: flag };
+      }
+    } catch {
+      // invalid JSON: the default
+    }
+  }
+  return { warnOnConfigUpdate: true };
+}
+
 // The directory ignores itself, so the record and the backups can never be committed and the user's own
 // .gitignore is never touched. Rewritten only when it does not already hold a "*" line.
 export function ensureSelfIgnore(realRoot: string): void {

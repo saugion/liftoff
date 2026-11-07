@@ -61,18 +61,46 @@ export function parseConfig(text: string): Result<Config> {
   return validateConfig(doc.toJS());
 }
 
-export function readConfig(file: string): Result<Config> {
+function readText(file: string): Result<string> {
   let bytes: Buffer;
   try {
     bytes = readFileSync(file);
   } catch (e) {
     return fail(`cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
-  let text: string;
   try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); // also strips a BOM
+    return { ok: true, value: new TextDecoder("utf-8", { fatal: true }).decode(bytes) }; // also strips a BOM
   } catch {
     return fail("file is not valid UTF-8");
   }
-  return parseConfig(text);
+}
+
+export function readConfig(file: string): Result<Config> {
+  const text = readText(file);
+  return text.ok ? parseConfig(text.value) : text;
+}
+
+// What the compat and pin checks need, read without the schema: a config written for a newer LiftOff may have
+// keys this version rejects, and that must not hide the real problem ("update the plugin").
+export interface Peek {
+  formatVersion?: number; // `liftoff:`, when it is an integer
+  pluginVersion?: string; // `plugin.version`, when it is a string
+}
+
+export function peekText(text: string): Peek {
+  const doc = parseDocument(text);
+  if (doc.errors.length > 0 || doc.contents === null) return {}; // the full read reports these
+  const raw: unknown = doc.toJS();
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const { liftoff, plugin } = raw as { liftoff?: unknown; plugin?: unknown };
+  const peek: Peek = {};
+  if (typeof liftoff === "number" && Number.isInteger(liftoff)) peek.formatVersion = liftoff;
+  const version = plugin !== null && typeof plugin === "object" ? (plugin as { version?: unknown }).version : undefined;
+  if (typeof version === "string") peek.pluginVersion = version;
+  return peek;
+}
+
+export function peekConfig(file: string): Peek {
+  const text = readText(file);
+  return text.ok ? peekText(text.value) : {};
 }

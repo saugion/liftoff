@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { render } from "./apply.js";
+import { checkConfigCommand } from "./check.js";
 import type { Handler, RunResult } from "./types.js";
 import { validate } from "./validate.js";
 
@@ -10,15 +11,10 @@ export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "
 export const USAGE =
   "liftoff <validate|check-config|render> [--root <abs-dir>] [--overwrite <path>]... | --help";
 
-const notImplemented: Handler = () => ({
-  exitCode: 2,
-  body: { ok: false, errors: [{ code: "internal", message: "not implemented yet" }] },
-});
-
-// ponytail: stubs until each command's task lands; replace entries, keep the registry.
+// The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
   validate,
-  "check-config": notImplemented,
+  "check-config": checkConfigCommand,
   render,
 };
 
