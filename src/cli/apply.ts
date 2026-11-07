@@ -1,13 +1,14 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { type Agent, configHash, readConfig, requiredSections, sectionHashes } from "../config/index.js";
+import { type Agent, configHash, requiredSections, sectionHashes } from "../config/index.js";
 import { normalizeModulePath, renderAgentFiles, type RenderedFile } from "../render/index.js";
 import { bodyHash, normalizeEol, parseMarker } from "../render/marker.js";
 import { atomicWrite, isInside, resolveReal } from "./fsutil.js";
+import { readConfigWithPin, readFailure } from "./read-config.js";
 import { APPLIED_PATH, GITIGNORE_PATH, ensureSelfIgnore, readApplied, writeApplied } from "./state.js";
 import type { CliError, ErrorCode, Handler } from "./types.js";
-import { CONFIG_FILE, toCliError } from "./validate.js";
-import { INSTALLED_VERSION, compareVersions, outdatedMessage } from "./version.js";
+import { toCliError } from "./validate.js";
+import { INSTALLED_VERSION, compareVersions } from "./version.js";
 
 export type Action = "created" | "unchanged" | "refreshed" | "conflict" | "skipped-symlink";
 export type ConflictReason = "no-marker" | "hand-edited" | "newer-generator" | "symlink" | "not-regular";
@@ -130,15 +131,11 @@ function checkAgentsMd(root: string, rels: string[], plannedReal: Set<string>): 
 }
 
 export function applyRender(root: string, opts: { overwrite: string[] }): RenderResult {
-  // 1. config (the plugin-pin-first read arrives with check-config, T10)
-  const configFile = join(root, CONFIG_FILE);
-  if (!existsSync(configFile)) return fatal({ code: "config-missing", message: `${CONFIG_FILE} not found in ${root}` });
-  const read = readConfig(configFile);
-  if (!read.ok) return fatal(...read.errors.map(toCliError));
-  const config = read.value;
-  // Only an installed plugin older than the pin blocks render; config changes never do (render resolves them).
-  const order = compareVersions(INSTALLED_VERSION, config.plugin.version);
-  if (order !== undefined && order < 0) return fatal({ code: "plugin-outdated", message: outdatedMessage(config.plugin.version) });
+  // 1. config, plugin pin first. Only an installed plugin older than the pin blocks render; config changes never do
+  // (render is the command that resolves them).
+  const read = readConfigWithPin(root);
+  if (read.kind !== "ok") return fatal(...readFailure(root, read));
+  const config = read.config;
 
   // 2. render (pure)
   const rendered = renderAgentFiles(config, { generatorVersion: INSTALLED_VERSION });

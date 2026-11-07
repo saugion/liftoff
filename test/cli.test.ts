@@ -74,12 +74,8 @@ describe("run()", () => {
     expect(r.stderr).toContain("boom");
   });
 
-  it("check-config is a registered stub (exit 2, internal) until its task lands", () => {
-    for (const c of ["check-config"]) {
-      const r = run([c], dir);
-      expect(r.exitCode).toBe(2);
-      expect(parse(r.stdout).errors[0].code).toBe("internal");
-    }
+  it("all three commands are registered", () => {
+    for (const c of ["validate", "check-config", "render"]) expect(run([c], dir).exitCode, c).toBe(1); // empty dir: config missing
   });
 });
 
