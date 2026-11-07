@@ -11,7 +11,12 @@ describe("liftoff render: fresh repo", () => {
     const dir = makeRepo();
     const { exitCode, body } = render(dir);
     expect(exitCode).toBe(0);
-    expect(body).toMatchObject({ ok: true, applied: true, root: dir, notices: [] });
+    expect(body).toMatchObject({
+      ok: true,
+      applied: true,
+      root: dir,
+      notices: ["CONSTRAINTS.md does not exist yet, and the Copilot instructions point to it"], // this repo has no CONSTRAINTS.md
+    });
     expect(body.configHash).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(body.files.map((f: any) => [f.path, f.action, f.agent])).toEqual([
       [".github/copilot-instructions.md", "created", "copilot"],

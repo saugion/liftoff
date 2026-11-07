@@ -11,15 +11,16 @@ export interface Options {
   modules?: string[];
   agentsMd?: boolean | string[]; // true: root + every module; false: none; list: exactly these paths
   extra?: string;
+  pluginVersion?: string; // the pin in liftoff.yaml (default "0.1", below the installed 0.1.0)
 }
 
 export function makeRepo(opts: Options = {}): string {
-  const { targets = "[claude-code, copilot]", modules = ["src/api", "apps/web"], agentsMd = true, extra = "" } = opts;
+  const { targets = "[claude-code, copilot]", modules = ["src/api", "apps/web"], agentsMd = true, extra = "", pluginVersion = "0.1" } = opts;
   const dir = tempDir();
   const items = modules.map((m, i) => `    - id: m${i}\n      path: ${m}\n`).join("");
   writeFileSync(
     join(dir, "liftoff.yaml"),
-    `liftoff: 1\nplugin:\n  version: "0.1"\nproject:\n  name: acme\n  kind: new\nagents:\n  targets: ${targets}\n${modules.length > 0 ? `modules:\n  items:\n${items}` : ""}${extra}`,
+    `liftoff: 1\nplugin:\n  version: "${pluginVersion}"\nproject:\n  name: acme\n  kind: new\nagents:\n  targets: ${targets}\n${modules.length > 0 ? `modules:\n  items:\n${items}` : ""}${extra}`,
   );
   const paths = agentsMd === true ? ["AGENTS.md", ...modules.map((m) => `${m}/AGENTS.md`)] : agentsMd === false ? [] : agentsMd;
   for (const p of paths) {

@@ -4,10 +4,10 @@ import { type Agent, configHash, readConfig, requiredSections, sectionHashes } f
 import { normalizeModulePath, renderAgentFiles, type RenderedFile } from "../render/index.js";
 import { bodyHash, normalizeEol, parseMarker } from "../render/marker.js";
 import { atomicWrite, isInside, resolveReal } from "./fsutil.js";
-import { APPLIED_PATH, GITIGNORE_PATH, ensureSelfIgnore, writeApplied } from "./state.js";
+import { APPLIED_PATH, GITIGNORE_PATH, ensureSelfIgnore, readApplied, writeApplied } from "./state.js";
 import type { CliError, ErrorCode, Handler } from "./types.js";
 import { CONFIG_FILE, toCliError } from "./validate.js";
-import { INSTALLED_VERSION, compareVersions } from "./version.js";
+import { INSTALLED_VERSION, compareVersions, outdatedMessage } from "./version.js";
 
 export type Action = "created" | "unchanged" | "refreshed" | "conflict" | "skipped-symlink";
 export type ConflictReason = "no-marker" | "hand-edited" | "newer-generator" | "symlink" | "not-regular";
@@ -136,6 +136,9 @@ export function applyRender(root: string, opts: { overwrite: string[] }): Render
   const read = readConfig(configFile);
   if (!read.ok) return fatal(...read.errors.map(toCliError));
   const config = read.value;
+  // Only an installed plugin older than the pin blocks render; config changes never do (render resolves them).
+  const order = compareVersions(INSTALLED_VERSION, config.plugin.version);
+  if (order !== undefined && order < 0) return fatal({ code: "plugin-outdated", message: outdatedMessage(config.plugin.version) });
 
   // 2. render (pure)
   const rendered = renderAgentFiles(config, { generatorVersion: INSTALLED_VERSION });
@@ -176,9 +179,25 @@ export function applyRender(root: string, opts: { overwrite: string[] }): Render
 
   // 6. plan every file before writing any
   const plan = generated.map((f) => planFile(realRoot, f, overwrite));
-  const notices = plan
+  const ignoredOverwrites = plan
     .filter((p) => overwrite.has(p.path) && (p.action === "skipped-symlink" || (p.action === "conflict" && !OVERWRITABLE.has(p.reason!))))
     .map((p) => `${p.path}: --overwrite does not apply to ${p.action === "skipped-symlink" ? "a symlink to AGENTS.md" : `a ${p.reason}`}`);
+  // Files the last render planned that this one no longer does (a dropped target, a removed module): left in place.
+  const previous = readApplied(realRoot);
+  const stale =
+    previous.kind === "ok"
+      ? previous.record.files
+          .filter((f) => !planned.has(f) && existsSync(join(realRoot, f)))
+          .sort()
+          .map((f) => `stale: ${f} is no longer generated; left in place`)
+      : [];
+  // No constraints section means the default file name.
+  const constraintsFile = normalizeModulePath(config.constraints?.file ?? "CONSTRAINTS.md");
+  const missingConstraints =
+    config.agents.targets.includes("copilot") && !existsSync(join(realRoot, constraintsFile))
+      ? [`${constraintsFile} does not exist yet, and the Copilot instructions point to it`]
+      : [];
+  const notices = [...ignoredOverwrites, ...stale, ...missingConstraints];
 
   // 7-8. self-ignoring state directory, then the writes (atomic, one by one)
   const written: PlannedFile[] = [];

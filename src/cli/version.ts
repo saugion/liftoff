@@ -3,6 +3,11 @@ import pkg from "../../package.json" with { type: "json" };
 // The installed plugin version is this CLI's own version (the CLI ships inside the plugin).
 export const INSTALLED_VERSION: string = pkg.version;
 
+// What a skill shows when the installed plugin is older than the repo's pin: say how to update, per host.
+export const outdatedMessage = (minimum: string): string =>
+  `this repo needs LiftOff ${minimum} or newer (installed ${INSTALLED_VERSION}). ` +
+  "Claude Code: run /reload-plugins, or /plugin marketplace update liftoff. VS Code: update or reload the plugin.";
+
 // "x.y" or "x.y.z", missing patch = 0. Anything else (pre-release tags, junk) is unparseable.
 export function parseVersion(v: string): [number, number, number] | undefined {
   const m = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(v);
