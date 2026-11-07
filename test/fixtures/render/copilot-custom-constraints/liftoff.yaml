@@ -1,0 +1,10 @@
+liftoff: 1
+plugin:
+  version: "0.1"
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [copilot]
+constraints:
+  file: './docs\\CONSTRAINTS.md'

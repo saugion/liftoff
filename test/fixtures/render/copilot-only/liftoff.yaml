@@ -1,0 +1,16 @@
+liftoff: 1
+plugin:
+  version: "0.1"
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [copilot]
+modules:
+  items:
+    - id: api
+      path: src/api
+    - id: web
+      path: apps/web
+stack:
+  languages: [typescript]

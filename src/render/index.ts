@@ -1,5 +1,6 @@
 import type { Config, ConfigError, Result } from "../config/index.js";
 import { claudeFile } from "./claude.js";
+import { copilotFile } from "./copilot.js";
 import type { RenderOptions, RenderedFile } from "./types.js";
 
 export type { RenderOptions, RenderedFile } from "./types.js";
@@ -31,11 +32,18 @@ export function renderAgentFiles(config: Config, opts: RenderOptions): Result<Re
     }
     return path;
   });
+  // No constraints section means the default file name (normalization does not materialize absent sections).
+  const constraintsFile = normalizeModulePath(config.constraints?.file ?? "CONSTRAINTS.md");
+  const wantsCopilot = config.agents.targets.includes("copilot");
+  if (wantsCopilot && (constraintsFile === "" || /[`\r\n]/.test(constraintsFile))) {
+    errors.push({ path: "/constraints/file", message: "constraints file must be a file path without backticks or line breaks" });
+  }
   if (errors.length > 0) return { ok: false, errors };
 
   const files: RenderedFile[] = [];
   if (config.agents.targets.includes("claude-code")) {
     files.push(claudeFile("CLAUDE.md", opts.generatorVersion), ...paths.map((p) => claudeFile(`${p}/CLAUDE.md`, opts.generatorVersion)));
   }
+  if (wantsCopilot) files.push(copilotFile(constraintsFile, opts.generatorVersion));
   return { ok: true, value: files.sort(byPath) };
 }
