@@ -6,7 +6,7 @@ Reviewed by a fresh-context Opus agent on 2026-11-07; its findings are applied h
 
 ## Objective
 
-The **Init Agent Skill** (`skills/liftoff-init/SKILL.md`), forked from the personal `project-init` skill and rebuilt around `liftoff.yaml` and the `liftoff` CLI. One flow, in Claude Code or GitHub Copilot, turns a repo into an AI-native one:
+The **Init Agent Skill** (`plugin/skills/liftoff-init/SKILL.md`), forked from the personal `project-init` skill and rebuilt around `liftoff.yaml` and the `liftoff` CLI. One flow, in Claude Code or GitHub Copilot, turns a repo into an AI-native one:
 
 - **No config in the repo → interview mode.** One short interview, then the skill writes `liftoff.yaml`, the `AGENTS.md` files and `CONSTRAINTS.md`, and renders the per-agent files.
 - **Config present → apply mode.** No interview, no questions (v1 has no personal questions). The skill creates what is missing, renders, and resolves file conflicts with the user.
@@ -26,7 +26,7 @@ Success: zero to AI-ready in < 10 min without a team config, ~1 min with one (th
 The skill text relies only on what every agent has: reading and writing files, the shell, and asking the user. "Ask the user" means the structured question tool if the agent has one, otherwise chat.
 
 Conventions for every step:
-- `<cli>` = `node "<abs path to liftoff.mjs>"`. The skill resolves `scripts/liftoff.mjs` against the directory it loaded `SKILL.md` from (shell cwd is the repo, so a relative path would not resolve) and calls it by absolute path. **Every path is quoted** (spaces, Windows). Where the physical file lives is a `plugin-packaging` decision.
+- `<cli>` = `node "<abs path to liftoff.mjs>"`. The skill resolves `scripts/liftoff.mjs` against the directory it loaded `SKILL.md` from (shell cwd is the repo, so a relative path would not resolve) and calls it by absolute path. **Every path is quoted** (spaces, Windows). The exact `SKILL.md` wording (the `${CLAUDE_SKILL_DIR}` form, and the fallback when a host does not substitute it) is fixed in `SPEC-plugin-packaging.md` Decision 4.
 - Backups, copies and directory creation use the agent's **file tools**, not `cp`/`mkdir` (Copilot on Windows runs PowerShell).
 - `--root R` is always the absolute repo top level.
 
@@ -43,7 +43,7 @@ Run `<cli> check-config --root R` and branch on `status` and **every** `reasons[
 | Result | Action |
 |---|---|
 | exit 2, `usage`/`internal`, or stdout that is not JSON | Show `message` or stderr. Stop. |
-| `blocked` + `plugin-outdated` | Stop. Tell the user to update the plugin to at least `minimum`. Change nothing. |
+| `blocked` + `plugin-outdated` | Stop. Tell the user to update the plugin to at least `minimum`, and how: *Claude Code: run `/reload-plugins`, or `/plugin marketplace update liftoff`; VS Code: update or reload the plugin.* Change nothing. |
 | `blocked` + `config-missing` | Interview mode. Read `installedVersion` for step 5. If `hint.nearestRoot` is set **and `<nearestRoot>/liftoff.yaml` exists**, ask whether to use that root instead of starting a second config. |
 | `blocked` + `config-invalid` | Show `errors` (`path`, `line`). Offer a fix **as a diff, with approval**. If `git ls-files --error-unmatch liftoff.yaml` says the file is tracked, say "ask the lead" instead of editing. |
 | `blocked` + `not-applied` or `required-changed` | Apply mode. |
@@ -67,7 +67,7 @@ Not asked in v1: which sections are `required` (defaults: `constraints.required:
 `new`: create only the module folders in the config. `existing`: **never move or rename files**; modules map to paths that exist.
 
 ### 5. Write `liftoff.yaml`, validate
-Fill `assets/liftoff-yaml-template.yaml`: `liftoff: 1`; `plugin.version` = `major.minor` of `installedVersion`; `project.name`, `project.kind`; `agents.targets`; `stack`; `modules.items[]`; `constraints: { required: true, file: CONSTRAINTS.md }`. `tracker` and `codeHost` are omitted. The purpose goes to `AGENTS.md`, not the config. No `$schema` modeline until the schema host exists.
+Fill `assets/liftoff-yaml-template.yaml`: `liftoff: 1`; `plugin.version` = `major.minor` of `installedVersion`; `project.name`, `project.kind`; `agents.targets`; `stack`; `modules.items[]`; `constraints: { required: true, file: CONSTRAINTS.md }`. `tracker` and `codeHost` are omitted. The purpose goes to `AGENTS.md`, not the config. Start the file with the modeline `# yaml-language-server: $schema=https://raw.githubusercontent.com/saugion/liftoff/v<installed version>/schema/liftoff.schema.json` (autocomplete and errors in VS Code with the Red Hat YAML extension).
 
 Module rules:
 - A single-app repo whose code sits at the root gets **`modules.items` empty** (the root `AGENTS.md` covers it). Never emit a path of `.`, and never two items with the same path.
@@ -106,7 +106,7 @@ Run `<cli> render --root R` and handle each `files[]` entry by `action`:
 - Fatal `agents-md-missing`: back to step 6, then re-run. `agents-md-invalid`: step 0b. `render-invalid`: step 5. Any other fatal error: show `code` and `message`, stop.
 
 ### 9. Plugin recommendation
-Merge the plugin entries into `.claude/settings.json` exactly as `plugin-packaging` defines (`extraKnownMarketplaces`, `enabledPlugins`). Merge, never replace; show the diff if the file exists.
+Copy the fragment from `assets/marketplace-entry.json` into `.claude/settings.json` by the six rules in `SPEC-plugin-packaging.md`: add only if absent; a different existing marketplace `source`, or `enabledPlugins: false`, is reported and left; keep the file's indentation; an unparsable file stops the step; **always show the result before writing** (the diff, or the full content for a new file).
 
 ### 10. Verify and summarize
 - `<cli> check-config --root R` returns `ok` (or `warn` only for conflicts the user kept).
@@ -116,17 +116,18 @@ Merge the plugin entries into `.claude/settings.json` exactly as `plugin-packagi
 
 ## Apply mode and personal questions
 
-README promises that a teammate is asked only personal things: credentials, agent choice, code host CLI. In v1 none exist: no credentials, no personal overrides of default sections (CLI spec), no code host. So **v1 apply mode asks nothing** except to resolve conflicts. Expect agent *approval prompts* for each shell call (5-8 clicks by default in both agents); these are not skill questions, and `plugin-packaging` should document auto-approving `node …/liftoff.mjs`. A teammate whose agent is not in `agents.targets` gets no file for it; the skill says so and suggests asking the lead to add it.
+README promises that a teammate is asked only personal things: credentials, agent choice, code host CLI. In v1 none exist: no credentials, no personal overrides of default sections (CLI spec), no code host. So **v1 apply mode asks nothing** except to resolve conflicts. Expect agent *approval prompts* for each shell call (5-8 clicks by default in both agents); these are not skill questions. `plugin-packaging` scopes an `allowed-tools` rule to the skill, which removes the prompt for the CLI calls of a turn in Claude Code only (the grant ends at the user's next message, so after any plain-chat question the prompts return). A teammate whose agent is not in `agents.targets` gets no file for it; the skill says so and suggests asking the lead to add it.
 
 ## Project Structure
 
 ```
-skills/liftoff-init/SKILL.md
-skills/liftoff-init/assets/liftoff-yaml-template.yaml
-skills/liftoff-init/assets/agents-md-template.md          (fork of project-init, cleaned as listed above)
-skills/liftoff-init/assets/module-agents-md-template.md
-skills/liftoff-init/assets/constraints-template.md
-skills/liftoff-init/references/stack-commands.md          (copied from project-init)
+plugin/skills/liftoff-init/SKILL.md
+plugin/skills/liftoff-init/assets/liftoff-yaml-template.yaml
+plugin/skills/liftoff-init/assets/agents-md-template.md          (fork of project-init, cleaned as listed above)
+plugin/skills/liftoff-init/assets/module-agents-md-template.md
+plugin/skills/liftoff-init/assets/constraints-template.md
+plugin/skills/liftoff-init/assets/marketplace-entry.json         (generated by the build, see plugin-packaging)
+plugin/skills/liftoff-init/references/stack-commands.md          (copied from project-init)
 test/skills/template-drift.test.ts
 ```
 
@@ -176,6 +177,6 @@ The skill is agent behavior and can't be unit-tested. Two layers:
 4. **A kept hand-written file keeps `check-config` at `warn`** (no "accepted conflict" in the CLI). Accepted for the pilot; a `cli` follow-up if it annoys people.
 5. ~~README's `AGENTS.local.md`~~ — decided 2026-11-07: out of v1; README reworded.
 6. **Question tools differ by agent.** Check in the manual run that Copilot handles a one-round, 3-4 question interview acceptably.
-7. **`$schema` modeline** omitted until the schema host is decided (`config-schema` open question 1).
-8. **`plugin-packaging` owns** the exact `.claude/settings.json` entries and the marketplace repo location, still unknown.
+7. ~~`$schema` modeline~~ — settled: raw URL at the release tag (`saugion/liftoff`, public).
+8. ~~`plugin-packaging` owns the settings entries and the repo~~ — settled in `SPEC-plugin-packaging.md` (`saugion/liftoff`).
 9. **Fold content is judgment.** Steps 8.1-8.4 depend on the agent reading a file well; the pilot checklist is the only test. If it proves flaky, a CLI helper for the secret scan is the first candidate.

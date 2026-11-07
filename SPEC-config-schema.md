@@ -24,7 +24,7 @@ Verified against current docs (context7, 2026-10-05):
 ## Config shape (v1)
 
 ```yaml
-# yaml-language-server: $schema=https://<TBD-host>/liftoff/v1/schema/liftoff.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/saugion/liftoff/v0.1.0/schema/liftoff.schema.json
 liftoff: 1                 # config format version
 plugin:
   required: true           # optional on plugin; if present it must be true
@@ -158,11 +158,11 @@ Unit tests, fixture-based, no network. **Each invalid fixture starts with `# exp
 - All fixtures behave as listed; `npm test` green for `test/config`.
 - `liftoff: 2` yields exactly one error telling the user to update the plugin.
 - `configHash` is identical for two files that differ only in comments, whitespace, key order or an explicit default.
-- The schema is served at a versioned HTTPS URL and the `$schema` modeline resolves to it. VS Code shows autocomplete and errors with the Red Hat YAML extension installed (prerequisite).
+- After the first release tag, the schema is served at a versioned HTTPS URL (`https://raw.githubusercontent.com/saugion/liftoff/v<version>/schema/liftoff.schema.json`) and the `$schema` modeline resolves to it. VS Code shows autocomplete and errors with the Red Hat YAML extension installed (prerequisite).
 
 ## Open Questions
 
-1. Host of the published schema (placeholder `<TBD-host>`). Proposed: raw URL at a git tag of the marketplace repo, versioned with the plugin. Alternative: SchemaStore. Blocked until the repo location is decided.
+1. ~~Host of the published schema~~ — settled 2026-11-07: raw URL at a release tag of `saugion/liftoff` (public), versioned with the plugin.
 2. Where the "last applied" record lives (personal, uncommitted) is a `cli` decision, but it must store `requiredSections` too.
 3. `stack` and `modules` are the minimum Init needs; `init-flow` may add fields, which is a schema change under "Ask first".
 4. If the Init skill's write-then-validate loop proves flaky in the pilot, add a `liftoff write-config` command (JSON in, valid YAML out) — a `SPEC.md` change.

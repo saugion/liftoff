@@ -23,7 +23,7 @@ Success (v1):
 | `agent-render` | From the team config alone, render the thin per-agent files (Claude Code, Copilot) that point to `AGENTS.md`. `AGENTS.md` is referenced, never read or written. | config-schema |
 | `cli` | `liftoff` binary and library API. v1 commands: `check-config`, `validate`, `render`. Pure: no network, no credentials. | config-schema, agent-render |
 | `init-flow` | Init Agent Skill, built on `project-init`. Detects new/existing repo. Full interview without config, applies the config if found. Writes `liftoff.yaml`. | cli |
-| `plugin-packaging` | `.claude-plugin/plugin.json`, marketplace repo, `.claude/settings.json` (`extraKnownMarketplaces` + `enabledPlugins`), plugin version pin check. | cli, init-flow |
+| `plugin-packaging` | `plugin/.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` in the repo `saugion/liftoff`, the `.claude/settings.json` fragment (`extraKnownMarketplaces` + `enabledPlugins`), pinning by git tag, the build artifact and release process. | cli, init-flow |
 
 Build order: `config-schema` → `agent-render` → `cli` → `init-flow` → `plugin-packaging`
 
