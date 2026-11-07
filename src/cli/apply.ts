@@ -1,13 +1,13 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { type Agent, configHash, readConfig, requiredSections, sectionHashes } from "../config/index.js";
 import { normalizeModulePath, renderAgentFiles, type RenderedFile } from "../render/index.js";
-import { normalizeEol } from "../render/marker.js";
+import { bodyHash, normalizeEol, parseMarker } from "../render/marker.js";
 import { atomicWrite, isInside, resolveReal } from "./fsutil.js";
 import { APPLIED_PATH, GITIGNORE_PATH, ensureSelfIgnore, writeApplied } from "./state.js";
 import type { CliError, ErrorCode, Handler } from "./types.js";
 import { CONFIG_FILE, toCliError } from "./validate.js";
-import { INSTALLED_VERSION } from "./version.js";
+import { INSTALLED_VERSION, compareVersions } from "./version.js";
 
 export type Action = "created" | "unchanged" | "refreshed" | "conflict" | "skipped-symlink";
 export type ConflictReason = "no-marker" | "hand-edited" | "newer-generator" | "symlink" | "not-regular";
@@ -30,31 +30,65 @@ export type RenderResult =
   | { ok: true; applied: true; configHash: string; files: PlannedFile[]; notices: string[] }
   | Fatal;
 
+// A plan entry plus the exact text to write (absent when nothing is written).
+type Planned = PlannedFile & { write?: string };
+
 const fatal = (...errors: CliError[]): Fatal => ({ ok: false, errors });
 const errno = (e: unknown) => (e as NodeJS.ErrnoException).code;
+const asCode = (code: ErrorCode, errors: CliError[]): CliError[] => errors.map((e) => ({ ...e, code }));
+const publicFile = ({ write: _write, ...file }: Planned): PlannedFile => file;
 
-const conflict = (base: Pick<PlannedFile, "path" | "agent">, reason: ConflictReason, file: RenderedFile): PlannedFile => ({
-  ...base,
-  action: "conflict",
-  reason,
-  proposed: file.content,
-});
+// Writing over an existing file keeps its line endings and BOM, so the diff in git stays clean on every platform.
+function matchStyle(existing: string, content: string): string {
+  const body = existing.includes("\r\n") ? content.replace(/\n/g, "\r\n") : content;
+  return (existing.startsWith("﻿") ? "﻿" : "") + body;
+}
 
-// What would happen to one generated file. `refreshed`, `skipped-symlink`, marker-based reasons and --overwrite: T8.
-function planFile(realRoot: string, file: RenderedFile): PlannedFile {
+// Conflicts the user may resolve with --overwrite. A symlink or a directory is never written through.
+const OVERWRITABLE: ReadonlySet<ConflictReason> = new Set(["no-marker", "hand-edited", "newer-generator"]);
+
+function pointsAtSiblingAgentsMd(abs: string): boolean {
+  try {
+    return realpathSync(abs) === realpathSync(join(dirname(abs), "AGENTS.md"));
+  } catch {
+    return false;
+  }
+}
+
+// What happens to one generated file, per the plan table in SPEC-cli.md.
+function planFile(realRoot: string, file: RenderedFile, overwrite: ReadonlySet<string>): Planned {
   const base = { path: file.path, agent: file.agent };
   const abs = join(realRoot, file.path);
+  const conflict = (reason: ConflictReason): Planned => ({ ...base, action: "conflict", reason, proposed: file.content });
+
   let stat;
   try {
     stat = lstatSync(abs);
   } catch (e) {
-    if (errno(e) === "ENOENT" || errno(e) === "ENOTDIR") return { ...base, action: "created" };
+    if (errno(e) === "ENOENT" || errno(e) === "ENOTDIR") return { ...base, action: "created", write: file.content };
     throw e;
   }
-  if (stat.isSymbolicLink()) return conflict(base, "symlink", file);
-  if (!stat.isFile()) return conflict(base, "not-regular", file);
-  if (normalizeEol(readFileSync(abs, "utf8")) === normalizeEol(file.content)) return { ...base, action: "unchanged" };
-  return conflict(base, "hand-edited", file);
+  if (stat.isSymbolicLink()) {
+    // CLAUDE.md -> AGENTS.md already does what the generated file would do: leave it.
+    return basename(abs) === "CLAUDE.md" && pointsAtSiblingAgentsMd(abs) ? { ...base, action: "skipped-symlink" } : conflict("symlink");
+  }
+  if (!stat.isFile()) return conflict("not-regular");
+
+  const existing = readFileSync(abs, "utf8");
+  if (normalizeEol(existing) === normalizeEol(file.content)) return { ...base, action: "unchanged" };
+
+  const refreshed = (): Planned => ({ ...base, action: "refreshed", write: matchStyle(existing, file.content) });
+  const marker = parseMarker(existing);
+  let reason: ConflictReason;
+  if (marker && bodyHash(marker.body) === marker.hash) {
+    // Unedited. Refresh it, unless a newer LiftOff wrote it (or we cannot tell): then updating the plugin comes first.
+    const order = compareVersions(marker.version, INSTALLED_VERSION);
+    if (order !== undefined && order <= 0) return refreshed();
+    reason = "newer-generator";
+  } else {
+    reason = marker ? "hand-edited" : "no-marker";
+  }
+  return overwrite.has(file.path) ? refreshed() : conflict(reason);
 }
 
 // Every AGENTS.md the generated files import must exist under its exact name (macOS would accept "Agents.md" and
@@ -95,11 +129,7 @@ function checkAgentsMd(root: string, rels: string[], plannedReal: Set<string>): 
   return errors;
 }
 
-const asCode = (code: ErrorCode, errors: ReturnType<typeof toCliError>[]): CliError[] => errors.map((e) => ({ ...e, code }));
-
 export function applyRender(root: string, opts: { overwrite: string[] }): RenderResult {
-  if (opts.overwrite.length > 0) return fatal({ code: "usage", message: "--overwrite is not supported yet" }); // T8
-
   // 1. config (the plugin-pin-first read arrives with check-config, T10)
   const configFile = join(root, CONFIG_FILE);
   if (!existsSync(configFile)) return fatal({ code: "config-missing", message: `${CONFIG_FILE} not found in ${root}` });
@@ -112,9 +142,11 @@ export function applyRender(root: string, opts: { overwrite: string[] }): Render
   if (!rendered.ok) return fatal(...asCode("render-invalid", rendered.errors.map(toCliError)));
   const generated = rendered.value;
 
-  // 3. AGENTS.md preflight: nothing is written before this passes
+  // 3. AGENTS.md preflight: nothing is written before it passes
   const realRoot = realpathSync(root);
-  const plannedReal = new Set(generated.map((f) => resolveReal(join(realRoot, f.path))));
+  // The files render writes: real parent directory + file name. The last component is NOT followed, because render
+  // never writes through a symlink (CLAUDE.md -> AGENTS.md -> RULES.md must not make AGENTS.md look like an output).
+  const plannedReal = new Set(generated.map((f) => join(resolveReal(dirname(join(realRoot, f.path))), basename(f.path))));
   const needed = ["AGENTS.md"];
   if (config.agents.targets.includes("claude-code")) {
     needed.push(...(config.modules?.items ?? []).map((m) => `${normalizeModulePath(m.path)}/AGENTS.md`));
@@ -129,19 +161,35 @@ export function applyRender(root: string, opts: { overwrite: string[] }): Render
     return fatal(...escaping.map((file): CliError => ({ code: "path-escape", file, message: `${file} resolves outside the repo root` })));
   }
 
+  // 5. --overwrite: normalized like a generated path, and it must name one (a typo must not become a write)
+  const planned = new Set(generated.map((f) => f.path));
+  const overwrite = new Set<string>();
+  const unknown: string[] = [];
+  for (const arg of opts.overwrite) {
+    const path = normalizeModulePath(arg);
+    if (planned.has(path)) overwrite.add(path);
+    else unknown.push(arg);
+  }
+  if (unknown.length > 0) {
+    return fatal({ code: "usage", message: `--overwrite names no file render writes: ${unknown.join(", ")} (valid: ${[...planned].join(", ")})` });
+  }
+
   // 6. plan every file before writing any
-  const plan = generated.map((f) => planFile(realRoot, f));
+  const plan = generated.map((f) => planFile(realRoot, f, overwrite));
+  const notices = plan
+    .filter((p) => overwrite.has(p.path) && (p.action === "skipped-symlink" || (p.action === "conflict" && !OVERWRITABLE.has(p.reason!))))
+    .map((p) => `${p.path}: --overwrite does not apply to ${p.action === "skipped-symlink" ? "a symlink to AGENTS.md" : `a ${p.reason}`}`);
 
   // 7-8. self-ignoring state directory, then the writes (atomic, one by one)
   const written: PlannedFile[] = [];
   let current = GITIGNORE_PATH;
   try {
     ensureSelfIgnore(realRoot);
-    for (const [i, entry] of plan.entries()) {
-      if (entry.action !== "created") continue;
+    for (const entry of plan) {
+      if (entry.write === undefined) continue;
       current = entry.path;
-      atomicWrite(join(realRoot, entry.path), generated[i]!.content);
-      written.push(entry);
+      atomicWrite(join(realRoot, entry.path), entry.write);
+      written.push(publicFile(entry));
     }
 
     // 9. the record last, so it never claims a write that did not happen
@@ -158,7 +206,7 @@ export function applyRender(root: string, opts: { overwrite: string[] }): Render
     return { ok: false, errors: [{ code: "write-failed", file: current, message: e instanceof Error ? e.message : String(e) }], files: written };
   }
 
-  return { ok: true, applied: true, configHash: configHash(config), files: plan, notices: [] };
+  return { ok: true, applied: true, configHash: configHash(config), files: plan.map(publicFile), notices };
 }
 
 export const render: Handler = ({ root, overwrite }) => {
