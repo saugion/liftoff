@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/saugion/liftoff/v{{INSTALLED_VERSION}}/schema/liftoff.schema.json
+# LiftOff team config. Commit this file. Never put credentials or tokens in it.
+liftoff: 1
+plugin:
+  version: "{{PLUGIN_MIN_VERSION}}" # minimum plugin version: major.minor of the plugin that wrote this file
+project:
+  name: "{{PROJECT_NAME}}"
+  kind: {{PROJECT_KIND}} # new | existing
+agents:
+  targets: [{{AGENT_TARGETS}}] # claude-code, copilot
+stack:
+  languages: [{{LANGUAGES}}]
+  frameworks: [{{FRAMEWORKS}}]
+modules:
+  items: {{MODULE_ITEMS}}
+constraints:
+  required: true
+  file: {{CONSTRAINTS_FILE}}
