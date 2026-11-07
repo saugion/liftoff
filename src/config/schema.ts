@@ -5,7 +5,7 @@ import type { ConfigError } from "./types.js";
 // Compiled once. The schema is imported as a JSON module so it is bundled (no runtime file read).
 const validate = new Ajv({ allErrors: true, strict: true }).compile(schema);
 
-const escapePointer = (s: string) => s.replace(/~/g, "~0").replace(/\//g, "~1");
+export const escapePointer = (s: string) => s.replace(/~/g, "~0").replace(/\//g, "~1");
 
 function toConfigError(e: ErrorObject): ConfigError {
   const { missingProperty, additionalProperty } = e.params as { missingProperty?: string; additionalProperty?: string };
