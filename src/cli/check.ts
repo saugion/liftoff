@@ -1,8 +1,8 @@
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { ConfigError } from "../config/index.js";
+import { type ConfigError, requiredSections, sectionHashes } from "../config/index.js";
 import { readConfigWithPin } from "./read-config.js";
-import { readApplied } from "./state.js";
+import { readApplied, readPersonal } from "./state.js";
 import type { Handler } from "./types.js";
 import { CONFIG_FILE } from "./validate.js";
 import { INSTALLED_VERSION, outdatedMessage } from "./version.js";
@@ -73,7 +73,37 @@ export function checkConfig(root: string): CheckResult {
   if (applied.kind === "newer") {
     return blocked([{ code: "not-applied", message: ".liftoff/applied.json was written by a newer LiftOff than the installed one: update the plugin, then run Init again" }]);
   }
-  throw new Error("check-config: comparing with the applied record is not implemented yet (T11)");
+
+  // Changes since the record. A change is *required* if the section is required in the old OR the new config
+  // (so un-requiring a section, or removing a required one, still blocks until applied).
+  const { record } = applied;
+  const before = record.sectionHashes;
+  const after = sectionHashes(read.config);
+  const required = new Set([...record.requiredSections, ...requiredSections(read.config)]);
+  const requiredChanges: Reason[] = [];
+  const optionalChanges: Reason[] = [];
+  for (const section of [...new Set([...Object.keys(before), ...Object.keys(after)])].sort()) {
+    if (before[section] === after[section]) continue;
+    const what = before[section] === undefined ? "was added" : after[section] === undefined ? "was removed" : "changed";
+    if (required.has(section)) {
+      requiredChanges.push({ code: "required-changed", section, message: `required section '${section}' ${what} since this repo's config was last applied: run the LiftOff Init skill to apply it` });
+    } else {
+      optionalChanges.push({ code: "optional-changed", section, message: `section '${section}' ${what} since this repo's config was last applied (not required): run the LiftOff Init skill to apply it, or ignore it` });
+    }
+  }
+
+  // warn_on_config_update: false hides non-required changes (still returned, in `suppressed`); it never hides a conflict.
+  const quiet = !readPersonal(realpathSync(root)).warnOnConfigUpdate;
+  const conflicts: Reason[] = [...record.conflicts].sort().map((file) => ({
+    code: "unresolved-conflict",
+    file,
+    message: `${file} was left as it was and differs from what LiftOff would generate: run the LiftOff Init skill to resolve it`,
+  }));
+
+  const reasons = [...requiredChanges, ...(quiet ? [] : optionalChanges), ...conflicts];
+  const suppressed = quiet ? optionalChanges : [];
+  const status = requiredChanges.length > 0 ? "blocked" : reasons.length > 0 ? "warn" : "ok";
+  return { status, installedVersion: INSTALLED_VERSION, reasons, ...(suppressed.length > 0 && { suppressed }) };
 }
 
 export const checkConfigCommand: Handler = ({ root }) => {
