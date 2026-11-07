@@ -1,5 +1,6 @@
 {
   "name": "liftoff",
+  "description": "LiftOff: turn a repo into an AI-native one for Claude Code and GitHub Copilot, from one team config.",
   "owner": { "name": "saugion" },
   "plugins": [
     {

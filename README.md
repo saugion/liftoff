@@ -51,10 +51,13 @@ Ticket ── bug / task / story on the team's templates
 
 Built on the `project-init` skill. Detects whether the project is new or existing, then sets up:
 
+- the team config, `liftoff.yaml`;
 - module structure and root + per-module `AGENTS.md`;
-- suggested subagents and an implementation orchestrator;
 - `CONSTRAINTS.md` (the quality bar);
-- settings, hooks and MCP suggestions.
+- the thin per-agent files (`CLAUDE.md`, `.github/copilot-instructions.md`), rendered from the config and pointing to `AGENTS.md`;
+- the plugin recommendation in `.claude/settings.json`, so teammates are prompted to install it.
+
+**Coming after v1, as optional add-ons:** suggested subagents and an implementation orchestrator, hooks, MCP and permission presets, a CI workflow, the wiki and Graphify, and reorganizing an existing repo's folders.
 
 **Agent choice.** The engineer picks the target agent(s) — Claude Code, GitHub Copilot, more later — and can pick **several**. Init generates the right files for each one, from the same source (see [Agent support](#agent-support)). Many companies mandate a specific tool, and many teams are mixed; LiftOff adapts instead of fighting it.
 
