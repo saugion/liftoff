@@ -14,17 +14,21 @@ export interface DraftResult {
   errors: DraftIssue[];
   warnings: DraftIssue[];
   preview: string;
+  isEpic: boolean;
+  registerInStream: string | null; // an epic created in a stream: the stream whose `epics` list should get its key
   call: { tool: "jira_create_issue"; args: Json } | null;
   after: { tool: "jira_update_issue"; args: Json }[];
 }
 
 const KEY = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
 export const CREATED_KEY_PLACEHOLDER = "<created key>";
+export const keyOfTicket = (n: number) => `<key of ticket ${n}>`; // the key of an earlier ticket of the same batch
+const isEpicType = (name: unknown) => typeof name === "string" && name.toLowerCase() === "epic";
 
 // What the module check needs from the config: the module ids, and which module each stream feeds.
 export interface ModuleContext { modules: Set<string>; streamOf: Map<string, string> }
 
-export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig, info: ProjectInfo, mods: ModuleContext = { modules: new Set(), streamOf: new Map() }): DraftResult {
+export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig, info: ProjectInfo, mods: ModuleContext = { modules: new Set(), streamOf: new Map() }, batch: unknown[] = []): DraftResult {
   const errors: DraftIssue[] = [], warnings: DraftIssue[] = [];
   const err = (code: string, message: string) => errors.push({ code, message });
   const t = isObj(raw) ? raw : {};
@@ -57,11 +61,23 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
     else if (!info.stream && stream) err("module-in-stream", `module '${m}' belongs to stream ${stream}: its ticket goes in that stream's project; split the work into one ticket per project`);
   }
 
+  const isEpic = isEpicType(type?.name ?? str("type"));
   const epic = t.epic;
+  let epicValue: string | undefined; // the key to link, or the placeholder of an earlier ticket of this batch
   if (epic !== undefined) {
+    const ref = typeof epic === "string" ? /^#(\d+)$/.exec(epic) : null;
     const m = typeof epic === "string" ? KEY.exec(epic) : null;
-    if (!m || m[1] !== info.project) err("bad-epic", `epic must be a key of project ${info.project}`);
-    else if (info.stream && info.stream.epics.length > 0 && !info.stream.epics.includes(epic as string)) err("bad-epic", `${epic} is not one of stream ${info.stream.id}'s epics (${info.stream.epics.join(", ")})`);
+    if (isEpic) err("epic-in-epic", "an epic cannot be linked to another epic");
+    else if (ref) {
+      const n = Number(ref[1]);
+      const target = n < index ? batch[n] : undefined;
+      if (!isObj(target) || !isEpicType(target.type)) err("bad-epic", `'${epic}' must point to an earlier ticket of type Epic in this batch`);
+      else epicValue = keyOfTicket(n);
+    } else if (!m || m[1] !== info.project) err("bad-epic", `epic must be a key of project ${info.project}, or #N for an Epic earlier in this batch`);
+    else {
+      if (info.stream && info.stream.epics.length > 0 && !info.stream.epics.includes(epic as string)) err("bad-epic", `${epic} is not one of stream ${info.stream.id}'s epics (${info.stream.epics.join(", ")})`);
+      epicValue = epic as string;
+    }
     if (!tracker.epicLinkField) err("epic-link-field-missing", "tracker.epicLinkField is not in liftoff.yaml: the lead sets the Epic Link field id (Connect skill)");
   }
   if (secretGuard({ summary, description, labels, fields }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");
@@ -78,9 +94,9 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
   const call = ok
     ? { tool: "jira_create_issue" as const, args: { project_key: info.project, issue_type: type!.name, summary: summary!, description: description!, ...(Object.keys(additional).length > 0 && { additional_fields: additional }) } }
     : null;
-  const after = ok && typeof epic === "string" && tracker.epicLinkField
-    ? [{ tool: "jira_update_issue" as const, args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epic } } }]
+  const after = ok && epicValue !== undefined && tracker.epicLinkField
+    ? [{ tool: "jira_update_issue" as const, args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epicValue } } }]
     : [];
   const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` · ${priority}` : ""}${Array.isArray(labels) && labels.length ? ` · ${labels.join(", ")}` : ""}${typeof epic === "string" ? ` · epic ${epic}` : ""}`, summary ?? ""].join("\n");
-  return { index, ok, errors, warnings, preview, call, after };
+  return { index, ok, errors, warnings, preview, isEpic, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
 }

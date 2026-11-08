@@ -97,6 +97,9 @@ describe("liftoff-ticket", () => {
   it("the rules: one approval, Kanban without sprint, never create a project, no duplicates on retry", () => {
     for (const s of ["approved once", "Kanban, no sprint, no story points", "create a Jira project or board", "never created twice", "Apply only on the person's explicit yes", "Never:"]) expect(flat(), s).toContain(s);
   });
+  it("covers epics: create one, put stories under it in the same batch, register it, never silently", () => {
+    for (const x of ["epic", "#0", "<key of ticket N>", "registerInStream", "Epic Name", "Never edit the config silently"]) expect(flat(), x).toContain(x);
+  });
   it("points at the formatting reference, and it exists in the plugin", () => {
     expect(b()).toContain("../liftoff-connect/assets/jira-dc-formatting.md");
     expect(readFileSync(join(ROOT, "plugin/skills/liftoff-connect/assets/jira-dc-formatting.md"), "utf8").length).toBeGreaterThan(500);

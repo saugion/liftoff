@@ -23,3 +23,5 @@ runs the same stack (Jira DC through `mcp-atlassian`); verify each point on the 
 - The epic link and the sprint are separate fields on Server/DC (custom field ids differ per instance). This release
   does not set them (that belongs to the Ticket flow); record their ids in `tracker.issueTypes[].readingMap.fields`
   if Plan should show them.
+- An Epic on Server/DC usually needs an **Epic Name** custom field on create; its id differs per instance. Read it with
+  `jira_get_create_fields` and put it in the Epic type's `tracker.issueTypes[].createFields`.

@@ -142,3 +142,44 @@ describe("draft-tickets", () => {
     expect(cli(["draft-tickets", "--root", dir, "--file", "bad.json"]).body.errors[0].code).toBe("no-tracker");
   });
 });
+
+describe("draft-tickets: epics", () => {
+  const EPIC_TMPL = "      template: |\n        ## Purpose\n        ## Success Criteria\n      createFields:\n        customfield_10011: epic-name-placeholder\n";
+  const cfg = WITH
+    .replace("    - name: Bug\n      readingMap:", `    - name: Epic\n${EPIC_TMPL}    - name: Bug\n      readingMap:`)
+    .replace("      issueTypes:\n        - name: Task\n", `      issueTypes:\n        - name: Epic\n${EPIC_TMPL.replace(/^/gm, "    ").replace(/^    $/m, "")}        - name: Task\n`);
+  const run = (project: string, tickets: object[], config = cfg) => draft({ project, tickets }, config).body;
+  const epic = (summary = "Checkout") => ({ type: "Epic", summary, description: "## Purpose\nx\n\n## Success Criteria\ny" });
+  const task = (extra: object = {}) => ({ type: "Task", summary: "Cart", description: "## Context\nx\n\n## Done when\ny", ...extra });
+
+  it("an epic is created like any ticket, with the type's createFields (the Epic Name field), and no epic link", () => {
+    const r = run("STR", [epic()]);
+    expect(r.allOk, JSON.stringify(r.tickets)).toBe(true);
+    expect(r.tickets[0]).toMatchObject({ isEpic: true, registerInStream: "checkout-mvp", after: [] });
+    expect(r.tickets[0].call.args).toMatchObject({ project_key: "STR", issue_type: "Epic", additional_fields: { customfield_10011: "epic-name-placeholder" } });
+    expect(run("PROJ", [epic()]).tickets[0]).toMatchObject({ isEpic: true, registerInStream: null });
+  });
+  it("an epic cannot be linked to an epic", () => {
+    expect(run("STR", [{ ...epic(), epic: "STR-1" }]).tickets[0].errors.map((e: any) => e.code)).toContain("epic-in-epic");
+  });
+  it("tickets can point at an epic created earlier in the same batch with #N: the link is an after-step with the placeholder, and the stream's epics list does not apply", () => {
+    const r = run("STR", [epic(), task({ epic: "#0" }), task({ summary: "Pay", epic: "#0" })]);
+    expect(r.allOk, JSON.stringify(r.tickets)).toBe(true);
+    expect(r.tickets[1].after).toEqual([{ tool: "jira_update_issue", args: { issue_key: "<created key>", fields: { customfield_10451: "<key of ticket 0>" } } }]);
+    expect(r.tickets[2].after[0].args.fields.customfield_10451).toBe("<key of ticket 0>");
+  });
+  it.each([
+    ["a forward reference", [task({ epic: "#1" }), epic()]],
+    ["a self reference", [task({ epic: "#0" })]],
+    ["a reference to a ticket that is not an epic", [task(), task({ summary: "b", epic: "#0" })]],
+    ["a reference out of range", [epic(), task({ epic: "#7" })]],
+  ])("%s is bad-epic", (_n, tickets) => {
+    const r = run("STR", tickets);
+    expect(r.allOk).toBe(false);
+    expect(r.tickets.flatMap((t: any) => t.errors.map((e: any) => e.code))).toContain("bad-epic");
+  });
+  it("a reference still needs tracker.epicLinkField", () => {
+    const noField = cfg.replace("  epicLinkField: customfield_10451\n", "");
+    expect(run("STR", [epic(), task({ epic: "#0" })], noField).tickets[1].errors.map((e: any) => e.code)).toContain("epic-link-field-missing");
+  });
+});

@@ -36,7 +36,7 @@ export const draftTicketsCommand: Handler = ({ root, file }) => {
   const streamOf = new Map<string, string>();
   for (const p of projectsOf(read.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
   const mods: ModuleContext = { modules: new Set((read.config.modules?.items ?? []).map((m) => m.id)), streamOf };
-  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods));
+  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods, doc.tickets as unknown[]));
   return {
     exitCode: 0,
     body: {

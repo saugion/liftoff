@@ -1,7 +1,7 @@
 ---
 name: liftoff-ticket
 description: >
-  Write tickets on the team's templates: bugs, tasks and user stories, in a batch the person approves once, or
+  Write tickets on the team's templates: epics, bugs, tasks and user stories, in a batch the person approves once, or
   break an epic into tickets. Works on the team's tracker project or on a linked work stream (a Kanban project).
   Use when the user says "liftoff ticket", "write a ticket", "create a bug", "file a story", "break down this epic",
   or "create tickets in the stream". Writes to the tracker only after the batch is approved.
@@ -62,8 +62,13 @@ config: say to run the Connect skill and stop.
 
 ## 3. What
 
-Ask (one round): a bug, a task, a story, or **break down an epic**.
+Ask (one round): a bug, a task, a story, an **epic**, or **break down an epic**. An epic is created like any other
+ticket, from the team's template for the type `Epic` (if the config has no such type, say the lead can teach it with
+the Connect skill, and stop for that part). The person may want an epic **and** its stories in one go: that is one
+batch.
 
+- **Epic:** the purpose, who it is for, the journey, how success is measured, in the person's words. Ask for what is
+  missing, never invent it. The type's `createFields` carry the instance's Epic Name field; you add nothing for it.
 - **Bug, task, story:** what the person wants, in their words; for a bug the steps, the expected and the actual
   behaviour, the environment, any error text. Ask for what is missing, never fill it with a guess.
 - **Break down an epic:** the epic must be one of the stream's `epics` or one the person names. Call
@@ -76,7 +81,9 @@ Ask (one round): a bug, a task, a story, or **break down an epic**.
 
 For each ticket write the full description from the type's `template` (`tracker.issueTypes[].template` or
 `streams[].issueTypes[].template`): keep its sections, in its order, with the team's checklist and scenario
-conventions. Add `priority`, `labels` and `epic` only when the person gave them; `fields` carries any picker value
+conventions. Add `priority`, `labels` and `epic` only when the person gave them (an epic never has an `epic` link); to put
+stories under an epic created **in the same batch**, put the epic first and give the stories `"epic": "#0"` (the index
+of the epic in `tickets`); `fields` carries any picker value
 the team needs beyond the type's `createFields` (those are added for you). Save the batch to
 `.liftoff/tmp/drafts-<n>.json` with your file tools (add `modules`, the ids of `modules.items` the ticket is about, whenever it concerns code), as
 
@@ -100,8 +107,11 @@ what will happen: one `jira_create_issue` per ticket, in order, and where the ti
 ## 6. Create
 
 For each ticket in order, call `jira_create_issue` with `call.args` exactly as returned. For each `after` entry call
-`jira_update_issue` with `args` and the real key in place of `<created key>`, then verify the link with
-`jira_get_issue`. If a call fails, stop: list what was created and what was not, show the error, and ask. Before any
+`jira_update_issue` with `args`, the real key in place of `<created key>` and, where the link is
+`<key of ticket N>`, the key that ticket N got, then verify the link with `jira_get_issue`. If a call fails, stop: list what was created and what was not, show the error, and ask. Before any
 retry of a creation, search for the summary with `jira_search` in that project, so a ticket is never created twice.
-Report every key and its URL (`tracker.url`/browse/KEY). Never merge, transition or comment on the created tickets
+Report every key and its URL (`tracker.url`/browse/KEY). For a ticket whose `registerInStream` is a stream id (an epic
+created in a stream), say that the stream's `epics` list in `liftoff.yaml` does not have its key yet, show the diff
+that adds it, and apply it only if the person approves; the file is committed and shared, so tell them to commit it
+or hand it to the lead. Never edit the config silently. Never merge, transition or comment on the created tickets
 here.

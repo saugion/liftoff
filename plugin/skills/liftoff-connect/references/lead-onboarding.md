@@ -64,7 +64,9 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
 ## L4. Learn the tracker (read only)
 
 1. **Discover the types:** `jira_get_project_issue_types` for the project (it returns ids and names); ask the lead
-   which ones the team uses (multi-select). Types already in `tracker.issueTypes` are skipped unless the lead asks to
+   which ones the team uses (multi-select). Include `Epic` if people will create epics through the Ticket flow: its
+   template and its Epic Name field (an instance-specific custom field that `jira_get_create_fields` lists as
+   required; record it in `createFields`) are learned like any other type. Types already in `tracker.issueTypes` are skipped unless the lead asks to
    redo them.
 2. **A sample per type:** ask for one existing ticket key per type (the best example the lead has). No sample for a
    type: offer the built-in default (`assets/defaults/task.md`, `assets/defaults/story.md`,

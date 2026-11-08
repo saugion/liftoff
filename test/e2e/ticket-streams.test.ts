@@ -2,6 +2,7 @@
 // the batch is checked by the CLI and created through MCP with exactly the calls the CLI returned, the Epic Link is
 // set, and one of the new tickets goes through Plan and Build with the stream's own workflow.
 import { readFileSync, writeFileSync } from "node:fs";
+import { parse, stringify } from "yaml";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { config } from "./config.js";
@@ -15,6 +16,13 @@ const STREAMS = `streams:
       module: backend
       epics: [STR-1]
       issueTypes:
+        - name: Epic
+          template: |
+            ## Purpose
+            ## User Journey
+            ## Success Criteria
+          createFields:
+            customfield_10011: Epic Name Mock
         - name: Task
           branchType: chore
           template: |
@@ -62,7 +70,7 @@ describe("the stream is linked and visible to every command", () => {
     const info = liftoff(root, ["connect-info"]).body;
     expect(info.streams).toHaveLength(1);
     expect(info.streams[0]).toMatchObject({ id: "checkout-mvp", project: "STR", module: "backend", epics: ["STR-1"] });
-    expect(info.streams[0].issueTypes[0].template).toContain("## Done when");
+    expect(info.streams[0].issueTypes.find((t: any) => t.name === "Task").template).toContain("## Done when");
   });
 });
 
@@ -151,6 +159,74 @@ describe("Plan and Build on a stream ticket use the stream's workflow", () => {
     expect(git(dir, "--git-dir", remote, "rev-list", "--count", `main..${build.branch}`)).toBe("1");
   });
   it("the token is in no file of the whole run", () => {
+    for (const [path, text] of textFiles(dir)) expect(text.includes(TOKEN), path).toBe(false);
+  });
+});
+
+describe("Epics: create one, put new tickets under it, register it, add more tickets later", () => {
+  const epicDraft = { type: "Epic", summary: "Payments", description: "## Purpose\nTake payments.\n\n## User Journey\nPay.\n\n## Success Criteria\nPaid orders." };
+  const task = (summary: string, epic: string) => ({ type: "Task", summary, description: `## Context\n${summary}\n\n## Done when\nit works`, epic });
+  const field = (k: string, f: string) => (jira.issues.find((i) => i.key === k)!.fields as Record<string, any>)[f];
+  let epicKey = "";
+
+  const createBatch = async (file: string, drafts: object[]) => {
+    write(root, `.liftoff/tmp/${file}`, JSON.stringify({ project: "STR", tickets: drafts }));
+    const batch = liftoff(root, ["draft-tickets", "--file", `.liftoff/tmp/${file}`]).body;
+    expect(batch, JSON.stringify(batch.tickets?.filter((t: any) => !t.ok))).toMatchObject({ ok: true, allOk: true });
+    const keys: string[] = [];
+    for (const t of batch.tickets) {
+      const made = await mcp.call(t.call.tool, t.call.args);
+      expect(made.isError, made.text).toBe(false);
+      keys.push(made.json.issue.key);
+      for (const a of t.after) {
+        const fields = Object.fromEntries(Object.entries(a.args.fields).map(([k, v]) => [k, String(v).replace(/^<key of ticket (\d+)>$/, (_m, n) => keys[Number(n)]!)]));
+        expect((await mcp.call(a.tool, { issue_key: keys.at(-1), fields })).isError).toBe(false);
+      }
+    }
+    return { batch, keys };
+  };
+
+  it("an epic and two tasks under it are one approved batch: the epic first, the tasks point at it with #0", async () => {
+    const { batch, keys } = await createBatch("epic-batch.json", [epicDraft, task("Payment form", "#0"), task("Payment webhook", "#0")]);
+    epicKey = keys[0]!;
+    expect(batch.tickets[0]).toMatchObject({ isEpic: true, registerInStream: "checkout-mvp", after: [] });
+    expect(batch.tickets[0].call.args).toMatchObject({ issue_type: "Epic", additional_fields: { customfield_10011: "Epic Name Mock" } });
+    expect(epicKey).toBe("STR-5");
+    expect(field(epicKey, "issuetype")).toEqual({ name: "Epic" });
+    expect(field(epicKey, "customfield_10451")).toBeUndefined(); // an epic has no epic link
+    expect(keys.slice(1).map((k) => field(k, "customfield_10451"))).toEqual([epicKey, epicKey]);
+    expect(String(field(epicKey, "description"))).toContain("## Success Criteria");
+  });
+  it("the new epic is not in the stream's list yet: a later ticket naming it is refused until the config registers it", () => {
+    write(root, ".liftoff/tmp/later.json", JSON.stringify({ project: "STR", tickets: [task("Refunds", epicKey)] }));
+    expect(liftoff(root, ["draft-tickets", "--file", ".liftoff/tmp/later.json"]).body.tickets[0].errors.map((e: any) => e.code)).toEqual(["bad-epic"]);
+  });
+  it("the engineer approves the proposed diff that registers the epic; the config validates and is applied", () => {
+    const file = join(root, "liftoff.yaml");
+    const cfg = parse(readFileSync(file, "utf8"));
+    cfg.streams.items[0].epics.push(epicKey);
+    writeFileSync(file, stringify(cfg));
+    expect(liftoff(root, ["validate"]).status).toBe(0);
+    expect(liftoff(root, ["check-config"]).body.status).toBe("warn");
+    expect(liftoff(root, ["render"]).status).toBe(0);
+    expect(liftoff(root, ["check-config"]).body.status).toBe("ok");
+    expect(liftoff(root, ["connect-info"]).body.streams[0].epics).toEqual(["STR-1", epicKey]);
+  });
+  it("new tickets created afterwards go under the existing epic by its key", async () => {
+    const { keys } = await createBatch("later-batch.json", [task("Refunds", epicKey), task("Receipts", epicKey)]);
+    expect(keys.map((k) => field(k, "customfield_10451"))).toEqual([epicKey, epicKey]);
+    const children = jira.issues.filter((i) => (i.fields as any).customfield_10451 === epicKey).map((i) => (i.fields as any).summary).sort();
+    expect(children).toEqual(["Payment form", "Payment webhook", "Receipts", "Refunds"]);
+  });
+  it("the epic reads back as a stream ticket of type Epic; an epic cannot be put under an epic", async () => {
+    write(root, `.liftoff/tmp/${epicKey}.json`, JSON.stringify((await mcp.call("jira_get_issue", { issue_key: epicKey })).json));
+    const p = liftoff(root, ["parse-ticket", "--file", `.liftoff/tmp/${epicKey}.json`]).body;
+    expect(p).toMatchObject({ known: true, stream: { id: "checkout-mvp" }, ticket: { issueType: "Epic", summary: "Payments" } });
+    write(root, ".liftoff/tmp/epic-in-epic.json", JSON.stringify({ project: "STR", tickets: [{ ...epicDraft, epic: epicKey }] }));
+    expect(liftoff(root, ["draft-tickets", "--file", ".liftoff/tmp/epic-in-epic.json"]).body.tickets[0].errors.map((e: any) => e.code)).toContain("epic-in-epic");
+  });
+  it("no sprint endpoint, no delete; the token is in no file", () => {
+    expect(jira.requests.filter((r) => /sprint|agile/i.test(r.path) || r.method === "DELETE")).toEqual([]);
     for (const [path, text] of textFiles(dir)) expect(text.includes(TOKEN), path).toBe(false);
   });
 });

@@ -15663,7 +15663,9 @@ function readWithMap(t, type) {
 var isObj2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 var KEY = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
 var CREATED_KEY_PLACEHOLDER = "<created key>";
-function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ */ new Set(), streamOf: /* @__PURE__ */ new Map() }) {
+var keyOfTicket = (n) => `<key of ticket ${n}>`;
+var isEpicType = (name) => typeof name === "string" && name.toLowerCase() === "epic";
+function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ */ new Set(), streamOf: /* @__PURE__ */ new Map() }, batch = []) {
   const errors = [], warnings = [];
   const err = (code, message) => errors.push({ code, message });
   const t = isObj2(raw) ? raw : {};
@@ -15691,11 +15693,23 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
     else if (info.stream && stream !== info.stream.id) err("module-wrong-project", `module '${m}' does not belong to stream ${info.stream.id}: create its ticket in its own project`);
     else if (!info.stream && stream) err("module-in-stream", `module '${m}' belongs to stream ${stream}: its ticket goes in that stream's project; split the work into one ticket per project`);
   }
+  const isEpic = isEpicType(type?.name ?? str("type"));
   const epic = t.epic;
+  let epicValue;
   if (epic !== void 0) {
+    const ref = typeof epic === "string" ? /^#(\d+)$/.exec(epic) : null;
     const m = typeof epic === "string" ? KEY.exec(epic) : null;
-    if (!m || m[1] !== info.project) err("bad-epic", `epic must be a key of project ${info.project}`);
-    else if (info.stream && info.stream.epics.length > 0 && !info.stream.epics.includes(epic)) err("bad-epic", `${epic} is not one of stream ${info.stream.id}'s epics (${info.stream.epics.join(", ")})`);
+    if (isEpic) err("epic-in-epic", "an epic cannot be linked to another epic");
+    else if (ref) {
+      const n = Number(ref[1]);
+      const target = n < index ? batch[n] : void 0;
+      if (!isObj2(target) || !isEpicType(target.type)) err("bad-epic", `'${epic}' must point to an earlier ticket of type Epic in this batch`);
+      else epicValue = keyOfTicket(n);
+    } else if (!m || m[1] !== info.project) err("bad-epic", `epic must be a key of project ${info.project}, or #N for an Epic earlier in this batch`);
+    else {
+      if (info.stream && info.stream.epics.length > 0 && !info.stream.epics.includes(epic)) err("bad-epic", `${epic} is not one of stream ${info.stream.id}'s epics (${info.stream.epics.join(", ")})`);
+      epicValue = epic;
+    }
     if (!tracker.epicLinkField) err("epic-link-field-missing", "tracker.epicLinkField is not in liftoff.yaml: the lead sets the Epic Link field id (Connect skill)");
   }
   if (secretGuard({ summary, description, labels, fields }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");
@@ -15708,9 +15722,9 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
   if (Array.isArray(labels) && labels.length > 0) additional.labels = labels;
   if (typeof priority === "string") additional.priority = { name: priority };
   const call = ok ? { tool: "jira_create_issue", args: { project_key: info.project, issue_type: type.name, summary, description, ...Object.keys(additional).length > 0 && { additional_fields: additional } } } : null;
-  const after = ok && typeof epic === "string" && tracker.epicLinkField ? [{ tool: "jira_update_issue", args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epic } } }] : [];
+  const after = ok && epicValue !== void 0 && tracker.epicLinkField ? [{ tool: "jira_update_issue", args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epicValue } } }] : [];
   const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` \xB7 ${priority}` : ""}${Array.isArray(labels) && labels.length ? ` \xB7 ${labels.join(", ")}` : ""}${typeof epic === "string" ? ` \xB7 epic ${epic}` : ""}`, summary ?? ""].join("\n");
-  return { index, ok, errors, warnings, preview, call, after };
+  return { index, ok, errors, warnings, preview, isEpic, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
 }
 
 // src/cli/draft-tickets.ts
@@ -15741,7 +15755,7 @@ var draftTicketsCommand = ({ root, file }) => {
   const streamOf = /* @__PURE__ */ new Map();
   for (const p of projectsOf(read.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
   const mods = { modules: new Set((read.config.modules?.items ?? []).map((m) => m.id)), streamOf };
-  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods));
+  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods, doc.tickets));
   return {
     exitCode: 0,
     body: {
