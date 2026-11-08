@@ -1,6 +1,6 @@
 # Spec: Plan and Build (MVP, roadmap item 3)
 
-Builds on v0.2.0 (Init, Connect). Source of product decisions: `README.md`, sections "3. Plan", "4. Build", "Core principle". Written and approved autonomously on 2026-11-08 (see `DECISIONS-plan-build.md`; the PM reviews afterwards). **Close, the Ticket flow, work streams and `doctor` are out** (README pilot scope: "Init + Connect + Plan/Build first. Close joins once those hold").
+Builds on v0.2.0 (Init, Connect). Source of product decisions: `README.md`, sections "3. Plan", "4. Build", "Core principle". Written and approved autonomously on 2026-11-08 (see `docs/decisions/DECISIONS.md`; the PM reviews afterwards). **Close, the Ticket flow, work streams and `doctor` are out** (README pilot scope: "Init + Connect + Plan/Build first. Close joins once those hold").
 
 ## Objective
 
@@ -16,7 +16,7 @@ Two skills (`liftoff-plan`, `liftoff-build`) and two pure CLI commands (`parse-t
 4. **Build asks twice, not once.** A first dry-run (create the branch, move the ticket to the `start` transition) and a second at the end (push, open the merge request). The README says "approved together"; the MR cannot be shown before the code exists, so each group is approved together.
 5. **Reading map drives the reading.** `parse-ticket` applies `tracker.issueTypes[].readingMap` to the ticket JSON the agent fetched and reports what it found and what is missing. An issue type unknown to the config is read with defaults and a warning that points back to the Connect lead flow.
 6. **Branch, title, labels, reviewers, target branch, MR template** come from `codeHost.conventions` through `parse-ticket`'s `build` object; the `glab mr create` command is built by the CLI and quoted with `shQuote`; the skill never assembles it.
-7. **Git is a team option.** `build.git` in `liftoff.yaml` (`assisted` default, `manual`) decides who runs git writes; see `DECISIONS-ticket-streams.md` item 12. In `manual` the agent never writes to git and never opens the MR.
+7. **Git is a team option.** `build.git` in `liftoff.yaml` (`assisted` default, `manual`) decides who runs git writes; see `docs/decisions/DECISIONS.md` (Ticket flow 12). In `manual` the agent never writes to git and never opens the MR.
 8. **The merge request and the ticket's status are always the engineer's** (decided 2026-11-08, any git mode): Build never runs `build.mrCreate`, never transitions or comments on the ticket, and makes no tracker write at all (its only tracker call is the read of the ticket). The earlier design with a start transition and an agent-opened MR is superseded; Close is dropped.
 9. **Never:** merge, force-push, push to the target branch, skip hooks, delete a ticket or a branch, write to the tracker beyond the `start` transition, commit without the plan's approval, put a credential anywhere.
 

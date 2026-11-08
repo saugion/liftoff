@@ -1,6 +1,6 @@
 # Spec: Ticket flow and work streams (MVP scope, added 2026-11-08)
 
-Builds on 0.3.0 (Init, Connect, Plan, Build). Source of product decisions: `README.md`, sections "Ticket flow" and "Work streams". Written and approved autonomously (see `DECISIONS-ticket-streams.md`). Ships in the same release as Plan/Build (still `0.3.0`, unreleased). **Close stays out.**
+Builds on 0.3.0 (Init, Connect, Plan, Build). Source of product decisions: `README.md`, sections "Ticket flow" and "Work streams". Written and approved autonomously (see `docs/decisions/DECISIONS.md`). Ships in the same release as Plan/Build (still `0.3.0`, unreleased). **Close stays out.**
 
 ## Objective
 
