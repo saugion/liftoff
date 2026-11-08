@@ -108,6 +108,9 @@ describe("liftoff-ticket", () => {
   it("covers epics: create one, put stories under it in the same batch, register it, never silently", () => {
     for (const x of ["epic", "#0", "<key of ticket N>", "registerInStream", "Epic Name", "tracker.epicNameField", "Never edit the config silently"]) expect(flat(), x).toContain(x);
   });
+  it("covers the split, the key cross-links and a cut-off call", () => {
+    for (const x of ["two drafts files", "never with a placeholder key", "put each ticket's key in the other's description", "never trim the description", "jira_get_issue` on the next expected key", "ask once if you cannot tell"]) expect(flat(), x).toContain(x);
+  });
   it("points at the formatting reference, and it exists in the plugin", () => {
     expect(b()).toContain("../liftoff-connect/assets/jira-dc-formatting.md");
     expect(readFileSync(join(ROOT, "plugin/skills/liftoff-connect/assets/jira-dc-formatting.md"), "utf8").length).toBeGreaterThan(500);

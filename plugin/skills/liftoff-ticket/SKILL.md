@@ -22,7 +22,7 @@ with the calls it returns, as given.**
 ## Rules
 
 - **Always:** use the type's template; write the ticket text in the format of the tracker (see
-  `../liftoff-connect/assets/jira-dc-formatting.md`) and in the language of the team's tickets; mark what you do not
+  `../liftoff-connect/assets/jira-dc-formatting.md`) and in the language of the team's tickets (ask once if you cannot tell from the templates, default English); mark what you do not
   know as `_TBD_`; show the whole batch and wait for one explicit yes.
 - **Never:** invent facts, endpoints, numbers or an epic; create a ticket that was not shown and approved; create in
   a project that is not the tracker's or a stream's; create a Jira project or board; delete, move or edit a ticket
@@ -93,9 +93,12 @@ ticket to the right project and are not sent to Jira: put the module names in `l
 { "project": "PROJ", "tickets": [ { "type": "Story", "summary": "Short title", "description": "text from the template", "priority": "Medium", "labels": ["backend"], "modules": ["api"], "epic": "PROJ-12" } ] }
 ```
 
-A ticket lives in one project, so a piece of work that touches a module of a stream and a module of the team's own
-project is **two tickets, one per project** (`draft-tickets` rejects the mix with `module-in-stream` or
-`module-wrong-project`): say so and split it, repeating the shared context in both. Run `draft-tickets --file` on it. For every ticket with `ok` false, fix `errors` and run again until `allOk` is
+Which project a module belongs to: the project of the stream whose `streams[].module` it is, else `tracker.project`; if the
+person leaves the choice to you, apply this and say so. A ticket lives in one project, so a piece of work that touches a
+module of a stream and a module of the team's own project is **two tickets, one per project, and two drafts files** (the
+file names its `project` once) (`draft-tickets` rejects the mix with `module-in-stream` or
+`module-wrong-project`): say so and split it, repeating the shared context in both. In a split, each ticket names the other by its summary and project ("the endpoint is the ticket *<summary>* in BLS"), never with a
+placeholder key. Run `draft-tickets --file` on it. For every ticket with `ok` false, fix `errors` and run again until `allOk` is
 true; show every `warnings` entry (`template-section-missing` means a section of the team's template is absent:
 add it or say why not).
 
@@ -111,8 +114,12 @@ what will happen: one `jira_create_issue` per ticket, in order, and where the ti
 For each ticket in order, call `jira_create_issue` with `call.args` exactly as returned. For each `after` entry call
 `jira_update_issue` with `args`, the real key in place of `<created key>` and, where the link is
 `<key of ticket N>`, the key that ticket N got, then verify the link with `jira_get_issue`. If a call fails, stop: list what was created and what was not, show the error, and ask. Before any
-retry of a creation, search for the summary with `jira_search` in that project, so a ticket is never created twice.
-Report every key and its URL (`tracker.url`/browse/KEY). For a ticket whose `registerInStream` is a stream id (an epic
+retry of a creation, check that the ticket does not exist yet (`jira_search` in that project; if the search does not honour the
+summary, `jira_get_issue` on the next expected key), so a ticket is never created twice. If a call is cut off by the shell with
+no message (a very long argument), put `call.args` unchanged in a file and pass the file the way your environment allows; never
+trim the description to make it fit.
+If you split a piece of work, once both exist offer to put each ticket's key in the other's description with
+`jira_update_issue` (you created both, so this is allowed; show the two new descriptions and apply only on the person's yes). Report every key and its URL (`tracker.url`/browse/KEY). For a ticket whose `registerInStream` is a stream id (an epic
 created in a stream), say that the stream's `epics` list in `liftoff.yaml` does not have its key yet, show the diff
 that adds it, and apply it only if the person approves; the file is committed and shared, so tell them to commit it
 or hand it to the lead. Never edit the config silently. Never merge, transition or comment on the created tickets
