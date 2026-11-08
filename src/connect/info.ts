@@ -59,6 +59,7 @@ export function buildInfo(config: Config, installedVersion: string) {
     agents: config.agents.targets,
     tracker: tracker ?? null,
     codeHost: codeHost ?? null,
+    modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path })),
     streams: tracker && config.streams && "items" in config.streams ? (config.streams as StreamsConfig).items : [],
     mcp,
     credential: credential ?? null,

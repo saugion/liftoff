@@ -16068,6 +16068,7 @@ function buildInfo2(config, installedVersion) {
     agents: config.agents.targets,
     tracker: tracker ?? null,
     codeHost: codeHost ?? null,
+    modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path })),
     streams: tracker && config.streams && "items" in config.streams ? config.streams.items : [],
     mcp,
     credential: credential ?? null,

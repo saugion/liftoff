@@ -16,7 +16,7 @@ the contract between who writes tickets and who implements them: the template yo
 with. The batch is shown together, editable one by one, and **approved once**.
 
 You are the instructions; the `liftoff` CLI decides everything deterministic: `connect-info` gives the project's
-issue types and templates, `draft-tickets` checks the batch and returns the exact creation calls. **Create tickets
+issue types, templates and modules, `draft-tickets` checks the batch and returns the exact creation calls. **Create tickets
 with the calls it returns, as given.**
 
 ## Rules
@@ -62,7 +62,8 @@ config: say to run the Connect skill and stop.
 
 ## 3. What
 
-Ask (one round): a bug, a task, a story, an **epic**, or **break down an epic**. An epic is created like any other
+If the person's request already names what to write ("an epic, a story and a bug"), take that and ask only for the
+content. Otherwise ask (one round): a bug, a task, a story, an **epic**, or **break down an epic**. An epic is created like any other
 ticket, from the team's template for the type `Epic` (if the config has no such type, say the lead can teach it with
 the Connect skill, and stop for that part). The person may want an epic **and** its stories in one go: that is one
 batch.
@@ -85,7 +86,8 @@ conventions. Add `priority`, `labels` and `epic` only when the person gave them 
 stories under an epic created **in the same batch**, put the epic first and give the stories `"epic": "#0"` (the index
 of the epic in `tickets`); `fields` carries any picker value
 the team needs beyond the type's `createFields` (those are added for you). Save the batch to
-`.liftoff/tmp/drafts-<n>.json` with your file tools (add `modules`, the ids of `modules.items` the ticket is about, whenever it concerns code), as
+`.liftoff/tmp/drafts-<n>.json` with your file tools (add `modules`, the ids from `connect-info`'s `modules` the ticket is about, whenever it concerns code; they only route the
+ticket to the right project and are not sent to Jira: put the module names in `labels` if the team labels by module), as
 
 ```json
 { "project": "PROJ", "tickets": [ { "type": "Story", "summary": "Short title", "description": "text from the template", "priority": "Medium", "labels": ["backend"], "modules": ["api"], "epic": "PROJ-12" } ] }
