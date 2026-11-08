@@ -110,6 +110,15 @@ export function underHeading(text: string, title: string): string {
   return body.join("\n").trim();
 }
 
+// Titles of the headings in a text (Markdown, wiki or HTML), lowercased and cleaned. Bold-only lines count when asked.
+export function headingTitles(text: string, includeBold = false): string[] {
+  const lines = (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/);
+  return lines.flatMap((l) => {
+    const h = headingOf(l);
+    return h && (includeBold || h.level < 7) ? [normTitle(h.title)] : [];
+  });
+}
+
 export interface Reading {
   acceptanceCriteria: { source: "heading" | "field" | "none"; text: string };
   fields: { id: string; label: string; value: string }[];

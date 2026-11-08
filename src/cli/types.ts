@@ -11,7 +11,7 @@ export type ErrorCode =
   | "internal";
 
 // Codes of the Plan and Build commands. Kept apart from ErrorCode (v1) on purpose.
-export type PlanErrorCode = "no-tracker" | "ticket-invalid" | "plan-missing" | "plan-invalid";
+export type PlanErrorCode = "no-tracker" | "ticket-invalid" | "plan-missing" | "plan-invalid" | "ticket-draft-invalid" | "tracker-read-only";
 
 export interface CliError {
   code: ErrorCode | PlanErrorCode;

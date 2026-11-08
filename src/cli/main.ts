@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { render } from "./apply.js";
 import { checkConfigCommand } from "./check.js";
+import { draftTicketsCommand } from "./draft-tickets.js";
 import { parseTicketCommand } from "./parse-ticket.js";
 import { planCommand } from "./plan.js";
 import { connectInfo } from "./connect-info.js";
@@ -12,7 +13,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -22,6 +23,7 @@ export const handlers: Record<string, Handler> = {
   "connect-info": connectInfo,
   "parse-ticket": parseTicketCommand,
   plan: planCommand,
+  "draft-tickets": draftTicketsCommand,
 };
 
 function json(root: string, exitCode: RunResult["exitCode"], body: Record<string, unknown>, stderr = ""): RunResult {

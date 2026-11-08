@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { connectors } from "../config/index.js";
+import { connectors, projectsOf } from "../config/index.js";
 import { KEY_RE, buildInfo } from "../plan/build.js";
 import { readTicket, readWithMap } from "../plan/ticket.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
@@ -30,14 +30,19 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
   if ("error" in ticket) return fail("ticket-invalid", ticket.error);
   const km = KEY_RE.exec(ticket.key);
   if (!km) return fail("ticket-invalid", `'${ticket.key}' is not an issue key like ${tracker.project}-123`);
-  if (km[1] !== tracker.project) return fail("ticket-invalid", `${ticket.key} is not in the configured project ${tracker.project}`);
+  const project = projectsOf(read.config).find((p) => p.project === km[1]);
+  if (!project) {
+    const known = projectsOf(read.config).map((p) => p.project).join(", ");
+    return fail("ticket-invalid", `${ticket.key} is not in a configured project (${known})`);
+  }
 
-  const type = tracker.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+  const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
   const reading = readWithMap(ticket, type);
   const warnings: { code: string; message: string }[] = [];
   if (!type) warnings.push({ code: "unknown-issue-type", message: `issue type '${ticket.issueType}' is not in liftoff.yaml: read with defaults; the lead can add it with the Connect skill` });
   if (reading.acceptanceCriteria.source === "none") warnings.push({ code: "no-acceptance-criteria", message: "no acceptance criteria found with the reading map: ask the engineer, do not invent them" });
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
+  if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
 
   return {
@@ -46,6 +51,7 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
       ok: true,
       ticket: { key: ticket.key, url: `${tracker.url}/browse/${ticket.key}`, summary: ticket.summary, issueType: ticket.issueType, ...(ticket.status && { status: ticket.status }), description: ticket.description },
       known: type !== undefined,
+      stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
       reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
       warnings,
       build: buildInfo(ticket, tracker, type, codeHost),

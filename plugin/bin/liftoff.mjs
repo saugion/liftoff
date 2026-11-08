@@ -10318,7 +10318,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve3.call(this, root, ref);
+      let _sch = resolve4.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -10345,7 +10345,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve3(root, ref) {
+    function resolve4(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -11209,7 +11209,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve3(baseURI, relativeURI, options) {
+    function resolve4(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -11600,7 +11600,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize: normalize2,
-      resolve: resolve3,
+      resolve: resolve4,
       resolveComponent,
       equal,
       serialize,
@@ -14273,8 +14273,8 @@ var require_ajv = __commonJS({
 });
 
 // src/cli/main.ts
-import { statSync as statSync3 } from "node:fs";
-import { resolve as resolve2 } from "node:path";
+import { statSync as statSync4 } from "node:fs";
+import { resolve as resolve3 } from "node:path";
 import { parseArgs } from "node:util";
 
 // src/cli/apply.ts
@@ -14300,6 +14300,15 @@ function compareVersions(a, b) {
 var MIN_CONNECT_PLUGIN = "0.2";
 var MIN_JIRA_SERVER_VERSION = "0.22.0";
 var MIN_STREAMS_PLUGIN = "0.3";
+function projectsOf(config) {
+  const { tracker } = connectors(config);
+  if (!tracker) return [];
+  const streams = isConnector(config.streams) ? config.streams.items : [];
+  return [
+    { project: tracker.project, issueTypes: tracker.issueTypes, inherited: false },
+    ...streams.map((s) => ({ project: s.project, stream: s, issueTypes: s.issueTypes.length > 0 ? s.issueTypes : tracker.issueTypes, inherited: s.issueTypes.length === 0 }))
+  ];
+}
 function connectors(config) {
   return {
     ...isConnector(config.tracker) && { tracker: config.tracker },
@@ -15528,59 +15537,9 @@ var checkConfigCommand = ({ root }) => {
   return { exitCode: result2.status === "blocked" ? 1 : 0, body: { ...result2 } };
 };
 
-// src/cli/parse-ticket.ts
+// src/cli/draft-tickets.ts
 import { readFileSync as readFileSync4, statSync as statSync2 } from "node:fs";
 import { resolve } from "node:path";
-
-// src/connect/shell.ts
-var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
-
-// src/plan/build.ts
-var KEY_RE = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
-var planFile2 = (key) => `.liftoff/plans/${key}.md`;
-var mrDescriptionFile = (key) => `.liftoff/plans/${key}.mr.md`;
-function slugify(s, max = 40) {
-  const slug = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/g, "");
-  return slug || "work";
-}
-var fill = (pattern, values) => pattern.replace(/\{(key|slug|type|summary)\}/g, (_m, k) => values[k] ?? "");
-function safeBranch(name) {
-  const b = name.replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/\.{2,}/g, ".").replace(/\/{2,}/g, "/").replace(/^[-/.]+|[/.-]+$/g, "").replace(/\.lock$/, "");
-  return b || "work";
-}
-function buildInfo(t, tracker, type, codeHost) {
-  const conv = codeHost?.conventions;
-  const typeWord = type?.branchType ?? slugify(t.issueType || "task");
-  const branch = safeBranch(fill(conv?.branchPattern ?? "{key}-{slug}", { key: t.key, slug: slugify(t.summary), type: typeWord }));
-  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType });
-  const labels = conv?.labels ?? [];
-  const reviewers = conv?.reviewers ?? [];
-  const descFile = mrDescriptionFile(t.key);
-  const mrCreate = codeHost ? [
-    "glab mr create",
-    `--source-branch ${shQuote(branch)}`,
-    ...conv?.targetBranch ? [`--target-branch ${shQuote(conv.targetBranch)}`] : [],
-    `--title ${shQuote(title)}`,
-    `--description-file ${shQuote(descFile)}`,
-    ...labels.map((l) => `--label ${shQuote(l)}`),
-    ...reviewers.map((r) => `--reviewer ${shQuote(r)}`),
-    "--yes"
-  ].join(" ") : null;
-  const readOnly = tracker.server.readOnly;
-  return {
-    branch,
-    title,
-    targetBranch: conv?.targetBranch ?? null,
-    labels,
-    reviewers,
-    mrTemplate: conv?.mrTemplate ?? null,
-    transitions: { start: readOnly ? null : type?.transitions.start ?? null, review: readOnly ? null : type?.transitions.review ?? null },
-    readOnly,
-    planFile: planFile2(t.key),
-    mrDescriptionFile: descFile,
-    mrCreate
-  };
-}
 
 // src/plan/ticket.ts
 var isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -15658,6 +15617,13 @@ function underHeading(text, title) {
   }
   return body.join("\n").trim();
 }
+function headingTitles(text, includeBold = false) {
+  const lines2 = (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/);
+  return lines2.flatMap((l) => {
+    const h = headingOf(l);
+    return h && (includeBold || h.level < 7) ? [normTitle(h.title)] : [];
+  });
+}
 function readWithMap(t, type) {
   const ac = type?.readingMap.acceptanceCriteria;
   let acceptanceCriteria = { source: "none", text: "" };
@@ -15673,34 +15639,179 @@ function readWithMap(t, type) {
   return { acceptanceCriteria, fields: fields.filter((f) => f.value), missing: fields.filter((f) => !f.value).map((f) => f.id) };
 }
 
-// src/cli/parse-ticket.ts
+// src/plan/draft.ts
+var isObj2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+var KEY = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
+var CREATED_KEY_PLACEHOLDER = "<created key>";
+function checkTicket(raw, index, tracker, info) {
+  const errors = [], warnings = [];
+  const err = (code, message) => errors.push({ code, message });
+  const t = isObj2(raw) ? raw : {};
+  if (!isObj2(raw)) err("bad-ticket", "a ticket must be a JSON object");
+  const str = (k) => typeof t[k] === "string" ? t[k] : void 0;
+  const type = info.issueTypes.find((x) => x.name.toLowerCase() === (str("type") ?? "").toLowerCase());
+  if (info.issueTypes.length === 0) err("no-issue-types", `project ${info.project} has no issue types in liftoff.yaml: run the Connect skill`);
+  else if (!type) err("unknown-issue-type", `type '${str("type") ?? ""}' is not one of: ${info.issueTypes.map((x) => x.name).join(", ")}`);
+  const summary = str("summary");
+  if (summary === void 0 || summary.trim() === "" || summary.length > 255 || /[\r\n]/.test(summary)) err("bad-summary", "summary must be one line of 1-255 characters");
+  const description = str("description");
+  if (description === void 0 || description.trim() === "") err("bad-description", "description is required");
+  else if (description.length > 32e3) err("bad-description", "description is longer than 32000 characters");
+  const labels = t.labels === void 0 ? [] : t.labels;
+  if (!Array.isArray(labels) || labels.some((l) => typeof l !== "string" || !/^[^\s,\u0000-\u001f]{1,255}$/.test(l))) err("bad-label", "labels must be a list of strings without spaces or commas");
+  const priority = t.priority;
+  if (priority !== void 0 && (typeof priority !== "string" || !/^[A-Za-z0-9 ._-]{1,30}$/.test(priority))) err("bad-priority", "priority must be a plain name like High");
+  const fields = t.fields === void 0 ? {} : t.fields;
+  if (!isObj2(fields) || Object.keys(fields).some((k) => !/^[A-Za-z0-9_]+$/.test(k))) err("bad-fields", "fields must be an object whose keys are Jira field ids");
+  const epic = t.epic;
+  if (epic !== void 0) {
+    const m = typeof epic === "string" ? KEY.exec(epic) : null;
+    if (!m || m[1] !== info.project) err("bad-epic", `epic must be a key of project ${info.project}`);
+    else if (info.stream && info.stream.epics.length > 0 && !info.stream.epics.includes(epic)) err("bad-epic", `${epic} is not one of stream ${info.stream.id}'s epics (${info.stream.epics.join(", ")})`);
+    if (!tracker.epicLinkField) err("epic-link-field-missing", "tracker.epicLinkField is not in liftoff.yaml: the lead sets the Epic Link field id (Connect skill)");
+  }
+  if (secretGuard({ summary, description, labels, fields }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");
+  if (type && typeof description === "string" && type.template) {
+    const have = new Set(headingTitles(description, true));
+    for (const h of new Set(headingTitles(type.template))) if (!have.has(h)) warnings.push({ code: "template-section-missing", message: `the type's template has a section '${h}' that the description lacks` });
+  }
+  const ok = errors.length === 0;
+  const additional = { ...type?.createFields ?? {}, ...isObj2(fields) ? fields : {} };
+  if (Array.isArray(labels) && labels.length > 0) additional.labels = labels;
+  if (typeof priority === "string") additional.priority = { name: priority };
+  const call = ok ? { tool: "jira_create_issue", args: { project_key: info.project, issue_type: type.name, summary, description, ...Object.keys(additional).length > 0 && { additional_fields: additional } } } : null;
+  const after = ok && typeof epic === "string" && tracker.epicLinkField ? [{ tool: "jira_update_issue", args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epic } } }] : [];
+  const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` \xB7 ${priority}` : ""}${Array.isArray(labels) && labels.length ? ` \xB7 ${labels.join(", ")}` : ""}${typeof epic === "string" ? ` \xB7 epic ${epic}` : ""}`, summary ?? ""].join("\n");
+  return { index, ok, errors, warnings, preview, call, after };
+}
+
+// src/cli/draft-tickets.ts
 var fail2 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES = 2e6;
+var MAX_TICKETS = 200;
+var draftTicketsCommand = ({ root, file }) => {
+  if (!file) return fail2("usage", "draft-tickets needs --file <drafts.json>", 2);
+  const read = readConfigWithPin(root);
+  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
+  const { tracker } = connectors(read.config);
+  if (!tracker) return fail2("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
+  if (tracker.server.readOnly) return fail2("tracker-read-only", "tracker.server.readOnly is true: the Jira server exposes no write tool");
+  let raw;
+  try {
+    const path = resolve(root, file);
+    if (statSync2(path).size > MAX_BYTES) return fail2("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
+    raw = JSON.parse(readFileSync4(path, "utf8"));
+  } catch (e) {
+    return fail2("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const doc = raw;
+  if (raw === null || typeof raw !== "object" || !Array.isArray(doc.tickets) || doc.tickets.length === 0) return fail2("ticket-draft-invalid", 'the file must be {"project": "KEY", "tickets": [ ... ]} with at least one ticket');
+  if (doc.tickets.length > MAX_TICKETS) return fail2("ticket-draft-invalid", `at most ${MAX_TICKETS} tickets per batch`);
+  const wanted = doc.project === void 0 ? tracker.project : doc.project;
+  const info = projectsOf(read.config).find((p) => p.project === wanted);
+  if (!info) return fail2("ticket-draft-invalid", `project ${String(wanted)} is neither the tracker's nor a stream's (${projectsOf(read.config).map((p) => p.project).join(", ")})`);
+  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info));
+  return {
+    exitCode: 0,
+    body: {
+      ok: true,
+      project: info.project,
+      stream: info.stream ? { id: info.stream.id, mode: info.stream.mode, module: info.stream.module ?? null, epics: info.stream.epics } : null,
+      inheritedTypes: info.inherited,
+      count: tickets.length,
+      allOk: tickets.every((t) => t.ok),
+      tickets
+    }
+  };
+};
+
+// src/cli/parse-ticket.ts
+import { readFileSync as readFileSync5, statSync as statSync3 } from "node:fs";
+import { resolve as resolve2 } from "node:path";
+
+// src/connect/shell.ts
+var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
+
+// src/plan/build.ts
+var KEY_RE = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
+var planFile2 = (key) => `.liftoff/plans/${key}.md`;
+var mrDescriptionFile = (key) => `.liftoff/plans/${key}.mr.md`;
+function slugify(s, max = 40) {
+  const slug = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/g, "");
+  return slug || "work";
+}
+var fill = (pattern, values) => pattern.replace(/\{(key|slug|type|summary)\}/g, (_m, k) => values[k] ?? "");
+function safeBranch(name) {
+  const b = name.replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/\.{2,}/g, ".").replace(/\/{2,}/g, "/").replace(/^[-/.]+|[/.-]+$/g, "").replace(/\.lock$/, "");
+  return b || "work";
+}
+function buildInfo(t, tracker, type, codeHost) {
+  const conv = codeHost?.conventions;
+  const typeWord = type?.branchType ?? slugify(t.issueType || "task");
+  const branch = safeBranch(fill(conv?.branchPattern ?? "{key}-{slug}", { key: t.key, slug: slugify(t.summary), type: typeWord }));
+  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType });
+  const labels = conv?.labels ?? [];
+  const reviewers = conv?.reviewers ?? [];
+  const descFile = mrDescriptionFile(t.key);
+  const mrCreate = codeHost ? [
+    "glab mr create",
+    `--source-branch ${shQuote(branch)}`,
+    ...conv?.targetBranch ? [`--target-branch ${shQuote(conv.targetBranch)}`] : [],
+    `--title ${shQuote(title)}`,
+    `--description-file ${shQuote(descFile)}`,
+    ...labels.map((l) => `--label ${shQuote(l)}`),
+    ...reviewers.map((r) => `--reviewer ${shQuote(r)}`),
+    "--yes"
+  ].join(" ") : null;
+  const readOnly = tracker.server.readOnly;
+  return {
+    branch,
+    title,
+    targetBranch: conv?.targetBranch ?? null,
+    labels,
+    reviewers,
+    mrTemplate: conv?.mrTemplate ?? null,
+    transitions: { start: readOnly ? null : type?.transitions.start ?? null, review: readOnly ? null : type?.transitions.review ?? null },
+    readOnly,
+    planFile: planFile2(t.key),
+    mrDescriptionFile: descFile,
+    mrCreate
+  };
+}
+
+// src/cli/parse-ticket.ts
+var fail3 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
+var MAX_BYTES2 = 2e6;
 var parseTicketCommand = ({ root, file }) => {
-  if (!file) return fail2("usage", "parse-ticket needs --file <ticket.json>", 2);
+  if (!file) return fail3("usage", "parse-ticket needs --file <ticket.json>", 2);
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   const { tracker, codeHost } = connectors(read.config);
-  if (!tracker) return fail2("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
-  const path = resolve(root, file);
+  if (!tracker) return fail3("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
+  const path = resolve2(root, file);
   let text;
   try {
-    if (statSync2(path).size > MAX_BYTES) return fail2("ticket-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
-    text = readFileSync4(path, "utf8");
+    if (statSync3(path).size > MAX_BYTES2) return fail3("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
+    text = readFileSync5(path, "utf8");
   } catch (e) {
-    return fail2("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
+    return fail3("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
   const ticket = readTicket(text);
-  if ("error" in ticket) return fail2("ticket-invalid", ticket.error);
+  if ("error" in ticket) return fail3("ticket-invalid", ticket.error);
   const km = KEY_RE.exec(ticket.key);
-  if (!km) return fail2("ticket-invalid", `'${ticket.key}' is not an issue key like ${tracker.project}-123`);
-  if (km[1] !== tracker.project) return fail2("ticket-invalid", `${ticket.key} is not in the configured project ${tracker.project}`);
-  const type = tracker.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+  if (!km) return fail3("ticket-invalid", `'${ticket.key}' is not an issue key like ${tracker.project}-123`);
+  const project = projectsOf(read.config).find((p) => p.project === km[1]);
+  if (!project) {
+    const known = projectsOf(read.config).map((p) => p.project).join(", ");
+    return fail3("ticket-invalid", `${ticket.key} is not in a configured project (${known})`);
+  }
+  const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
   const reading = readWithMap(ticket, type);
   const warnings = [];
   if (!type) warnings.push({ code: "unknown-issue-type", message: `issue type '${ticket.issueType}' is not in liftoff.yaml: read with defaults; the lead can add it with the Connect skill` });
   if (reading.acceptanceCriteria.source === "none") warnings.push({ code: "no-acceptance-criteria", message: "no acceptance criteria found with the reading map: ask the engineer, do not invent them" });
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
+  if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   return {
     exitCode: 0,
@@ -15708,6 +15819,7 @@ var parseTicketCommand = ({ root, file }) => {
       ok: true,
       ticket: { key: ticket.key, url: `${tracker.url}/browse/${ticket.key}`, summary: ticket.summary, issueType: ticket.issueType, ...ticket.status && { status: ticket.status }, description: ticket.description },
       known: type !== void 0,
+      stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
       reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
       warnings,
       build: buildInfo(ticket, tracker, type, codeHost)
@@ -15716,7 +15828,7 @@ var parseTicketCommand = ({ root, file }) => {
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { existsSync as existsSync5, readFileSync as readFileSync6 } from "node:fs";
 import { join as join7 } from "node:path";
 
 // src/plan/file.ts
@@ -15784,20 +15896,20 @@ ${p.body}`;
 }
 
 // src/cli/plan.ts
-var fail3 = (code, message, extra = {}, exitCode = 1) => ({
+var fail4 = (code, message, extra = {}, exitCode = 1) => ({
   exitCode,
   body: { ok: false, errors: [{ code, message, ...extra }] }
 });
 var planCommand = ({ root, key, approve }) => {
-  if (!key || !KEY_RE.test(key)) return fail3("usage", "plan needs --key <ISSUE-KEY> (like PROJ-123)", {}, 2);
+  if (!key || !KEY_RE.test(key)) return fail4("usage", "plan needs --key <ISSUE-KEY> (like PROJ-123)", {}, 2);
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   const rel = planFile2(key);
   const file = join7(root, rel);
-  if (!existsSync5(file)) return fail3("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  if (!existsSync5(file)) return fail4("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
-  if (!isInside(resolveReal(root), real)) return fail3("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
-  const plan = readPlan(readFileSync5(real, "utf8"), key);
+  if (!isInside(resolveReal(root), real)) return fail4("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
+  const plan = readPlan(readFileSync6(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
@@ -15921,14 +16033,15 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
   render,
   "connect-info": connectInfo,
   "parse-ticket": parseTicketCommand,
-  plan: planCommand
+  plan: planCommand,
+  "draft-tickets": draftTicketsCommand
 };
 function json(root, exitCode, body, stderr = "") {
   return { stdout: JSON.stringify({ root, ...body }) + "\n", stderr, exitCode };
@@ -15937,7 +16050,7 @@ function usageError(root, message) {
   return json(root, 2, { ok: false, errors: [{ code: "usage", message: `${message}. Usage: ${USAGE}` }] });
 }
 function run(argv, cwd, table = handlers) {
-  let root = resolve2(cwd);
+  let root = resolve3(cwd);
   try {
     let parsed;
     try {
@@ -15958,7 +16071,7 @@ function run(argv, cwd, table = handlers) {
     }
     const { values, positionals } = parsed;
     if (values.help) return { stdout: JSON.stringify({ usage: USAGE }) + "\n", stderr: "", exitCode: 0 };
-    root = resolve2(cwd, values.root ?? ".");
+    root = resolve3(cwd, values.root ?? ".");
     const [command, ...extra] = positionals;
     if (!command || extra.length > 0 || !Object.hasOwn(table, command)) {
       return usageError(root, command ? `Unknown command or extra arguments: ${positionals.join(" ")}` : "Missing command");
@@ -15968,7 +16081,7 @@ function run(argv, cwd, table = handlers) {
     }
     let isDir = false;
     try {
-      isDir = statSync3(root).isDirectory();
+      isDir = statSync4(root).isDirectory();
     } catch {
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
