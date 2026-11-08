@@ -4,7 +4,7 @@ description: >
   Connect this machine to the team's issue tracker (Jira) and code host (GitLab) named in liftoff.yaml, and, for
   a lead, learn the team's conventions once and write them to liftoff.yaml. Use when the user says "liftoff
   connect", "connect jira", "connect gitlab", "set up my tracker", "liftoff connect lead" or "relearn
-  conventions", or when a repo has a tracker or codeHost in liftoff.yaml and this machine is not connected yet.
+  conventions", "change a ticket template", or when a repo has a tracker or codeHost in liftoff.yaml and this machine is not connected yet.
 license: Apache-2.0
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *)
 ---
@@ -67,7 +67,7 @@ Run `connect-info`. Then:
 | a connector, but `tracker.issueTypes` is empty or `codeHost.conventions` has nothing beyond its defaults (**lead work incomplete**) | Ask "are you the lead finishing onboarding?". Yes: follow the reference from **L3**. No: run the member flow below and tell the user the conventions are not learned yet. |
 | a connector and the lead work done | The member flow below. |
 
-The user can also say so outright ("liftoff connect lead", "relearn conventions"): go to the reference.
+The user can also say so outright ("liftoff connect lead", "relearn conventions", "change the Bug template", "define my own ticket template"): go to the reference (for one type: L4.2, L4.5 and L5 for that type).
 
 Also run `check-config`. If it says `not-applied` or `required-changed` (typically the lead raised `plugin.version`
 to add Connect), say so and suggest the Init skill first, but go on: Connect does not need it. The sequence for a

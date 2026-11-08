@@ -68,10 +68,13 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
    template and its Epic Name field (an instance-specific custom field that `jira_get_create_fields` lists as
    required; record it in `createFields`) are learned like any other type. Types already in `tracker.issueTypes` are skipped unless the lead asks to
    redo them.
-2. **A sample per type:** ask for one existing ticket key per type (the best example the lead has). No sample for a
-   type: offer the built-in default (`assets/defaults/task.md`, `assets/defaults/story.md`,
-   `assets/defaults/bug.md`) to edit and approve. A **pasted example** (a ticket from another project) is accepted as
-   text: read it like a sample, without calling Jira.
+2. **Where the template starts, per type** (ask; one question per type, or one for all): (a) **a sample** — one existing
+   ticket key (the best example the lead has) or a **pasted example** (a ticket from another project), read like a
+   sample, without calling Jira; (b) **a built-in default** (`assets/defaults/task.md`, `assets/defaults/story.md`,
+   `assets/defaults/bug.md`) to edit and approve; (c) **the lead's own template** — the lead gives the sections they
+   want (a list of titles, a pasted text, or a file path in the repo; read it with your file tools) and you shape it
+   into a template. The defaults are only a start: if the lead does not like them, (c) is the answer, and nothing in
+   the defaults is kept unless the lead keeps it.
 3. **Read it:** `jira_get_issue` with `fields="*all"` and `expand=renderedFields`; `jira_get_create_fields` for the
    project and the type (it needs the `issue_type_id` from step 1 and returns `field_id`, `name`, `required` and
    `schema`, **not** the allowed values); `jira_get_field_options` (project key and issue type name) for the allowed
@@ -84,11 +87,22 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
    (`tracker.issueTypes[].readingMap.fields`: id and label). Show the evidence ("the field 'Acceptance Criteria' is
    `customfield_10201`, filled in the sample").
 5. **Propose the template** (`tracker.issueTypes[].template`) per type: the description skeleton of the sample (its
-   headings, checklists and scenario labels kept, content stripped) or the default; the lead edits and approves. Read
+   headings, checklists and scenario labels kept, content stripped), the default, or the lead's own sections turned into
+   a skeleton in the tracker's text format (each section a heading, a `{placeholder}` line saying what goes in it, the
+   team's checklist and scenario conventions as the lead wrote them). If the lead defined their own sections, also ask
+   which section holds the acceptance criteria and record it as `tracker.issueTypes[].readingMap.acceptanceCriteria`
+   (Plan reads tickets with it). The lead edits and approves, as many rounds as they want. Read
    `assets/jira-dc-formatting.md` first: how Jira DC and the server convert text decides what survives.
 6. **Ask for the `tracker.issueTypes[].branchType`** of each type (what `{type}` means in a branch name: Story
    `feature`, Bug `bugfix`, Task `chore`), defaulting from the type name and checked against the branch names found
    in L6.
+
+### Changing a template later
+
+"Change the Bug template", "redo the Story type": go straight to L4.2 and L4.5 for **that type only** (the lead may
+redo a type that is already in `tracker.issueTypes`, or a stream's under `streams.items[].issueTypes`), then L5 for it:
+a changed template is proven by a new test ticket like a new one, and replaces the old entry through a diff the lead
+approves. Other types are untouched.
 
 ## L5. Test-create, learn from errors (writes to Jira, approved per ticket)
 

@@ -24,7 +24,7 @@ describe("the skill is loadable", () => {
   it("name equals its directory and is kebab-case; license; description names the triggers", () => {
     expect(front.name).toBe("liftoff-connect");
     expect(front.license).toBe("Apache-2.0");
-    for (const t of ["connect jira", "connect gitlab", "liftoff connect", "liftoff connect lead", "relearn conventions", "set up my tracker"]) expect(front.description, t).toContain(t);
+    for (const t of ["connect jira", "connect gitlab", "liftoff connect", "liftoff connect lead", "relearn conventions", "set up my tracker", "change a ticket template"]) expect(front.description, t).toContain(t);
   });
   it("allowed-tools is exactly the CLI rule, and nothing else is pre-approved", () => {
     expect(front["allowed-tools"]).toBe('Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *)');
@@ -126,8 +126,8 @@ describe("lead-onboarding.md", () => {
     }
   });
   it("states the rules", () => {
-    for (const s of ["[LiftOff test]", "one ticket at a time", "At most 3", "The 3-attempt cap applies here too", "closed, not deleted", "no merge request is created", "Only one Jira project", "On resume"]) {
-      expect(lead.toLowerCase(), s).toContain(s.toLowerCase());
+    for (const s of ["[LiftOff test]", "one ticket at a time", "At most 3", "The 3-attempt cap applies here too", "closed, not deleted", "no merge request is created", "Only one Jira project", "On resume", "the lead's own template", "Changing a template later", "if the lead does not like them", "which section holds the acceptance criteria"]) {
+      expect(lead.replace(/\s+/g, " ").toLowerCase(), s).toContain(s.toLowerCase());
     }
   });
 });

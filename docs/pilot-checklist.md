@@ -56,6 +56,7 @@ After editing a skill on disk, run `/reload-plugins`. `claude plugin validate <r
 ## Connect, lead flow
 
 24. Discovery lists the project's issue types; a type with a sample ticket; a type with none (default template); a pasted example.
+24b. A type whose template the lead defines from scratch (own sections, then which section holds the acceptance criteria) and a later "change the Bug template": proven by a new test ticket, other types untouched.
 25. A create that fails on a required field the metadata did not declare: the flow reads the error, proposes `createFields`,
     the retry passes. The rendering check on the created ticket (see `jira-dc-formatting.md`).
 26. The transition walk, including a Done that needs `resolution`; an unreachable state (the lead names it, marked
