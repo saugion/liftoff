@@ -100,14 +100,19 @@ file names its `project` once) (`draft-tickets` rejects the mix with `module-in-
 `module-wrong-project`): say so and split it, repeating the shared context in both. In a split, each ticket names the other by its summary and project ("the endpoint is the ticket *<summary>* in BLS"), never with a
 placeholder key. Run `draft-tickets --file` on it. For every ticket with `ok` false, fix `errors` and run again until `allOk` is
 true; show every `warnings` entry (`template-section-missing` means a section of the team's template is absent:
-add it or say why not).
+add it or say why not). When the template has no section for something the person told you (scope exclusions, for
+example), put it in the section that fits best (usually the first, "Context") and say so **before** you draft; never
+promise a section the template does not have.
 
 ## 5. Review and approve (one approval)
 
 Show the whole batch together: for each ticket its `preview` and its description, plus the project and, for a stream,
 its name. The person edits any ticket one by one (change the drafts file, run `draft-tickets` again). Say exactly
 what will happen: one `jira_create_issue` per ticket, in order, and where the ticket has an `after` step, one
-`jira_update_issue` to link the epic. **Apply only on the person's explicit yes to the batch.**
+`jira_update_issue` to link the epic. **Apply only on the person's explicit yes to the batch.** If the person changes anything after saying yes (a field like
+priority, a title, a ticket added or dropped), run `draft-tickets` again and ask for a **fresh yes** to the changed batch.
+If they ask for something this flow never does (move or comment on a ticket it did not create), decline in one line and
+say they do it in the tracker.
 
 ## 6. Create
 

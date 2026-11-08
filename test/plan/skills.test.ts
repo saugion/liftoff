@@ -92,6 +92,9 @@ describe("the rules are written", () => {
 describe("liftoff-ticket", () => {
   const b = () => skills["liftoff-ticket"].body;
   const flat = () => b().replace(/\s+/g, " ");
+  it("covers a change after approval, a scope note without a template section, and out-of-flow requests", () => {
+    for (const x of ["fresh yes", "never promise a section the template does not have", "decline in one line"]) expect(flat(), x).toContain(x);
+  });
   it("names the draft-tickets contract that exists in the real output", () => {
     const dir = repo(CONFIG.replace('version: "0.2"', 'version: "0.3"'), { "d.json": JSON.stringify({ tickets: [{ type: "Story", summary: "S", description: "d" }] }) });
     const out = cli(["draft-tickets", "--root", dir, "--file", "d.json"]).body;
