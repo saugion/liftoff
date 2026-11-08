@@ -264,7 +264,7 @@ Small numbers: read the metrics as signals, not statistics. Talk to every user.
 ## Roadmap (draft)
 
 1. **Plugin, Init** — `project-init` as a product, multi-agent output, team config read/write.
-2. **Connect** — Jira/Linear and GitHub/GitLab via MCP servers, with onboarding.
+2. **Connect** — Jira/Linear and GitHub/GitLab via MCP servers, with onboarding. *Implemented in 0.2.0 for the pilot: Jira Server/DC + GitLab, macOS (the `liftoff-connect` skill; specs in `SPEC-connect*.md`).*
 3. **Plan / Build / Close** — the ticket → plan → PR loop, approval-gated.
 4. **Ticket flow** — bugs / tasks / stories on the team's templates; Claude Code first, then MCP chat clients (e.g. Claude Desktop).
 5. **Work streams** — Kanban child projects linked in the config, epics broken into tickets; no sprint assumptions. Needs Connect and the Ticket flow. Judged with pilot data.
