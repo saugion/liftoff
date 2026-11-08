@@ -15543,24 +15543,26 @@ ${"#".repeat(Number(n))} ${t}
 }
 var normTitle = (s) => s.replace(/<[^>]+>/g, "").replace(/[*_:#]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 function headingOf(line) {
-  const md = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
-  if (md) return md[1];
-  const wiki = /^\s*h[1-6]\.\s+(.*?)\s*$/.exec(line);
-  if (wiki) return wiki[1];
+  const md = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+  if (md) return { level: md[1].length, title: md[2] };
+  const wiki = /^\s*h([1-6])\.\s+(.*?)\s*$/.exec(line);
+  if (wiki) return { level: Number(wiki[1]), title: wiki[2] };
   const bold = /^\s*\*{1,2}([^*\n]+?)\*{1,2}:?\s*$/.exec(line);
-  return bold ? bold[1] : void 0;
+  return bold ? { level: 7, title: bold[1] } : void 0;
 }
 function underHeading(text, title) {
   const lines2 = (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/);
   const want = normTitle(title);
   const start = lines2.findIndex((l) => {
     const h = headingOf(l);
-    return h !== void 0 && normTitle(h) === want;
+    return h !== void 0 && normTitle(h.title) === want;
   });
   if (start < 0) return "";
+  const level = headingOf(lines2[start]).level;
   const body = [];
   for (const l of lines2.slice(start + 1)) {
-    if (headingOf(l) !== void 0) break;
+    const h = headingOf(l);
+    if (h !== void 0 && (level === 7 || h.level !== 7 && h.level <= level)) break;
     body.push(l);
   }
   return body.join("\n").trim();

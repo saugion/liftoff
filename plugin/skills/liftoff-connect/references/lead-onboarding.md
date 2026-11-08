@@ -82,7 +82,8 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
    (`tracker.issueTypes[].readingMap.fields`: id and label). Show the evidence ("the field 'Acceptance Criteria' is
    `customfield_10201`, filled in the sample").
 5. **Propose the template** (`tracker.issueTypes[].template`) per type: the description skeleton of the sample (its
-   headings, content stripped) or the default; the lead edits and approves.
+   headings, checklists and scenario labels kept, content stripped) or the default; the lead edits and approves. Read
+   `assets/jira-dc-formatting.md` first: how Jira DC and the server convert text decides what survives.
 6. **Ask for the `tracker.issueTypes[].branchType`** of each type (what `{type}` means in a branch name: Story
    `feature`, Bug `bugfix`, Task `chore`), defaulting from the type name and checked against the branch names found
    in L6.
@@ -99,7 +100,7 @@ For each type, one ticket at a time:
    `tracker.issueTypes[].createFields` so far) and **ask**.
 2. `jira_create_issue`. Read it back with `jira_get_issue` and `expand=renderedFields` and check the **rendered
    HTML**: headings (`<h2>`), lists and code blocks survived. (The server converts Markdown to wiki markup on write and
-   back on read, so `##` in the raw read is normal; judge the rendering, or ask the lead to open the ticket.) If the
+   back on read, so `##` in the raw read is normal; judge the rendering, or ask the lead to open the ticket; `assets/jira-dc-formatting.md` lists the known quirks.) If the
    rendering is wrong, stop and show the lead: there is no text-format field in this release.
 3. On an error, read the message (Jira's, via the server), say what is wrong in a sentence (a required field the
    metadata did not declare, an invalid option, a permission), and propose the fix: a `createFields` entry (the value

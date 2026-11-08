@@ -78,28 +78,33 @@ function fromHtml(s: string): string {
 
 const normTitle = (s: string) => s.replace(/<[^>]+>/g, "").replace(/[*_:#]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 
-// The heading a line is, if any: Markdown `# x`, Jira wiki `h2. x`, or a line that is only bold `*x*`.
-function headingOf(line: string): string | undefined {
-  const md = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
-  if (md) return md[1];
-  const wiki = /^\s*h[1-6]\.\s+(.*?)\s*$/.exec(line);
-  if (wiki) return wiki[1];
+// The heading a line is, if any, with its level: Markdown `# x`, Jira wiki `h2. x` (1-6), or a line that is only
+// bold `*x*` (level 7, below every real heading: real tickets use bold lines for labels like "Scenario 1").
+function headingOf(line: string): { level: number; title: string } | undefined {
+  const md = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+  if (md) return { level: md[1]!.length, title: md[2]! };
+  const wiki = /^\s*h([1-6])\.\s+(.*?)\s*$/.exec(line);
+  if (wiki) return { level: Number(wiki[1]), title: wiki[2]! };
   const bold = /^\s*\*{1,2}([^*\n]+?)\*{1,2}:?\s*$/.exec(line);
-  return bold ? bold[1] : undefined;
+  return bold ? { level: 7, title: bold[1]! } : undefined;
 }
 
-// Text under the first heading called `title` (case-insensitive), up to the next heading. "" when not found.
+// Text under the first heading called `title` (case-insensitive), up to the next heading of the same or a higher
+// level ("" when not found). Sub-headings and bold labels inside the section belong to it; a section opened by a
+// bold line ends at the next heading of any kind.
 export function underHeading(text: string, title: string): string {
   const lines = (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/);
   const want = normTitle(title);
   const start = lines.findIndex((l) => {
     const h = headingOf(l);
-    return h !== undefined && normTitle(h) === want;
+    return h !== undefined && normTitle(h.title) === want;
   });
   if (start < 0) return "";
+  const level = headingOf(lines[start]!)!.level;
   const body: string[] = [];
   for (const l of lines.slice(start + 1)) {
-    if (headingOf(l) !== undefined) break;
+    const h = headingOf(l);
+    if (h !== undefined && (level === 7 || (h.level !== 7 && h.level <= level))) break;
     body.push(l);
   }
   return body.join("\n").trim();

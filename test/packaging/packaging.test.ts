@@ -152,6 +152,7 @@ describe("plugin/ is small and clean", () => {
       "skills/liftoff-build/SKILL.md",
       "skills/liftoff-connect/SKILL.md",
       "skills/liftoff-connect/assets/defaults.json",
+      "skills/liftoff-connect/assets/jira-dc-formatting.md",
       "skills/liftoff-connect/assets/defaults/bug.md",
       "skills/liftoff-connect/assets/defaults/story.md",
       "skills/liftoff-connect/assets/defaults/task.md",

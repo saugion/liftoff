@@ -39,6 +39,12 @@ describe("parse-ticket: reading", () => {
     expect(underHeading("h3. ACCEPTANCE CRITERIA\nX", "Acceptance criteria")).toBe("X");
     expect(underHeading("# Nope\nX", "Acceptance criteria")).toBe("");
   });
+  it("a real section keeps its bold labels and sub-headings (Given/When/Then scenarios), and ends at the next heading of its level", () => {
+    const md = "h2. Acceptance criteria\n\n**Scenario 1: login**\n* *Given* a user\n* *Then* in\n\nh3. Edge\n* x\n\nh2. Impacted Stakeholders\n* (x) A";
+    expect(underHeading(md, "Acceptance criteria")).toBe("**Scenario 1: login**\n* *Given* a user\n* *Then* in\n\nh3. Edge\n* x");
+    expect(underHeading("## Acceptance criteria\n**S1**\ntext\n## Next\ny", "Acceptance criteria")).toBe("**S1**\ntext");
+    expect(underHeading("*Notes*\nn\n*Acceptance criteria*\na\n*More*\nm", "Acceptance criteria")).toBe("a");
+  });
   it("warns, never invents: no criteria, empty description, missing field, unknown type", () => {
     const { body } = parse({ key: "PROJ-3", summary: "S", issue_type: { name: "Epic" }, description: "" });
     expect(body.known).toBe(false);
