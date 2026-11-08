@@ -71,7 +71,8 @@ In both modes the merge request and the ticket's status are the engineer's.
 
 Root = `git rev-parse --show-toplevel`. `node --version` must be 22.12 or newer. Run `check-config`: stop on
 `plugin-outdated`, `config-missing`, `config-invalid` (as in the other skills); `not-applied` and `required-changed`
-say to run the Init skill, but go on. `git status` must show a clean tree; if not, ask what to do and do nothing
+say to run the Init skill, but go on even when the overall `status` reads `blocked` because of them: tell the engineer once, never insist or
+run Init yourself, and read the rules (`build.git` included) from what `parse-ticket` returns now. `git status` must show a clean tree; if not, ask what to do and do nothing
 destructive.
 
 ## 2. The plan gate
@@ -87,7 +88,7 @@ Run `plan --key <KEY>` (the key from the user, or the only plan in `.liftoff/pla
 
 ## 3. The ticket and the conventions
 
-Run `parse-ticket` on `.liftoff/tmp/<KEY>.json` (run it again here even if Plan did: the config may have changed). If the file is missing, or the engineer says the ticket changed,
+Run `parse-ticket` on `.liftoff/tmp/<KEY>.json` (create the folder if it does not exist) (run it again here even if Plan did: the config may have changed). If the file is missing, or the engineer says the ticket changed,
 call `jira_get_issue` (`fields="*all"`, `expand=renderedFields`) and save it there first (a read; it is the only
 tracker call this skill makes). You need `build.git`, `build.branch`, `build.title`, `build.targetBranch`,
 `build.mrTemplate`, `build.mrDescriptionFile` and `build.mrCreate`. Without a code host, `build.mrCreate` is null:
