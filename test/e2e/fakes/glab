@@ -4,7 +4,20 @@ LOG="${FAKE_GLAB_LOG:-/dev/null}"
 { echo "---"; for a in "$@"; do printf '%s\n' "$a"; done; } >> "$LOG"
 case "$1 $2" in
   "repo view") echo '{"default_branch":"main","path_with_namespace":"acme/billing"}' ;;
-  "mr list") echo '[]' ;;
+  "mr list")
+    case " $* " in
+      *" --merged "*)
+        cat <<'JSON'
+[{"iid":41,"title":"BILL-31: add invoice export","source_branch":"feature/BILL-31-invoice-export","target_branch":"main","labels":["backend"],"reviewers":[{"username":"alice"},{"username":"bob"}]},
+ {"iid":40,"title":"BILL-29: fix rounding on totals","source_branch":"bugfix/BILL-29-rounding","target_branch":"main","labels":["backend","bug"],"reviewers":[{"username":"alice"}]},
+ {"iid":39,"title":"BILL-27: invoice list pagination","source_branch":"feature/BILL-27-pagination","target_branch":"main","labels":["frontend"],"reviewers":[{"username":"bob"}]},
+ {"iid":38,"title":"BILL-25: validate vat numbers","source_branch":"feature/BILL-25-vat","target_branch":"main","labels":["backend"],"reviewers":[{"username":"alice"},{"username":"bob"}]},
+ {"iid":37,"title":"BILL-22: retry failed mails","source_branch":"bugfix/BILL-22-mail-retry","target_branch":"main","labels":["backend","bug"],"reviewers":[{"username":"alice"}]},
+ {"iid":36,"title":"BILL-20: web: empty state","source_branch":"feature/BILL-20-empty-state","target_branch":"main","labels":["frontend"],"reviewers":[{"username":"bob"}]}]
+JSON
+        ;;
+      *) echo '[]' ;;
+    esac ;;
   "auth status") echo '{"hosts":{"gitlab.company.local":{"state":"ok"}}}' ;;
   "mr create")
     while [ $# -gt 0 ]; do [ "$1" = "--description-file" ] && cp "$2" "$LOG.description"; shift; done
