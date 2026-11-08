@@ -81,7 +81,7 @@ Run `plan --key <KEY>` (the key from the user, or the only plan in `.liftoff/pla
 
 ## 3. The ticket and the conventions
 
-Run `parse-ticket` on `.liftoff/tmp/<KEY>.json`. If the file is missing, or the engineer says the ticket changed,
+Run `parse-ticket` on `.liftoff/tmp/<KEY>.json` (run it again here even if Plan did: the config may have changed). If the file is missing, or the engineer says the ticket changed,
 call `jira_get_issue` (`fields="*all"`, `expand=renderedFields`) and save it there first (a read; it is the only
 tracker call this skill makes). You need `build.git`, `build.branch`, `build.title`, `build.targetBranch`,
 `build.mrTemplate`, `build.mrDescriptionFile` and `build.mrCreate`. Without a code host, `build.mrCreate` is null:
@@ -102,10 +102,10 @@ start name, when the team has one) is theirs to do.
 ## 5. Implement, section by section
 
 For each section not yet done, in order: do the steps; run the check the plan names (and the repo checks `AGENTS.md`
-lists); fix a failure or report it, never skip it; tick the section's checkboxes in the plan file; make one commit
+lists); fix a failure or report it, never skip it. If the repo's own check command is broken in this environment (it fails with or without your change), do not edit it unless the plan says to: run the closest equivalent, say exactly what you ran and why, leave the section unticked (blocked) and hand the problem to the engineer; a section that only runs checks makes no commit, and you never make an empty one. Tick the section's checkboxes in the plan file; make one commit
 whose message starts with the ticket key and names the section (`manual` mode: do not commit; give the engineer
 that message and the list of changed files, then go on). Changing the plan's content (not a checkbox) makes it
-`stale`: a deviation that is small is told to the engineer and noted in the plan file as a `Note:` line outside the
+`stale`: a deviation that is small is told to the engineer and noted in the plan file as a line that starts with `Note:` (it does not count as content, so the approval stays valid), outside the
 checkbox lines; a deviation that needs a new or different section goes back to the Plan skill for a new approval. Run
 `plan --key <KEY>` now and then: `approvedValid` must stay true.
 
@@ -116,7 +116,7 @@ the plan; list anything not covered. Report it plainly, even if it is awkward.
 
 ## 7. The merge request description
 
-If `build.mrTemplate` is set, read that file and fill it; otherwise write a short summary. Include the ticket URL
+If `build.mrTemplate` is set, read that file and fill it (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat); otherwise write a short summary. Include the ticket URL
 (`ticket.url`), a summary of the plan, and the self-check result. Write it with your file tools to
 `build.mrDescriptionFile`.
 
@@ -131,4 +131,4 @@ skip this step.
 Give the engineer, in one message: what was done and what was not, what to review first, and what is theirs to do
 now: push the branch (manual mode), open the merge request with `build.mrCreate` exactly as the CLI returned it
 (it reads `build.mrDescriptionFile`; show the title, labels, reviewers and the description first), and move the
-ticket to its next lane. Never run `build.mrCreate` yourself and never touch the ticket.
+ticket to its next lane (name the lane the team uses next, with the `build.transitions` names, and say which applies to the ticket's current status). Never run `build.mrCreate` yourself and never touch the ticket.

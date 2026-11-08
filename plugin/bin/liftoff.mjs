@@ -15884,7 +15884,8 @@ import { join as join7 } from "node:path";
 // src/plan/file.ts
 var import_yaml2 = __toESM(require_dist(), 1);
 function bodyHash2(body) {
-  return sha256(body.replace(/\r\n/g, "\n").replace(/\[[xX]\]/g, "[ ]").trim());
+  const content = body.replace(/\r\n/g, "\n").split("\n").filter((l) => !/^\s*Note:/.test(l)).join("\n");
+  return sha256(content.replace(/\[[xX]\]/g, "[ ]").replace(/\n{3,}/g, "\n\n").trim());
 }
 function readPlan(text, key) {
   const crlf = text.includes("\r\n");

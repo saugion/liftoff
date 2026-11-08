@@ -76,6 +76,14 @@ describe("the rules are written", () => {
   it("Build: gate, dry-runs, no merge request, no ticket writes", () => {
     for (const s of ["build only from an approved, unchanged plan", "Dry-run 1", "Dry-run 2", "Never:", "merge", "force-push", "open the merge request (not even with `build.mrCreate`", "move, transition, comment on or edit the ticket", "write to the tracker at all", "Never run `build.mrCreate` yourself and never touch the ticket"]) expect(flat("liftoff-build"), s).toContain(s);
   });
+  it("Build: a broken repo check, a check-only section, a Note: line", () => {
+    const f = flat("liftoff-build");
+    for (const x of ["closest equivalent", "never make an empty one", "does not count as content"]) expect(f, x).toContain(x);
+  });
+  it("Plan: writes the plan after the answers, shows the outline with the questions, handles field-missing", () => {
+    const f = flat("liftoff-plan");
+    for (const x of ["write the plan after the answers", "A `field-missing` warning", "write the tests, see them fail"]) expect(f, x).toContain(x);
+  });
   it("Build makes no tracker write: it names no write or transition tool", () => {
     expect(skills["liftoff-build"].body).not.toMatch(/jira_(transition_issue|get_transitions|create_issue|update_issue|add_comment)/);
   });

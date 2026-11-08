@@ -46,6 +46,14 @@ describe("plan: report", () => {
     writeFileSync(s.file, readFileSync(s.file, "utf8").replace("POST /login", "POST /sessions"));
     expect(s.plan().body).toMatchObject({ approvedValid: false, stale: true });
   });
+  it("a Note: line (a recorded deviation) keeps the approval; any other added text makes it stale", () => {
+    const s = setup();
+    s.plan("--approve");
+    writeFileSync(s.file, readFileSync(s.file, "utf8").replace("## 2. Endpoint", "Note: check.sh was broken on Node 24, ran the tests directly.\n\n## 2. Endpoint"));
+    expect(s.plan().body).toMatchObject({ approvedValid: true, stale: false });
+    writeFileSync(s.file, readFileSync(s.file, "utf8").replace("## 2. Endpoint", "Also refactor everything.\n\n## 2. Endpoint"));
+    expect(s.plan().body).toMatchObject({ approvedValid: false, stale: true });
+  });
   it("keeps CRLF files CRLF through approval", () => {
     const s = setup(PLAN.replace(/\n/g, "\r\n"));
     s.plan("--approve");

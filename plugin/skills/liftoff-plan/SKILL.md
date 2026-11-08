@@ -69,11 +69,11 @@ run the Connect skill and, in Claude Code, to restart the session afterwards; st
 
 1. Call `jira_get_issue` with `fields="*all"` and `expand=renderedFields`.
 2. Make sure `<root>/.liftoff/.gitignore` exists and holds `*` (create it with your file tools if not). Save the
-   tool's JSON, as is, to `.liftoff/tmp/<KEY>.json`.
+   JSON the tool returned, without any log or warning lines the shell added around it, to `.liftoff/tmp/<KEY>.json`.
 3. Run `parse-ticket` with `--file` pointing at it. `no-tracker`: the Connect skill has not been run for this repo;
    stop. `ticket-invalid`: show `message`; stop.
 4. Show the engineer what the team's reading map found: `ticket.summary`, `reading.acceptanceCriteria` (and its
-   `source`), `reading.fields`, and every entry of `warnings`. A `no-acceptance-criteria` warning means **ask the
+   `source`), `reading.fields`, and every entry of `warnings`. A `field-missing` warning is a field the lead listed that this ticket does not fill: mention it, and ask about it only if the work needs it. For a bug, the template's other sections (repro recipe, impact, postmortem) are context for the plan, not work items. A `no-acceptance-criteria` warning means **ask the
    engineer for them**; an `unknown-issue-type` warning means the lead can teach the Connect skill that type.
 
 ## 3b. Work streams
@@ -86,7 +86,7 @@ the stream's own, and `stream.module` is the code module it feeds: read that mod
 ## 4. Understand the code
 
 Read the root `AGENTS.md` and `CONSTRAINTS.md`, the `AGENTS.md` of every module the ticket touches, then the code
-involved. Ask the engineer in **one round** for anything the ticket leaves open (scope, edge cases, constraints).
+involved. Ask the engineer in **one round** for anything the ticket leaves open (scope, edge cases, constraints), and show your outline (the sections you intend to write) in the same message so the questions have context; write the plan after the answers.
 
 ## 5. Write the plan
 
@@ -105,7 +105,7 @@ status: draft
 - [ ] the check that proves the section (a command from the repo's `AGENTS.md`)
 ```
 
-Sections are numbered `1..n` without gaps, each one independently reviewable and ending in a checkable result, and
+Sections are numbered `1..n` without gaps, each one independently reviewable and ending in a checkable result (if the repo's rules ask for tests first, say so in the steps: write the tests, see them fail, then fix), and
 each has at least one checkbox item. As many sections as the work needs (12 or 120). The last section runs the
 repo's full checks. Then run `plan --key <KEY>` and fix what `errors` says until it answers `ok`.
 

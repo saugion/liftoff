@@ -13,9 +13,11 @@ export type PlanRead =
   | { ok: false; errors: string[] }
   | { ok: true; status: "draft" | "approved"; approvedHash?: string; sections: PlanSection[]; hash: string; frontMatter: Record<string, unknown>; body: string; crlf: boolean };
 
-// Checkbox state is progress, not content: ticking a box must not undo an approval.
+// Checkbox state is progress, and a `Note:` line is the engineer's or the agent's record of a deviation: neither is
+// content, so neither may undo an approval.
 export function bodyHash(body: string): string {
-  return sha256(body.replace(/\r\n/g, "\n").replace(/\[[xX]\]/g, "[ ]").trim());
+  const content = body.replace(/\r\n/g, "\n").split("\n").filter((l) => !/^\s*Note:/.test(l)).join("\n");
+  return sha256(content.replace(/\[[xX]\]/g, "[ ]").replace(/\n{3,}/g, "\n\n").trim());
 }
 
 export function readPlan(text: string, key: string): PlanRead {
