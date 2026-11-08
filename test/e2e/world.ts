@@ -6,11 +6,14 @@ import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "n
 import https from "node:https";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
-import { tempDir } from "../helpers.js";
+import { mkdtempSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+// realpath: on macOS tmpdir() is under /var, which resolves to /private/var.
+const tempDir = (prefix: string) => realpathSync(mkdtempSync(join(tmpdir(), prefix)));
 
 export const ROOT = join(import.meta.dirname, "..", "..");
 export const BUNDLE = join(ROOT, "plugin", "bin", "liftoff.mjs");
-export const FAKES = join(import.meta.dirname, "fakes");
+export const FAKES = join(ROOT, "test", "e2e", "fakes");
 export const TOKEN = "e2e-PAT-3f9a7c1d-do-not-leak";
 
 export function runDir(name: string): string {
@@ -79,7 +82,25 @@ const initialStatus = (project: string) => (project === "PROJ" ? "To Do" : "Back
 
 export interface FakeJira { url: string; requests: { method: string; path: string; auth: string | undefined }[]; issues: Issue[]; close(): Promise<void> }
 
-export async function startJira(dir: string, token: string | string[] = TOKEN, opts: { fresh?: boolean } = {}): Promise<FakeJira> {
+// What a real Jira shows for a description: headings, lists and paragraphs from Markdown (the MCP server converts it
+// on write) or wiki markup. Enough for the tests to tell "rendered" from "literal ## signs".
+export function renderDescription(text: string): string {
+  const out: string[] = []; let list: "ul" | "ol" | null = null;
+  const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  for (const line of text.split("\n")) {
+    let m: RegExpExecArray | null;
+    if ((m = /^(#{1,6})\s+(.*)$/.exec(line) ?? /^h([1-6])\.\s+(.*)$/.exec(line))) { close(); const n = m[1]!.startsWith("#") ? m[1]!.length : Number(m[1]); out.push(`<h${n}>${esc(m[2]!)}</h${n}>`); }
+    else if ((m = /^[*-]\s+(.*)$/.exec(line))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${esc(m[1]!)}</li>`); }
+    else if ((m = /^\d+\.\s+(.*)$/.exec(line))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${esc(m[1]!)}</li>`); }
+    else if (line.trim() === "") close();
+    else { close(); out.push(`<p>${esc(line)}</p>`); }
+  }
+  close();
+  return out.join("");
+}
+
+export async function startJira(dir: string, token: string | string[] = TOKEN, opts: { fresh?: boolean; port?: number } = {}): Promise<FakeJira> {
   const key = join(dir, "jira-key.pem"), cert = join(dir, "jira-cert.pem");
   const r = spawnSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert, "-subj", "/CN=localhost", "-days", "2"], { encoding: "utf8" });
   if (r.status !== 0) throw new Error("openssl failed: " + r.stderr);
@@ -104,7 +125,7 @@ export async function startJira(dir: string, token: string | string[] = TOKEN, o
         const project = f.project?.key as string;
         const n = issues.filter((i) => i.key.startsWith(project + "-")).length + 1;
         const { project: _p, issuetype, ...rest } = f;
-        const created = issue(`${project}-${n}`, issuetype.name, rest.summary, rest.description ?? "", `<p>${rest.description ?? ""}</p>`, { ...rest, status: { name: initialStatus(project) } });
+        const created = issue(`${project}-${n}`, issuetype.name, rest.summary, rest.description ?? "", renderDescription(String(rest.description ?? "")), { ...rest, status: { name: initialStatus(project) } });
         issues.push(created);
         return send(201, { id: String(1000 + n), key: created.key });
       }
@@ -123,7 +144,7 @@ export async function startJira(dir: string, token: string | string[] = TOKEN, o
       send(204, {});
     });
   });
-  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+  await new Promise<void>((ok) => server.listen(opts.port ?? 0, "127.0.0.1", ok));
   const port = (server.address() as { port: number }).port;
   return { url: `https://127.0.0.1:${port}`, requests, issues, close: () => new Promise((ok) => (server.closeAllConnections(), server.close(() => ok()))) };
 }

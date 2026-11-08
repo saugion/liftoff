@@ -183,3 +183,20 @@ describe("draft-tickets: epics", () => {
     expect(run("STR", [epic(), task({ epic: "#0" })], noField).tickets[1].errors.map((e: any) => e.code)).toContain("epic-link-field-missing");
   });
 });
+
+describe("draft-tickets: the Epic Name field", () => {
+  const withName = WITH.replace("  epicLinkField: customfield_10451\n", "  epicLinkField: customfield_10451\n  epicNameField: customfield_10011\n")
+    .replace("    - name: Bug\n      readingMap:", "    - name: Epic\n      template: |\n        ## Purpose\n    - name: Bug\n      readingMap:");
+  const epic = (extra: object = {}) => ({ type: "Epic", summary: "Payments", description: "## Purpose\nx", ...extra });
+  it("an epic's Epic Name is its summary unless the draft says otherwise; other types get none", () => {
+    const r = draft({ tickets: [epic(), epic({ fields: { customfield_10011: "Pay" } }), { ...story }] }, withName).body;
+    expect(r.allOk, JSON.stringify(r.tickets)).toBe(true);
+    expect(r.tickets[0].call.args.additional_fields).toEqual({ customfield_10011: "Payments" });
+    expect(r.tickets[1].call.args.additional_fields).toEqual({ customfield_10011: "Pay" });
+    expect(r.tickets[2].call.args.additional_fields.customfield_10011).toBeUndefined();
+  });
+  it("without tracker.epicNameField nothing is added", () => {
+    const noField = withName.replace("  epicNameField: customfield_10011\n", "");
+    expect(draft({ tickets: [epic()] }, noField).body.tickets[0].call.args.additional_fields).toBeUndefined();
+  });
+});

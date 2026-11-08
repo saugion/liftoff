@@ -89,6 +89,7 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
 
   const ok = errors.length === 0;
   const additional: Json = { ...(type?.createFields ?? {}), ...(isObj(fields) ? fields : {}) };
+  if (isEpic && tracker.epicNameField && additional[tracker.epicNameField] === undefined && typeof summary === "string") additional[tracker.epicNameField] = summary.trim(); // the epic's own name: its summary, unless the draft gave `fields`
   if (Array.isArray(labels) && labels.length > 0) additional.labels = labels;
   if (typeof priority === "string") additional.priority = { name: priority };
   const call = ok

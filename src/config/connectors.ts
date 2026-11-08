@@ -21,6 +21,7 @@ export type TrackerConfig = {
   project: string;
   server: { version: string; sslVerify: boolean; readOnly: boolean };
   epicLinkField?: string; // the Server/DC Epic Link custom field, set after creation
+  epicNameField?: string; // the Epic Name custom field Jira asks for when an Epic is created (its value is the epic's own name)
   issueTypes: IssueType[];
 };
 export type Stream = { id: string; project: string; mode: "kanban"; module?: string; epics: string[]; issueTypes: IssueType[] };
@@ -103,6 +104,7 @@ export const normalizeTracker = (t: RawTracker): TrackerConfig => ({
   url: normalizeUrl(t.url),
   project: t.project,
   ...(t.epicLinkField !== undefined && { epicLinkField: t.epicLinkField }),
+  ...(t.epicNameField !== undefined && { epicNameField: t.epicNameField }),
   server: { version: t.server.version, sslVerify: t.server.sslVerify ?? true, readOnly: t.server.readOnly ?? false },
   issueTypes: (t.issueTypes ?? []).map(normalizeIssueType),
 });

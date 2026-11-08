@@ -68,7 +68,7 @@ the Connect skill, and stop for that part). The person may want an epic **and** 
 batch.
 
 - **Epic:** the purpose, who it is for, the journey, how success is measured, in the person's words. Ask for what is
-  missing, never invent it. The type's `createFields` carry the instance's Epic Name field; you add nothing for it.
+  missing, never invent it. The Epic Name field is filled for you with the epic's `summary` (`tracker.epicNameField`); give a short, clear title.
 - **Bug, task, story:** what the person wants, in their words; for a bug the steps, the expected and the actual
   behaviour, the environment, any error text. Ask for what is missing, never fill it with a guess.
 - **Break down an epic:** the epic must be one of the stream's `epics` or one the person names. Call

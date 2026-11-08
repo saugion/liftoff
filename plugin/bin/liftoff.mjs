@@ -14352,6 +14352,7 @@ var normalizeTracker = (t) => ({
   url: normalizeUrl(t.url),
   project: t.project,
   ...t.epicLinkField !== void 0 && { epicLinkField: t.epicLinkField },
+  ...t.epicNameField !== void 0 && { epicNameField: t.epicNameField },
   server: { version: t.server.version, sslVerify: t.server.sslVerify ?? true, readOnly: t.server.readOnly ?? false },
   issueTypes: (t.issueTypes ?? []).map(normalizeIssueType)
 });
@@ -14813,6 +14814,9 @@ var liftoff_schema_default = {
           }
         },
         epicLinkField: {
+          $ref: "#/definitions/idToken"
+        },
+        epicNameField: {
           $ref: "#/definitions/idToken"
         }
       },
@@ -15719,6 +15723,7 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
   }
   const ok = errors.length === 0;
   const additional = { ...type?.createFields ?? {}, ...isObj2(fields) ? fields : {} };
+  if (isEpic && tracker.epicNameField && additional[tracker.epicNameField] === void 0 && typeof summary === "string") additional[tracker.epicNameField] = summary.trim();
   if (Array.isArray(labels) && labels.length > 0) additional.labels = labels;
   if (typeof priority === "string") additional.priority = { name: priority };
   const call = ok ? { tool: "jira_create_issue", args: { project_key: info.project, issue_type: type.name, summary, description, ...Object.keys(additional).length > 0 && { additional_fields: additional } } } : null;

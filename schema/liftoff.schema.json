@@ -322,6 +322,9 @@
         },
         "epicLinkField": {
           "$ref": "#/definitions/idToken"
+        },
+        "epicNameField": {
+          "$ref": "#/definitions/idToken"
         }
       },
       "additionalProperties": false,

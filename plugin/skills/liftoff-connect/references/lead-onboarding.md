@@ -11,12 +11,15 @@ fields the metadata does not declare, transitions differ per type), so a templat
 **trying it**: start from what exists, test-create one ticket per type, learn from the errors, repeat until each type
 passes, then write.
 
-**Where it resumes comes from the config alone.** An issue type present in `tracker.issueTypes` has passed;
+**Resuming skips L1 and L2 only for what the config already holds.** If you enter at L3 or L4 and the config has the
+tracker, still ask L1's question 3 (where the test tickets go) before L5: it is never stored. **Where it resumes comes from the config alone.** An issue type present in `tracker.issueTypes` has passed;
 `codeHost.conventions` with anything beyond its defaults has been learned. A restart of the agent (normal in Claude
 Code after the MCP file is written) costs nothing, and adding a connector or an issue type later is the same flow.
 
 Conventions: approval before every write; diffs shown; structured questions when available; nothing committed.
-**Every write to Jira is announced and approved one ticket at a time.** Only the tools of the member flow's server
+**Every write to Jira is announced and approved one ticket at a time.** The lead may approve in advance every later
+test ticket and entry that matches what they already specified; you still show each one, and apply it only if it
+matches exactly, otherwise ask. Only the tools of the member flow's server
 are available (no delete, move or assign tool exists): use no other.
 
 ## L1. Ask (one round, three questions)
@@ -65,8 +68,10 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
 
 1. **Discover the types:** `jira_get_project_issue_types` for the project (it returns ids and names); ask the lead
    which ones the team uses (multi-select). Include `Epic` if people will create epics through the Ticket flow: its
-   template and its Epic Name field (an instance-specific custom field that `jira_get_create_fields` lists as
-   required; record it in `createFields`) are learned like any other type. Types already in `tracker.issueTypes` are skipped unless the lead asks to
+   template is learned like any other type. Its **Epic Name** field (an instance-specific custom field that
+   `jira_get_create_fields` lists as required) is different: every epic has its own name, so it does not go in
+   `createFields`; record its field id once as `tracker.epicNameField`, and the Ticket flow fills it with the epic's
+   title. For the test ticket use `[LiftOff test] Epic` as the value. Types already in `tracker.issueTypes` are skipped unless the lead asks to
    redo them.
 2. **Where the template starts, per type** (ask; one question per type, or one for all): (a) **a sample** — one existing
    ticket key (the best example the lead has) or a **pasted example** (a ticket from another project), read like a
@@ -81,7 +86,12 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
    values of the fields that matter; `jira_search_fields` to map field names to ids. Custom field ids differ per
    instance: always use the ids you read, never a remembered one. If `jira_get_create_fields` fails, fall back to
    `jira_search_fields` plus the first create error (slower, works).
-4. **Propose the reading map** per type as a table for the lead to edit and approve: where the acceptance criteria
+4. **Propose the reading map** per type as a table for the lead to edit and approve. The acceptance-criteria entry is
+   `heading:` (the section title in the description) or `field:`, for **every** type, not only Story: propose the
+   section that plays that role in the template (Story "Acceptance criteria", Epic "Success criteria", Bug the
+   section about what must be true after the fix) and ask; never propose "none" when the template has such a section.
+   Propose as `fields` only the fields the lead wants Plan to show (the required ones, and those a sample has filled),
+   not every optional field of the create screen. Where it is where the acceptance criteria
    live (`tracker.issueTypes[].readingMap.acceptanceCriteria`: a custom field whose name looks like "acceptance", else
    a heading in the description, matched case-insensitively) and which other fields matter
    (`tracker.issueTypes[].readingMap.fields`: id and label). Show the evidence ("the field 'Acceptance Criteria' is
@@ -117,7 +127,11 @@ For each type, one ticket at a time:
 2. `jira_create_issue`. Read it back with `jira_get_issue` and `expand=renderedFields` and check the **rendered
    HTML**: headings (`<h2>`), lists and code blocks survived. (The server converts Markdown to wiki markup on write and
    back on read, so `##` in the raw read is normal; judge the rendering, or ask the lead to open the ticket; `assets/jira-dc-formatting.md` lists the known quirks.) If the
-   rendering is wrong, stop and show the lead: there is no text-format field in this release.
+   rendering is wrong, stop and show the lead: there is no text-format field in this release. Name the signature
+   (`renderedFields` holds one `<p>## Heading ...</p>` and no `<h2>`, while the raw text looks the same either way:
+   only the rendered field tells), and offer: the lead opens the ticket and checks, the lead asks the Jira admin, or a
+   retry with wiki markup (`h2.`) in all templates. A fix of the instance by the lead resets the attempt count for
+   that type; a ticket the lead removed outside the flow is not an orphan (the resume search simply finds none).
 3. On an error, read the message (Jira's, via the server), say what is wrong in a sentence (a required field the
    metadata did not declare, an invalid option, a permission), and propose the fix: a `createFields` entry (the value
    from `jira_get_field_options` or the lead) or a template change. Show the diff, get approval, retry. **At most 3
@@ -130,8 +144,9 @@ For each type, one ticket at a time:
    `tracker.issueTypes[].transitions.done.fields`; they are learned from errors, because the server does not return
    the screen fields. **The 3-attempt cap applies here too.** Conditions and validators can make a state
    unreachable: the lead then names the transition by hand and it is marked **unverified** in the summary.
-   Intermediate states are not recorded: Close finds them at run time. The ticket ends in its final state when
-   reachable: tickets are **closed, not deleted** (no delete tool is exposed).
+   A role the workflow does not have (no done transition yet) is simply left out of `transitions`: no stub, and say
+   so in the summary. The ticket ends in its final state when one is reachable (**closed, not deleted**: no delete
+   tool is exposed); otherwise it stays in the last state reached and is listed for the lead to delete.
 5. A type **passes** when the ticket was created and rendered right; its transitions are written as proven or as
    unverified. **Write its entry to `liftoff.yaml` now**: a diff of what was learned, approval, an edit of the text
    (comments stay), `validate` (at most 5 rounds, fix only what you wrote). An interruption therefore loses at most

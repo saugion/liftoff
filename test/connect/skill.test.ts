@@ -126,7 +126,7 @@ describe("lead-onboarding.md", () => {
     }
   });
   it("states the rules", () => {
-    for (const s of ["[LiftOff test]", "one ticket at a time", "At most 3", "The 3-attempt cap applies here too", "closed, not deleted", "no merge request is created", "Only one Jira project", "On resume", "the lead's own template", "Changing a template later", "if the lead does not like them", "which section holds the acceptance criteria"]) {
+    for (const s of ["[LiftOff test]", "one ticket at a time", "At most 3", "The 3-attempt cap applies here too", "closed, not deleted", "no merge request is created", "Only one Jira project", "On resume", "the lead's own template", "Changing a template later", "if the lead does not like them", "which section holds the acceptance criteria", "resets the attempt count", "no stub", "tracker.epicNameField", "approve in advance every later"]) {
       expect(lead.replace(/\s+/g, " ").toLowerCase(), s).toContain(s.toLowerCase());
     }
   });

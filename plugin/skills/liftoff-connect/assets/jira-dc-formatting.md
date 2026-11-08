@@ -24,4 +24,5 @@ runs the same stack (Jira DC through `mcp-atlassian`); verify each point on the 
   does not set them (that belongs to the Ticket flow); record their ids in `tracker.issueTypes[].readingMap.fields`
   if Plan should show them.
 - An Epic on Server/DC usually needs an **Epic Name** custom field on create; its id differs per instance. Read it with
-  `jira_get_create_fields` and put it in the Epic type's `tracker.issueTypes[].createFields`.
+  `jira_get_create_fields` and record its id as `tracker.epicNameField` (not in `createFields`: every epic has its own
+  name, and the Ticket flow fills it with the epic's title).

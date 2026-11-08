@@ -45,6 +45,14 @@ const handlers = {
     const { key } = await jira("POST", "/rest/api/2/issue", { fields: { project: { key: a.project_key }, issuetype: { name: a.issue_type }, summary: a.summary, description: a.description, ...(a.additional_fields ?? {}) } });
     return { message: "Issue created successfully", issue: { key } };
   },
+  // Metadata tools: static answers shaped like mcp-atlassian's, enough for the lead flow to discover types and fields.
+  jira_get_project_issue_types: async () => ({ issue_types: [{ id: "10", name: "Epic", description: "A big piece of work" }, { id: "26", name: "Story" }, { id: "1", name: "Bug" }, { id: "3", name: "Task" }, { id: "12600", name: "Sub-task", subtask: true }] }),
+  jira_get_create_fields: async (a) => ({ fields: [{ field_id: "summary", name: "Summary", required: true, schema: "string" }, { field_id: "description", name: "Description", required: false, schema: "string" },
+    { field_id: "priority", name: "Priority", required: false, schema: "priority" }, { field_id: "labels", name: "Labels", required: false, schema: "array" },
+    ...(a.issue_type_id === "10" ? [{ field_id: "customfield_10011", name: "Epic Name", required: true, schema: "string" }] : [{ field_id: "customfield_10451", name: "Epic Link", required: false, schema: "any" }]),
+    { field_id: "customfield_17064", name: "Team", required: false, schema: "option" }] }),
+  jira_get_field_options: async () => ({ options: [{ value: "Team A" }, { value: "Team B" }] }),
+  jira_search_fields: async () => ({ fields: [{ id: "customfield_10451", name: "Epic Link" }, { id: "customfield_10011", name: "Epic Name" }, { id: "customfield_17064", name: "Team" }] }),
   jira_update_issue: async (a) => { await jira("PUT", `/rest/api/2/issue/${a.issue_key}`, { fields: a.fields }); return { message: "Issue updated successfully" }; },
   jira_get_transitions: async (a) => (await jira("GET", `/rest/api/2/issue/${a.issue_key}/transitions`)),
   jira_transition_issue: async (a) => { await jira("POST", `/rest/api/2/issue/${a.issue_key}/transitions`, { transition: { name: a.transition } }); return { ok: true }; },
