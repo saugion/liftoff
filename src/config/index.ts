@@ -3,3 +3,6 @@ export { SUPPORTED_FORMAT, parseConfig, peekConfig, peekText, readConfig, valida
 export type { Peek } from "./read.js";
 export type { Agent, Config, ConfigError, ModuleItem, RawConfig, Result } from "./types.js";
 export { AGENTS } from "./types.js";
+export { MIN_CONNECT_PLUGIN, MIN_JIRA_SERVER_VERSION, connectors } from "./connectors.js";
+export type { CodeHostConfig, IssueType, TrackerConfig, Transition } from "./connectors.js";
+export { compareVersions, parseVersion } from "./version.js";

@@ -1,0 +1,45 @@
+liftoff: 1
+plugin:
+  version: "0.2"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code, copilot]
+tracker:
+  kind: jira-dc
+  url: https://jira.company.local
+  project: PROJ
+  server:
+    version: "0.23.1"
+    sslVerify: false
+    readOnly: true
+  issueTypes:
+    - name: Story
+      branchType: feature
+      readingMap:
+        acceptanceCriteria: { heading: "Acceptance criteria" }
+        fields:
+          - { id: customfield_10016, label: Story points }
+      template: |
+        ## Context
+        ## Acceptance criteria
+      createFields:
+        customfield_10400: { value: Team A }
+      transitions:
+        start: { name: Start progress }
+        review: { name: Ready for review }
+        done: { name: Done, fields: { resolution: { name: Fixed } } }
+    - name: Bug
+      readingMap:
+        acceptanceCriteria: { field: customfield_10201 }
+codeHost:
+  kind: gitlab
+  host: gitlab.company.local
+  conventions:
+    targetBranch: main
+    branchPattern: "{type}/{key}-{slug}"
+    titlePattern: "{key}: {summary}"
+    mrTemplate: .gitlab/merge_request_templates/Default.md
+    labels: [backend, "needs review"]
+    reviewers: [alice, bob_2]

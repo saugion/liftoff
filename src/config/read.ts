@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { parseDocument, type YAMLError } from "yaml";
+import { connectorErrors } from "./connectors.js";
 import { normalize } from "./hash.js";
 import { schemaErrors } from "./schema.js";
 import { secretGuard } from "./secrets.js";
@@ -49,7 +50,7 @@ export function validateConfig(raw: unknown): Result<Config> {
   const secrets = secretGuard(raw);
   const secretPaths = new Set(secrets.map((e) => e.path));
   const errors = [...schemaErrors(raw).filter((e) => !secretPaths.has(e.path)), ...secrets];
-  if (errors.length === 0) errors.push(...duplicateIds(raw as RawConfig));
+  if (errors.length === 0) errors.push(...duplicateIds(raw as RawConfig), ...connectorErrors(raw as RawConfig));
   return errors.length > 0 ? { ok: false, errors } : { ok: true, value: normalize(raw as RawConfig) };
 }
 

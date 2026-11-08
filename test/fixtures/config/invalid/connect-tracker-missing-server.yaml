@@ -1,0 +1,13 @@
+# expect: /tracker/server
+liftoff: 1
+plugin:
+  version: "0.2"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code, copilot]
+tracker:
+  kind: jira-dc
+  url: https://j.local
+  project: PROJ

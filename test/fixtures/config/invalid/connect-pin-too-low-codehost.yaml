@@ -1,0 +1,12 @@
+# expect: /plugin/version
+liftoff: 1
+plugin:
+  version: "0.1"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code, copilot]
+codeHost:
+  kind: gitlab
+  host: gitlab.company.local

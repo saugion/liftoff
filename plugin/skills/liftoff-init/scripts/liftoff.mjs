@@ -14283,6 +14283,110 @@ import { basename as basename2, dirname as dirname2, join as join5, relative as 
 
 // src/config/hash.ts
 import { createHash } from "node:crypto";
+
+// src/config/version.ts
+function parseVersion(v) {
+  const m = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(v);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3] ?? 0)] : void 0;
+}
+function compareVersions(a, b) {
+  const [x, y] = [parseVersion(a), parseVersion(b)];
+  if (!x || !y) return void 0;
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
+  return 0;
+}
+
+// src/config/connectors.ts
+var MIN_CONNECT_PLUGIN = "0.2";
+var MIN_JIRA_SERVER_VERSION = "0.22.0";
+var isConnector = (v) => v !== null && typeof v === "object" && Object.keys(v).length > 0;
+var normalizeUrl = (url) => {
+  const m = /^(https:\/\/)([^/:]+)(:\d+)?(\/.*)?$/.exec(url);
+  return `${m[1]}${m[2].toLowerCase()}${m[3] ?? ""}${(m[4] ?? "").replace(/\/+$/, "")}`;
+};
+var normalizeTransition = (t) => ({ name: t.name, ...t.fields && { fields: t.fields } });
+function normalizeIssueType(t) {
+  const transitions = {};
+  for (const role of ["start", "review", "done"]) if (t.transitions?.[role]) transitions[role] = normalizeTransition(t.transitions[role]);
+  return {
+    name: t.name,
+    ...t.branchType !== void 0 && { branchType: t.branchType },
+    readingMap: {
+      ...t.readingMap?.acceptanceCriteria && { acceptanceCriteria: t.readingMap.acceptanceCriteria },
+      fields: (t.readingMap?.fields ?? []).map((f) => ({ ...f }))
+    },
+    ...t.template !== void 0 && { template: t.template },
+    createFields: t.createFields ?? {},
+    transitions
+  };
+}
+var normalizeTracker = (t) => ({
+  kind: t.kind,
+  url: normalizeUrl(t.url),
+  project: t.project,
+  server: { version: t.server.version, sslVerify: t.server.sslVerify ?? true, readOnly: t.server.readOnly ?? false },
+  issueTypes: (t.issueTypes ?? []).map(normalizeIssueType)
+});
+var normalizeCodeHost = (c) => {
+  const v = c.conventions ?? {};
+  return {
+    kind: c.kind,
+    host: c.host.toLowerCase(),
+    conventions: {
+      ...v.targetBranch !== void 0 && { targetBranch: v.targetBranch },
+      ...v.branchPattern !== void 0 && { branchPattern: v.branchPattern },
+      ...v.titlePattern !== void 0 && { titlePattern: v.titlePattern },
+      ...v.mrTemplate !== void 0 && { mrTemplate: v.mrTemplate },
+      labels: v.labels ?? [],
+      reviewers: v.reviewers ?? []
+    }
+  };
+};
+var portOk = (hostPort) => {
+  const m = /:(\d+)(?:\/|$)/.exec(hostPort);
+  return m === null || Number(m[1]) >= 1 && Number(m[1]) <= 65535;
+};
+function badPlaceholders(pattern, allowed) {
+  return [...pattern.matchAll(/\{([^}]*)\}/g)].map((m) => m[1]).filter((p) => !allowed.includes(p));
+}
+function connectorErrors(raw) {
+  const errors = [];
+  const tracker = isConnector(raw.tracker) ? raw.tracker : void 0;
+  const codeHost = isConnector(raw.codeHost) ? raw.codeHost : void 0;
+  if ((tracker || codeHost) && (compareVersions(raw.plugin.version, MIN_CONNECT_PLUGIN) ?? -1) < 0) {
+    errors.push({ path: "/plugin/version", message: `tracker and codeHost need plugin.version ${MIN_CONNECT_PLUGIN} or newer` });
+  }
+  if (tracker) {
+    if (!portOk(tracker.url.slice("https://".length))) errors.push({ path: "/tracker/url", message: "port must be 1-65535" });
+    if ((compareVersions(tracker.server.version, MIN_JIRA_SERVER_VERSION) ?? -1) < 0) {
+      errors.push({ path: "/tracker/server/version", message: `mcp-atlassian ${MIN_JIRA_SERVER_VERSION} or newer is needed (the lead flow uses tools added in it)` });
+    }
+    const seen = /* @__PURE__ */ new Map();
+    (tracker.issueTypes ?? []).forEach((t, i) => {
+      const key = t.name.toLowerCase();
+      const first = seen.get(key);
+      if (first === void 0) seen.set(key, i);
+      else errors.push({ path: `/tracker/issueTypes/${i}/name`, message: `duplicate issue type '${t.name}' (first at /tracker/issueTypes/${first}/name)` });
+      const ids = /* @__PURE__ */ new Map();
+      (t.readingMap?.fields ?? []).forEach((f, j) => {
+        const firstId = ids.get(f.id);
+        if (firstId === void 0) ids.set(f.id, j);
+        else errors.push({ path: `/tracker/issueTypes/${i}/readingMap/fields/${j}/id`, message: `duplicate field id '${f.id}' (first at index ${firstId})` });
+      });
+    });
+  }
+  if (codeHost) {
+    if (!portOk(codeHost.host)) errors.push({ path: "/codeHost/host", message: "port must be 1-65535" });
+    const c = codeHost.conventions;
+    const bp = c?.branchPattern !== void 0 ? badPlaceholders(c.branchPattern, ["key", "slug", "type"]) : [];
+    if (bp.length) errors.push({ path: "/codeHost/conventions/branchPattern", message: `unknown placeholder {${bp[0]}}; allowed: {key} {slug} {type}` });
+    const tp = c?.titlePattern !== void 0 ? badPlaceholders(c.titlePattern, ["key", "summary", "type"]) : [];
+    if (tp.length) errors.push({ path: "/codeHost/conventions/titlePattern", message: `unknown placeholder {${tp[0]}}; allowed: {key} {summary} {type}` });
+  }
+  return errors;
+}
+
+// src/config/hash.ts
 function normalize(raw) {
   return {
     liftoff: 1,
@@ -14298,8 +14402,8 @@ function normalize(raw) {
     ...raw.constraints && {
       constraints: { file: raw.constraints.file ?? "CONSTRAINTS.md", required: raw.constraints.required ?? false }
     },
-    ...raw.tracker && { tracker: {} },
-    ...raw.codeHost && { codeHost: {} }
+    ...raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker) },
+    ...raw.codeHost && { codeHost: Object.keys(raw.codeHost).length === 0 ? {} : normalizeCodeHost(raw.codeHost) }
   };
 }
 function canonicalize(value) {
@@ -14334,58 +14438,222 @@ var liftoff_schema_default = {
   description: "LiftOff team config, format version 1.",
   type: "object",
   additionalProperties: false,
-  required: ["liftoff", "plugin", "project", "agents"],
+  required: [
+    "liftoff",
+    "plugin",
+    "project",
+    "agents"
+  ],
   definitions: {
-    requiredFlag: { type: "boolean" },
+    requiredFlag: {
+      type: "boolean"
+    },
     relativePath: {
       type: "string",
       minLength: 1,
       pattern: "^(?![\\/\\\\])(?![A-Za-z]:)(?!(?:.*[\\/\\\\])?\\.\\.(?:[\\/\\\\]|$)).+$"
     },
-    nonEmptyString: { type: "string", minLength: 1 }
+    nonEmptyString: {
+      type: "string",
+      minLength: 1
+    },
+    name80: {
+      type: "string",
+      minLength: 1,
+      maxLength: 80,
+      pattern: "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    idToken: {
+      type: "string",
+      pattern: "^[A-Za-z0-9_]+$"
+    },
+    fieldValues: {
+      type: "object",
+      propertyNames: {
+        pattern: "^[A-Za-z0-9_]+$"
+      }
+    },
+    transition: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "name"
+      ],
+      properties: {
+        name: {
+          $ref: "#/definitions/name80"
+        },
+        fields: {
+          $ref: "#/definitions/fieldValues"
+        }
+      }
+    },
+    issueType: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "name"
+      ],
+      properties: {
+        name: {
+          $ref: "#/definitions/name80"
+        },
+        branchType: {
+          type: "string",
+          pattern: "^[a-z0-9._-]+$"
+        },
+        readingMap: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            acceptanceCriteria: {
+              type: "object",
+              additionalProperties: false,
+              minProperties: 1,
+              maxProperties: 1,
+              properties: {
+                heading: {
+                  $ref: "#/definitions/name80"
+                },
+                field: {
+                  $ref: "#/definitions/idToken"
+                }
+              }
+            },
+            fields: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: [
+                  "id",
+                  "label"
+                ],
+                properties: {
+                  id: {
+                    $ref: "#/definitions/idToken"
+                  },
+                  label: {
+                    $ref: "#/definitions/name80"
+                  }
+                }
+              }
+            }
+          }
+        },
+        template: {
+          type: "string",
+          maxLength: 8e3
+        },
+        createFields: {
+          $ref: "#/definitions/fieldValues"
+        },
+        transitions: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            start: {
+              $ref: "#/definitions/transition"
+            },
+            review: {
+              $ref: "#/definitions/transition"
+            },
+            done: {
+              $ref: "#/definitions/transition"
+            }
+          }
+        }
+      }
+    }
   },
   properties: {
-    liftoff: { type: "integer", const: 1 },
+    liftoff: {
+      type: "integer",
+      const: 1
+    },
     plugin: {
       type: "object",
       additionalProperties: false,
-      required: ["version"],
+      required: [
+        "version"
+      ],
       properties: {
-        version: { type: "string", pattern: "^\\d+\\.\\d+(\\.\\d+)?$" },
-        required: { type: "boolean", const: true }
+        version: {
+          type: "string",
+          pattern: "^\\d+\\.\\d+(\\.\\d+)?$"
+        },
+        required: {
+          type: "boolean",
+          const: true
+        }
       }
     },
     project: {
       type: "object",
       additionalProperties: false,
-      required: ["name", "kind"],
+      required: [
+        "name",
+        "kind"
+      ],
       properties: {
-        name: { $ref: "#/definitions/nonEmptyString" },
-        kind: { type: "string", enum: ["new", "existing"] },
-        required: { $ref: "#/definitions/requiredFlag" }
+        name: {
+          $ref: "#/definitions/nonEmptyString"
+        },
+        kind: {
+          type: "string",
+          enum: [
+            "new",
+            "existing"
+          ]
+        },
+        required: {
+          $ref: "#/definitions/requiredFlag"
+        }
       }
     },
     agents: {
       type: "object",
       additionalProperties: false,
-      required: ["targets"],
+      required: [
+        "targets"
+      ],
       properties: {
         targets: {
           type: "array",
           minItems: 1,
           uniqueItems: true,
-          items: { type: "string", enum: ["claude-code", "copilot"] }
+          items: {
+            type: "string",
+            enum: [
+              "claude-code",
+              "copilot"
+            ]
+          }
         },
-        required: { $ref: "#/definitions/requiredFlag" }
+        required: {
+          $ref: "#/definitions/requiredFlag"
+        }
       }
     },
     stack: {
       type: "object",
       additionalProperties: false,
       properties: {
-        languages: { type: "array", items: { $ref: "#/definitions/nonEmptyString" } },
-        frameworks: { type: "array", items: { $ref: "#/definitions/nonEmptyString" } },
-        required: { $ref: "#/definitions/requiredFlag" }
+        languages: {
+          type: "array",
+          items: {
+            $ref: "#/definitions/nonEmptyString"
+          }
+        },
+        frameworks: {
+          type: "array",
+          items: {
+            $ref: "#/definitions/nonEmptyString"
+          }
+        },
+        required: {
+          $ref: "#/definitions/requiredFlag"
+        }
       }
     },
     modules: {
@@ -14397,27 +14665,205 @@ var liftoff_schema_default = {
           items: {
             type: "object",
             additionalProperties: false,
-            required: ["id", "path"],
+            required: [
+              "id",
+              "path"
+            ],
             properties: {
-              id: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-              path: { $ref: "#/definitions/relativePath" },
-              description: { type: "string" }
+              id: {
+                type: "string",
+                pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              path: {
+                $ref: "#/definitions/relativePath"
+              },
+              description: {
+                type: "string"
+              }
             }
           }
         },
-        required: { $ref: "#/definitions/requiredFlag" }
+        required: {
+          $ref: "#/definitions/requiredFlag"
+        }
       }
     },
     constraints: {
       type: "object",
       additionalProperties: false,
       properties: {
-        file: { $ref: "#/definitions/relativePath" },
-        required: { $ref: "#/definitions/requiredFlag" }
+        file: {
+          $ref: "#/definitions/relativePath"
+        },
+        required: {
+          $ref: "#/definitions/requiredFlag"
+        }
       }
     },
-    tracker: { type: "object", maxProperties: 0 },
-    codeHost: { type: "object", maxProperties: 0 }
+    tracker: {
+      type: "object",
+      anyOf: [
+        {
+          maxProperties: 0
+        },
+        {
+          required: [
+            "kind"
+          ],
+          properties: {
+            kind: true
+          }
+        }
+      ],
+      properties: {
+        kind: {
+          enum: [
+            "jira-dc"
+          ]
+        },
+        url: {
+          type: "string",
+          pattern: "^https://[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?(?:\\.[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?)*(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/-]*)?$"
+        },
+        project: {
+          type: "string",
+          pattern: "^[A-Z][A-Z0-9_]{1,19}$"
+        },
+        server: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "version"
+          ],
+          properties: {
+            version: {
+              type: "string",
+              pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+            },
+            sslVerify: {
+              type: "boolean"
+            },
+            readOnly: {
+              type: "boolean"
+            }
+          }
+        },
+        issueTypes: {
+          type: "array",
+          items: {
+            $ref: "#/definitions/issueType"
+          }
+        }
+      },
+      additionalProperties: false,
+      if: {
+        properties: {
+          kind: {
+            const: "jira-dc"
+          }
+        },
+        required: [
+          "kind"
+        ]
+      },
+      then: {
+        required: [
+          "url",
+          "project",
+          "server"
+        ],
+        properties: {
+          url: true,
+          project: true,
+          server: true
+        }
+      }
+    },
+    codeHost: {
+      type: "object",
+      anyOf: [
+        {
+          maxProperties: 0
+        },
+        {
+          required: [
+            "kind"
+          ],
+          properties: {
+            kind: true
+          }
+        }
+      ],
+      properties: {
+        kind: {
+          enum: [
+            "gitlab"
+          ]
+        },
+        host: {
+          type: "string",
+          pattern: "^[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?(?:\\.[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?)*(?::[0-9]{1,5})?$"
+        },
+        conventions: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            targetBranch: {
+              type: "string",
+              pattern: "^(?![-/])(?!.*\\.\\.)(?!.*\\.lock$)[A-Za-z0-9._/-]+$"
+            },
+            branchPattern: {
+              type: "string",
+              minLength: 1,
+              maxLength: 120
+            },
+            titlePattern: {
+              type: "string",
+              minLength: 1,
+              maxLength: 200
+            },
+            mrTemplate: {
+              $ref: "#/definitions/relativePath"
+            },
+            labels: {
+              type: "array",
+              items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 80,
+                pattern: "^[^,\\n\\r]+$"
+              }
+            },
+            reviewers: {
+              type: "array",
+              items: {
+                type: "string",
+                pattern: "^[A-Za-z0-9_.-]+$"
+              }
+            }
+          }
+        }
+      },
+      additionalProperties: false,
+      if: {
+        properties: {
+          kind: {
+            const: "gitlab"
+          }
+        },
+        required: [
+          "kind"
+        ]
+      },
+      then: {
+        required: [
+          "host"
+        ],
+        properties: {
+          host: true
+        }
+      }
+    }
   }
 };
 
@@ -14425,13 +14871,14 @@ var liftoff_schema_default = {
 var validate = new import_ajv.Ajv({ allErrors: true, strict: true }).compile(liftoff_schema_default);
 var escapePointer = (s) => s.replace(/~/g, "~0").replace(/\//g, "~1");
 function toConfigError(e) {
-  const { missingProperty, additionalProperty } = e.params;
-  const prop = missingProperty ?? additionalProperty;
+  const { missingProperty, additionalProperty, propertyName } = e.params;
+  const prop = missingProperty ?? additionalProperty ?? propertyName;
   const message = additionalProperty !== void 0 ? `must NOT have additional property '${additionalProperty}'` : e.message ?? "invalid";
   return { path: e.instancePath + (prop !== void 0 ? "/" + escapePointer(prop) : ""), message };
 }
+var noise = (e) => e.keyword === "if" || e.keyword === "anyOf" || e.schemaPath.includes("/anyOf/0/") || e.keyword === "pattern" && e.schemaPath.includes("/propertyNames/");
 function schemaErrors(raw) {
-  return validate(raw) ? [] : (validate.errors ?? []).map(toConfigError);
+  return validate(raw) ? [] : (validate.errors ?? []).filter((e) => !noise(e)).map(toConfigError);
 }
 
 // src/config/secrets.ts
@@ -14496,7 +14943,7 @@ function validateConfig(raw) {
   const secrets = secretGuard(raw);
   const secretPaths = new Set(secrets.map((e) => e.path));
   const errors = [...schemaErrors(raw).filter((e) => !secretPaths.has(e.path)), ...secrets];
-  if (errors.length === 0) errors.push(...duplicateIds(raw));
+  if (errors.length === 0) errors.push(...duplicateIds(raw), ...connectorErrors(raw));
   return errors.length > 0 ? { ok: false, errors } : { ok: true, value: normalize(raw) };
 }
 function parseConfig(text) {
@@ -14686,16 +15133,6 @@ var package_default = { version: "0.1.0" };
 // src/cli/version.ts
 var INSTALLED_VERSION = package_default.version;
 var outdatedMessage = (minimum) => (minimum === void 0 ? `this repo's config is for a newer LiftOff (installed ${INSTALLED_VERSION}). ` : `this repo needs LiftOff ${minimum} or newer (installed ${INSTALLED_VERSION}). `) + "Claude Code: run /reload-plugins, or /plugin marketplace update liftoff. VS Code: update or reload the plugin.";
-function parseVersion(v) {
-  const m = /^(\d+)\.(\d+)(?:\.(\d+))?$/.exec(v);
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3] ?? 0)] : void 0;
-}
-function compareVersions(a, b) {
-  const [x, y] = [parseVersion(a), parseVersion(b)];
-  if (!x || !y) return void 0;
-  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
-  return 0;
-}
 
 // src/cli/read-config.ts
 function readConfigWithPin(root) {

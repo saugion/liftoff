@@ -1,3 +1,5 @@
+import type { CodeHostConfig, RawCodeHost, RawTracker, TrackerConfig } from "./connectors.js";
+
 export const AGENTS = ["claude-code", "copilot"] as const;
 export type Agent = (typeof AGENTS)[number];
 
@@ -16,8 +18,8 @@ export interface RawConfig {
   stack?: { languages?: string[]; frameworks?: string[]; required?: boolean };
   modules?: { items?: ModuleItem[]; required?: boolean };
   constraints?: { file?: string; required?: boolean };
-  tracker?: Record<string, never>;
-  codeHost?: Record<string, never>;
+  tracker?: Record<string, never> | RawTracker;
+  codeHost?: Record<string, never> | RawCodeHost;
 }
 
 // Normalized: defaults applied inside every section that is present. An absent section stays absent.
@@ -29,8 +31,8 @@ export interface Config {
   stack?: { languages: string[]; frameworks: string[]; required: boolean };
   modules?: { items: ModuleItem[]; required: boolean };
   constraints?: { file: string; required: boolean };
-  tracker?: Record<string, never>;
-  codeHost?: Record<string, never>;
+  tracker?: Record<string, never> | TrackerConfig;
+  codeHost?: Record<string, never> | CodeHostConfig;
 }
 
 export interface ConfigError {

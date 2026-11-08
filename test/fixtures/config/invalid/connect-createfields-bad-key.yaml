@@ -1,0 +1,19 @@
+# expect: /tracker/issueTypes/0/createFields/api-key
+liftoff: 1
+plugin:
+  version: "0.2"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code, copilot]
+tracker:
+  kind: jira-dc
+  url: https://jira.company.local
+  project: PROJ
+  server:
+    version: "0.23.1"
+  issueTypes:
+    - name: Story
+      createFields:
+        api-key: x

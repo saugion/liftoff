@@ -1,0 +1,16 @@
+liftoff: 1
+plugin:
+  version: "0.2"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code, copilot]
+tracker:
+  kind: jira-dc
+  url: https://Jira.Company.local:8443/jira/
+  project: PROJ_X
+  server: { version: "0.22.0" }
+codeHost:
+  kind: gitlab
+  host: git_lab.company.local:8443

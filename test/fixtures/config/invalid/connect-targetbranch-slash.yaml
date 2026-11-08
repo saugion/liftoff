@@ -1,0 +1,14 @@
+# expect: /codeHost/conventions/targetBranch
+liftoff: 1
+plugin:
+  version: "0.2"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code, copilot]
+codeHost:
+  kind: gitlab
+  host: gitlab.company.local
+  conventions:
+    targetBranch: "/x"

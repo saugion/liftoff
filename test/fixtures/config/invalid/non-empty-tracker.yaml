@@ -1,4 +1,4 @@
-# expect: /tracker
+# expect: /tracker/kind
 liftoff: 1
 plugin:
   version: "1.4"
