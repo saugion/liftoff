@@ -1,0 +1,13 @@
+#!/bin/sh
+# A stand-in for glab: records every call and answers the few the Connect and Build skills make.
+LOG="${FAKE_GLAB_LOG:?}"
+{ echo "---"; for a in "$@"; do printf '%s\n' "$a"; done; } >> "$LOG"
+case "$1 $2" in
+  "repo view") echo '{"default_branch":"main","path_with_namespace":"acme/billing"}' ;;
+  "mr list") echo '[]' ;;
+  "auth status") echo '{"hosts":{"gitlab.company.local":{"state":"ok"}}}' ;;
+  "mr create")
+    while [ $# -gt 0 ]; do [ "$1" = "--description-file" ] && cp "$2" "$LOG.description"; shift; done
+    echo "https://gitlab.company.local/acme/billing/-/merge_requests/7" ;;
+  *) [ "$1" = "--version" ] && echo "glab fake" ;;
+esac

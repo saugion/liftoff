@@ -1,0 +1,61 @@
+#!/usr/bin/env node
+// A stand-in for `uvx mcp-atlassian@X --env-file /dev/null`: a tiny MCP server over stdio (newline-delimited
+// JSON-RPC) that honours the same environment as the real one and talks to a Jira REST API with the token as a
+// Bearer header. Used only by the end-to-end tests. It refuses any argv the launcher should never produce.
+import https from "node:https";
+import { createInterface } from "node:readline";
+
+const args = process.argv.slice(2);
+if (!/^mcp-atlassian@\d+\.\d+\.\d+$/.test(args[0] ?? "")) { console.error("fake uvx: unexpected package " + args[0]); process.exit(2); }
+if (args[1] === "--version") { console.log("mcp-atlassian fake"); process.exit(0); }
+if (args[1] !== "--env-file" || args[2] !== "/dev/null" || args.length !== 3) { console.error("fake uvx: unexpected argv " + JSON.stringify(args)); process.exit(2); }
+
+const env = process.env;
+const base = new URL(env.JIRA_URL);
+const token = env.JIRA_PERSONAL_TOKEN ?? "";
+if (env.JIRA_SSL_VERIFY === "false") process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+const WRITE = new Set(["jira_create_issue", "jira_update_issue", "jira_add_comment", "jira_transition_issue"]);
+const ALL = ["jira_get_issue", "jira_search", "jira_get_project_issues", "jira_create_issue", "jira_update_issue", "jira_search_fields", "jira_get_field_options",
+  "jira_add_comment", "jira_get_transitions", "jira_transition_issue", "jira_get_project_issue_types", "jira_get_create_fields"];
+const enabled = new Set((env.ENABLED_TOOLS ?? "").split(",").filter(Boolean));
+const exposed = ALL.filter((t) => enabled.has(t) && !(env.READ_ONLY_MODE === "true" && WRITE.has(t)));
+
+function jira(method, path, body) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({ hostname: base.hostname, port: base.port, path: base.pathname.replace(/\/$/, "") + path, method,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }, (res) => {
+      let data = "";
+      res.on("data", (c) => (data += c));
+      res.on("end", () => (res.statusCode >= 400 ? reject(new Error(`Jira ${res.statusCode}: ${data}`)) : resolve(data ? JSON.parse(data) : {})));
+    });
+    req.on("error", reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
+// The flat shape a Jira MCP server returns for an issue (mirrors mcp-atlassian's simplified dict, approximately).
+const flat = (i) => ({ key: i.key, summary: i.fields.summary, issue_type: i.fields.issuetype, status: i.fields.status, description: i.fields.description,
+  renderedFields: i.renderedFields, ...Object.fromEntries(Object.entries(i.fields).filter(([k]) => k.startsWith("customfield_"))) });
+
+const handlers = {
+  jira_get_issue: async (a) => flat(await jira("GET", `/rest/api/2/issue/${encodeURIComponent(a.issue_key)}?expand=renderedFields`)),
+  jira_search: async (a) => { const r = await jira("GET", `/rest/api/2/search?jql=${encodeURIComponent(a.jql)}&maxResults=${a.limit ?? 10}`); return { total: r.total, issues: r.issues.map(flat) }; },
+  jira_get_transitions: async (a) => (await jira("GET", `/rest/api/2/issue/${a.issue_key}/transitions`)),
+  jira_transition_issue: async (a) => { await jira("POST", `/rest/api/2/issue/${a.issue_key}/transitions`, { transition: { name: a.transition } }); return { ok: true }; },
+};
+
+const send = (msg) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", ...msg }) + "\n");
+createInterface({ input: process.stdin }).on("line", async (line) => {
+  const m = JSON.parse(line);
+  if (m.id === undefined) return; // notification
+  if (m.method === "initialize") return send({ id: m.id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "fake-mcp-atlassian", version: "0" } } });
+  if (m.method === "tools/list") return send({ id: m.id, result: { tools: exposed.map((name) => ({ name, inputSchema: { type: "object" } })) } });
+  if (m.method === "tools/call") {
+    const { name, arguments: a = {} } = m.params;
+    if (!exposed.includes(name) || !handlers[name]) return send({ id: m.id, error: { code: -32602, message: `unknown tool ${name}` } });
+    try { return send({ id: m.id, result: { content: [{ type: "text", text: JSON.stringify(await handlers[name](a)) }] } }); }
+    catch (e) { return send({ id: m.id, result: { isError: true, content: [{ type: "text", text: String(e.message) }] } }); }
+  }
+  send({ id: m.id, error: { code: -32601, message: "method not found" } });
+});

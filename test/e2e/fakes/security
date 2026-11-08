@@ -1,0 +1,5 @@
+#!/bin/sh
+# A stand-in for the macOS `security` tool: answers find-generic-password with $FAKE_KEYCHAIN_TOKEN and logs the call.
+[ -n "$FAKE_KEYCHAIN_LOG" ] && echo "$*" >> "$FAKE_KEYCHAIN_LOG"
+if [ "$1" = "find-generic-password" ] && [ -n "$FAKE_KEYCHAIN_TOKEN" ]; then printf '%s\n' "$FAKE_KEYCHAIN_TOKEN"; exit 0; fi
+exit 44
