@@ -73,8 +73,9 @@ export const ISSUES = (): Issue[] => [
 const SPRINT_FLOW: Record<string, [string, string][]> = { "To Do": [["Start progress", "In Progress"]], "In Progress": [["Ready for review", "In Review"], ["Stop progress", "To Do"]], "In Review": [] };
 // The Kanban stream project has its own workflow: other state and transition names.
 const KANBAN_FLOW: Record<string, [string, string][]> = { Backlog: [["Work on it", "Doing"]], Doing: [["Check", "Review"], ["Back to backlog", "Backlog"]], Review: [] };
-const flowOf = (key: string) => (key.startsWith("STR-") ? KANBAN_FLOW : SPRINT_FLOW);
-const initialStatus = (project: string) => (project === "STR" ? "Backlog" : "To Do");
+// Only PROJ is the sprint team; every other project of the fake is a Kanban stream.
+const flowOf = (key: string) => (key.startsWith("PROJ-") ? SPRINT_FLOW : KANBAN_FLOW);
+const initialStatus = (project: string) => (project === "PROJ" ? "To Do" : "Backlog");
 
 export interface FakeJira { url: string; requests: { method: string; path: string; auth: string | undefined }[]; issues: Issue[]; close(): Promise<void> }
 

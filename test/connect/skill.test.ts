@@ -134,7 +134,7 @@ describe("lead-onboarding.md", () => {
 
 describe("assets", () => {
   it("the three default templates exist and hold no secret", () => {
-    for (const n of ["task", "story", "bug"]) {
+    for (const n of ["task", "story", "bug", "epic"]) {
       const t = read("assets", "defaults", `${n}.md`);
       expect(t.length).toBeGreaterThan(10);
       expect(secretGuard({ t })).toEqual([]);

@@ -71,7 +71,7 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
 2. **Where the template starts, per type** (ask; one question per type, or one for all): (a) **a sample** — one existing
    ticket key (the best example the lead has) or a **pasted example** (a ticket from another project), read like a
    sample, without calling Jira; (b) **a built-in default** (`assets/defaults/task.md`, `assets/defaults/story.md`,
-   `assets/defaults/bug.md`) to edit and approve; (c) **the lead's own template** — the lead gives the sections they
+   `assets/defaults/bug.md`, `assets/defaults/epic.md`) to edit and approve; (c) **the lead's own template** — the lead gives the sections they
    want (a list of titles, a pasted text, or a file path in the repo; read it with your file tools) and you shape it
    into a template. The defaults are only a start: if the lead does not like them, (c) is the answer, and nothing in
    the defaults is kept unless the lead keeps it.
