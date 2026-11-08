@@ -17,6 +17,10 @@ git remote. **Nothing has run against a real Jira Data Center, a real GitLab or 
 | Reasoning behind the design | `docs/design-notes.md` (the per-module specs were removed; they are in git history up to commit 79ab5e3) |
 | Decisions the agent took alone, to review | `docs/decisions/DECISIONS.md` |
 
+## Real-agent smoke runs (state at 2026-11-08)
+
+Done, with a fix committed after each: Connect lead (own/default/customized templates; full L1-L9 with GitLab and a stream), Plan then Build (assisted), Init (new project), Init apply and Connect member (a pasted token is refused), Ticket (epic with story and bug; a story split across a stream and the team's project). **Left:** Build in `manual` mode, Plan/Build on a stream ticket, a teammate blocked by a required change, an epic breakdown. How to run them: `docs/pilot-checklist.md`, last section.
+
 ## What is left
 
 - **The pilot** (the README's "Pilot" section): run Init, Connect (lead and member), Plan, Build and Ticket on a real Jira DC and GitLab, in Claude Code and in VS Code Copilot. The manual checklist, with the open questions only the pilot can answer, is `docs/pilot-checklist.md`.
