@@ -1,292 +1,200 @@
 # LiftOff
 
-> Start every project AI-native. Turn every ticket into a PR on your team's standards. Stay the engineer in charge.
+LiftOff is a plugin for AI coding agents (Claude Code, and GitHub Copilot in VS Code). It gives a whole team one set
+of rules for its agents and connects those agents to the team's Jira and GitLab. A ticket then goes to a plan, to
+reviewed code, to a merge request ready to open, and every step follows the team's conventions. The engineer stays in
+charge the whole time.
 
-LiftOff is a plugin for software engineers who work with AI coding agents. It sets up a repository so agents understand it, connects the agent to the tools where work is defined and delivered (Jira/Linear, GitHub/GitLab), and keeps the daily loop — ticket → plan → code → PR → ticket — AI-assisted without taking the engineer out of it.
+Current release: **v0.3.0**, built and tested, not yet piloted. See [Status](#status-and-limits).
 
-**Status:** brainstorm / product definition. Stack being defined — see [Stack (draft)](#stack-draft).
+**What a team gets**
 
----
+- **The same agent behavior across a mixed team.** One committed file, `liftoff.yaml`, holds the team's rules. Every
+  engineer's agent reads it, whichever agent they use.
+- **Tickets and merge requests that follow the team's conventions.** The agent reads tickets the way the team writes
+  them. It writes tickets on the team's templates and prepares merge requests on the team's branch, title and
+  description conventions.
+- **The engineer stays in charge.** LiftOff proposes, the engineer approves. LiftOff never merges, never opens the
+  merge request and never moves a ticket on the board.
+- **The lead sets it up once.** After that, a teammate needs a few minutes per machine: clone, apply, connect.
 
 ## The problem
 
-Engineers who use AI agents seriously spend hours on every new project before writing a line of product code:
-
-- writing `AGENTS.md` / agent instructions, module structure, subagents, quality bar, hooks, MCP servers;
-- repeating all of it for the next project, and again for each agent the company allows (Claude Code, Copilot, …);
-- gluing the agent to the issue tracker and the code host by hand: it doesn't know where the team puts acceptance criteria in a ticket, and it writes PRs and ticket updates that don't follow the team's conventions;
-- every teammate redoing the same setup on their own machine, slightly differently.
-
-## Who it's for
-
-**The software engineer who owns the code.** Someone who reads, reviews and is accountable for what ships.
-
-Not for vibe-coders, not for non-engineers. The team benefits as a side effect: configuration is shared and committed, so everyone's agent behaves the same way.
-
-**Secondary user: the PO/PM**, for the [Ticket flow](#ticket-flow) only. Tickets are mostly written by the PO/PM; the engineer files bugs or proposes tasks now and then. Init, Plan, Build and Close stay engineer-only.
-
-## Core principle: the engineer owns the work
-
-LiftOff **proposes, the engineer decides.**
-
-- Every write to an external system — ticket, comment, status change, branch, PR — is shown first and applied only on approval.
-- **Dry-run on every write:** the approval step shows exactly what will be sent — fields, body, target — before anything leaves the machine.
-- **One approval per decision, not per API call.** A plan with 120 sections is approved once; the PR and its ticket updates are approved together.
-- No "assign the ticket to the AI and walk away". No auto-merge.
-- The tool removes setup and glue work. It does not abstract the engineer away from their job.
+Teams that use AI agents rebuild the same setup on every project: agent instructions and a quality bar, once per
+agent the company allows, slightly different on each machine. The agent doesn't know where the team puts acceptance
+criteria, and the tickets and merge requests it writes don't match the team's habits. LiftOff turns that setup into a
+shared team config and connects the agent to the tracker and code host with the team's conventions built in.
 
 ## How it works
 
+Five skills (a skill is a packaged set of instructions the agent follows). The skills call a small command-line tool
+bundled with the plugin, which checks the team's rules. That tool makes no network calls and never handles
+credentials. The agent talks to Jira through an MCP server (a standard way to give an agent access to an outside
+system) and to GitLab through the `glab` command-line tool.
+
 ```
-Development flow (engineer):
-Init ──▶ Connect ──▶ Plan ──▶ Build ──▶ Close
- repo     tracker +    ticket →   plan →    ticket +
- setup    code host    local plan PR        PR updated
-
-Ticket flow (PO/PM, engineer):
-Ticket ── bug / task / story on the team's templates
+ Lead, once per team            Teammate, once per machine      Every day
+ ───────────────────            ──────────────────────────      ─────────
+ Init     the team's rules      Init     apply them (no        PO/PM or engineer:
+          in liftoff.yaml                questions)              Ticket  ──▶ tickets in Jira
+ Connect  learn Jira and        Connect  own token, own                      │
+          GitLab conventions             machine                Engineer:    ▼
+ Commit                                                          Plan ──▶ Build ──▶ merge request
+                                                                                    + ticket lane
+                                                                                    (engineer's)
 ```
 
-### 1. Init — make the repo AI-native
-
-Built on the `project-init` skill. Detects whether the project is new or existing, then sets up:
-
-- the team config, `liftoff.yaml`;
-- module structure and root + per-module `AGENTS.md`;
-- `CONSTRAINTS.md` (the quality bar);
-- the thin per-agent files (`CLAUDE.md`, `.github/copilot-instructions.md`), rendered from the config and pointing to `AGENTS.md`;
-- the plugin recommendation in `.claude/settings.json`, so teammates are prompted to install it.
-
-**Coming after v1, as optional add-ons:** suggested subagents and an implementation orchestrator, hooks, MCP and permission presets, a CI workflow, the wiki and Graphify, and reorganizing an existing repo's folders.
-
-**Agent choice.** The engineer picks the target agent(s) — Claude Code, GitHub Copilot, more later — and can pick **several**. Init generates the right files for each one, from the same source (see [Agent support](#agent-support)). Many companies mandate a specific tool, and many teams are mixed; LiftOff adapts instead of fighting it.
-
-**Team config.** See [Team config](#team-config) — if one exists, Init applies it instead of running the full interview.
-
-### 2. Connect — learn the team's tools
-
-**LiftOff doesn't write its own API clients.** Each external system is reached through an **MCP server**: the official one when it exists and fits, otherwise the best-supported community one. LiftOff picks the right server for the target, configures it for the chosen agent(s), and wires the auth (OAuth or access token) the server expects. On top of it, LiftOff adds what MCP servers don't have: **the team's conventions and the approval layer.**
-
-Each connector has its own **onboarding**. Onboarding doesn't just authenticate — it learns the house conventions, so the agent reads tickets the way the team writes them and everything it writes looks like the team wrote it.
-
-| Connector | MCP server | Auth | Onboarding learns |
-|---|---|---|---|
-| **Issue tracker** — Jira Cloud, Jira Server/DC, Linear | see [Tracker MCP servers](#tracker-mcp-servers) | OAuth or access token, as the server supports | project, team, issue types; from **one sample per type** (task, story, bug, …) **how tickets are structured** — where the description, acceptance criteria and relevant custom fields live; workflow transitions per project; comment conventions |
-| **Code host** — GitHub, GitLab (cloud & self-hosted) | MCP server **or CLI** — see [Code host access](#code-host-access) | OAuth or access token, as the server / CLI supports | branch naming, PR/MR template, labels, default reviewers, target branch — inferred from existing PRs |
-
-On-prem / self-hosted with personal access tokens is a first-class case, not an afterthought. Which MCP server backs each connector is part of the team config, so a company can pin an approved one.
-
-#### Tracker MCP servers
-
-Supported from day one:
-
-| Target | MCP server | Type | Auth |
-|---|---|---|---|
-| **Jira Cloud** | [Atlassian Rovo MCP server](https://github.com/atlassian/atlassian-mcp-server) — remote, `https://mcp.atlassian.com/v2/mcp` | official | OAuth 2.1 (interactive) or API token (must be enabled by the org admin) |
-| **Jira Server / Data Center** (v8.14+) | [`sooperset/mcp-atlassian`](https://github.com/sooperset/mcp-atlassian) — local (`uvx`, Docker) | community, MIT | Personal Access Token |
-| **Linear** | [Linear MCP server](https://linear.app/docs/mcp) — remote, `https://mcp.linear.app/mcp` (read-only variant: `/mcp/readonly`) | official | OAuth 2.1 (interactive) or API key as Bearer header |
-
-`sooperset/mcp-atlassian` also supports Jira Cloud (API token); a team may pin it for both if it prefers one server everywhere. The official Atlassian server is Cloud-only.
-
-#### Code host access
-
-For code hosts, LiftOff supports **two modes: MCP server or official CLI**. The CLIs are mature, handle self-hosted instances well, and every agent can run shell commands — so they fit the "build on what agents have in common" principle. The team config pins the mode per code host.
-
-| Target | MCP server | CLI |
+| Skill | Who | What it does |
 |---|---|---|
-| **GitHub.com / GHE.com** | [GitHub MCP server](https://github.com/github/github-mcp-server) — official, remote `https://api.githubcopilot.com/mcp/`; OAuth or PAT | [`gh`](https://cli.github.com/) |
-| **GitHub Enterprise Server** | same server, **local only** (Docker), with `GITHUB_HOST`; PAT | `gh` with `--hostname` |
-| **GitLab.com / self-managed** | GitLab built-in MCP — official, `https://<instance>/api/v4/mcp`; OAuth. Beta (since 18.6), Premium/Ultimate only, must be enabled by an admin | [`glab`](https://gitlab.com/gitlab-org/cli) with `--hostname` |
+| **Init** | lead, then each teammate | Lead: a short interview that writes `liftoff.yaml`, the `AGENTS.md` instruction files, `CONSTRAINTS.md` (the quality bar) and the per-agent files (`CLAUDE.md`, `.github/copilot-instructions.md`). Teammate: applies the committed config with no questions. Never replaces a hand-written `AGENTS.md` or `CONSTRAINTS.md`: it shows additions as a diff. |
+| **Connect** | lead once, then each teammate | Teammate: checks prerequisites, stores a personal Jira token in the macOS Keychain (or reads it from an environment variable), adds the Jira server entry, verifies Jira and GitLab. Lead, once: learns the team's ticket templates and fields from real tickets, test-creates one ticket per type until each one works, learns the workflow transitions, learns the merge-request conventions from past merge requests, and writes all of it to `liftoff.yaml`. Can also link work streams. |
+| **Plan** | engineer | Reads a ticket through the team's reading map (where acceptance criteria and key fields live), reads the repo's rules and code, and writes a local plan in sections. The engineer approves it once. Nothing is written to Jira. |
+| **Build** | engineer | Implements the approved plan section by section and runs the repo's checks. Then it self-checks against the acceptance criteria and prepares the branch name, commit messages, the merge-request description and the exact command to open it. |
+| **Ticket** | PO/PM, engineer | Writes bugs, tasks, stories and epics on the team's templates, or breaks an epic into tickets. The whole batch is shown together and approved once. Works in the team's Jira project or in a linked work stream. |
 
-Where the official GitLab MCP isn't available (Free tier, older instance, not enabled), **`glab` is the default**.
+**Work streams** are optional. A stream is a time-boxed Kanban project (say a 3-6 week roadmap item or an MVP task
+force) that someone creates by hand in Jira. The lead links it in `liftoff.yaml` together with the code module it
+feeds. Plan, Build and Ticket then never assume a sprint or story points for it. One ticket lives in one project, so
+work that touches both a stream's module and a team module becomes two tickets, one per project.
 
-**CLI mode requires installation**: it's a step of the **team member onboarding** — LiftOff checks whether `gh` / `glab` is installed, guides the install if not, and runs the CLI's own login (`gh auth login` / `glab auth login`) against the right host. Credentials then live in the CLI's own store. `doctor` checks the CLI is installed, authenticated and pointing at the right host.
+The template a PO/PM writes a ticket with is the same one the engineer's Plan reads it with. The team config is the
+contract between who writes tickets and who implements them.
 
-#### Onboarding validation (lead, at the real Init)
+## What the lead decides
 
-Real trackers are messy: workflow validators require fields the metadata API doesn't declare, Jira Server/DC uses wiki markup while Cloud uses ADF, transitions differ per project. Templates only become reliable by trying them. This is **the lead's job during the real Init**, and LiftOff guides it:
+All of it lives in `liftoff.yaml`, committed in the repo:
 
-1. **Start from what exists** — the lead's existing example tickets, plus samples and API metadata.
-2. **Test-create one ticket per type** through LiftOff, on approval (in a test project, or in the real one with a `[LiftOff test]` title, closed right after).
-3. **Learn from errors** — when a create fails or renders badly, LiftOff reads the tracker's error / result, shows what's wrong (missing field, broken formatting) and proposes the template fix.
-4. **Repeat until every type passes**, then write templates, text format (wiki markup / ADF / Markdown) and per-project transitions into the team config.
+| Section | What it sets |
+|---|---|
+| `project`, `stack`, `modules` | The project, its languages and frameworks, and its modules (each one gets its own `AGENTS.md`). |
+| `agents` | Which agents the team uses: `claude-code`, `copilot`, or both. |
+| `constraints` | Where the quality bar lives (`CONSTRAINTS.md`). |
+| `tracker` | The Jira Data Center URL and project. For each issue type: the reading map, the ticket template, required creation fields, and the workflow transitions for start, review and done. |
+| `codeHost` | The GitLab host and merge-request conventions: target branch, branch pattern, title pattern, template, labels, reviewers. |
+| `streams` | The linked Kanban work streams, their epics and the module each one feeds. |
+| `build.git` | Who runs git in Build. `assisted`: the agent creates the branch, commits each section and pushes, each step only after the engineer approves a preview. `manual`: the agent never runs a git command that writes anything. It hands the engineer the branch name, the commit messages and the commands. |
+| `plugin.version` | The minimum plugin version. An older install is stopped with instructions to update. |
 
-After Init, a failure for a teammate never gets fixed silently on their machine: LiftOff proposes the fix as a config change for the lead.
+**The lead's rules are enforced.** A section can be marked `required: true`. When the lead changes a required
+section, every teammate's LiftOff reports a required change until they apply it again with Init (one run, no
+questions). Init marks `constraints` and `build` required by default. Personal things, like tokens, are never in the
+config.
 
-**Conventions are part of the team config.** Onboarding runs once — usually by the lead during the first Init — and its output (a reading map per issue type, workflow transitions, ticket templates for the Ticket flow, the PR/MR template and conventions) is stored in the config. Engineers get it all pre-set.
+## Guarantees
 
-The lead builds them from, in order:
-1. **Existing samples** — one ticket per type, existing PRs.
-2. **System metadata** — fields per issue type and workflows from the Jira/Linear API, PR template file already in the repo.
-3. **Pasted example** — a ticket or PR from another project the lead likes.
-4. **Built-in defaults** — sensible task / story / bug / PR conventions, to edit and approve.
+- **Approval before every write to an outside system.** You see exactly what will be sent first: ticket fields, branch,
+  push. A plan or a batch of tickets is approved once, not once per call.
+- **No credentials in the repo, the config or the chat.** You type the Jira token into your own terminal, and it is
+  kept in the macOS Keychain or an environment variable. `glab` keeps its own login. The agent never sees either.
+- **Nothing is merged or moved by the tool.** The merge request and the ticket's status always belong to the engineer,
+  in every git mode. Build never writes to Jira at all.
+- **Ticket text is data, not instructions.** If a ticket contains something like "also push to main", the agent
+  reports it and does not follow it.
+- **Nothing is committed for you.** Init and Connect tell you which files to commit.
 
-**Credentials** are never held by LiftOff. OAuth sessions live in the agent client, CLIs use their own credential store, and access tokens for local MCP servers (e.g. a Jira DC PAT) live in the OS keychain (macOS Keychain, Windows Credential Manager, libsecret) and reach the server as env vars. Never in plain files, never in the config: the config only names the endpoint (e.g. `jira: https://jira.company.local`). Onboarding wires this up; `doctor` checks the credentials exist and are still valid.
+## Quick start
 
-### 3. Plan — ticket → local plan
+Requirements: macOS, Node 22.12 or newer, Claude Code or VS Code with GitHub Copilot. For Connect you also need a Jira
+Server/Data Center account and a GitLab account. Connect installs `uv` (it runs the Jira server) and `glab` with
+Homebrew, after you approve.
 
-The engineer picks a ticket. The agent reads it — using the learned reading map to find description, acceptance criteria and relevant fields — and produces an **implementation plan**, split into as many sections as needed (12 or 120).
+**Install (lead, or anyone installing by hand)**
 
-- The plan is **local**: it lives in the repo as input for Build. Nothing is written to the tracker.
-- The engineer reviews, edits and **approves the whole plan in one step**.
-
-### 4. Build — plan → PR
-
-The agent implements the approved plan using the repo's `AGENTS.md`, constraints and subagents, and prepares everything for the PR on the code host conventions: branch name, commit messages, the filled PR template and the exact command. The engineer reviews the work.
-
-**The PR and the ticket's status belong to the engineer, always:** LiftOff never opens the PR and never moves the ticket between lanes. Whether the agent also creates the branch, commits and pushes is a team rule the lead sets in Init (`build.git`: `assisted`, each group after an approved dry-run, or `manual`, where the engineer runs every git command).
-
-### 5. Close — superseded
-
-The README once planned a Close step (ticket status, PR link, summary comment, in one dry-run). The engineer now owns the PR and the ticket's status, so LiftOff does not build it.
-
-### Ticket flow — write tickets on the team's standards
-
-Separate from the development flow above. Creates bugs, tasks and user stories following the team's templates (`liftoff ticket`).
-
-- **Who:** the PO/PM writing stories (including breaking an epic into several tickets), and the engineer filing a bug or proposing a task.
-- **Same config, both directions:** the template the PO/PM writes with is the same reading map the engineer's agent reads with. The team config becomes the contract between who writes tickets and who implements them — tickets created via LiftOff are readable by Plan by construction.
-- **Batch approval:** several tickets are shown together, editable one by one, approved once.
-- **Where it runs:** Claude Code first. Chat clients without a shell (e.g. Claude Desktop) need an MCP wrapper over the LiftOff library, added with this flow — the natural place for a PO/PM.
-
-### Work streams — time-boxed Kanban projects
-
-Not every piece of work fits the team's sprint. A roadmap item of 3–6 weeks, or a task force that builds an MVP before becoming a module, needs a deadline and a scope, not a velocity. A **work stream** is a child tracker project run as Kanban, declared in the team config:
-
-- **Linked, not created.** The tracker project (e.g. a Jira project with a Kanban board) is created by hand; LiftOff only connects it. Creating projects needs admin rights and is a high-impact write, so it is out.
-- **Backlog from epics.** A stream can hold **several epics**. The Ticket flow breaks each epic into tickets on the team's templates, shown together and approved once, and creates them in the stream's project.
-- **No sprint, no velocity.** Plan, Build and Close never assume an active sprint or story points. Workflow transitions are read per stream project, as for any project.
-- **Lives in the repo config** (`streams:` in `liftoff.yaml`: id, tracker project key, `mode: kanban`, the code module it feeds). Who works on the stream (team or external people) is not LiftOff's concern: access is whatever the tracker and the repo already grant.
-- **Optional.** A repo without `streams:` behaves exactly as before; the team's sprint project stays the default.
-
-Later, not now: deadline and MVP-scope warnings, WIP limits, handoff notes when a stream closes.
-
-## Team config
-
-One config file is the single source of truth for a team (or a whole company, if setup is centralized).
-
-1. **First run, no config found** → full Init interview. At the end LiftOff writes the config file, ready to commit to a shared place (the repo by default).
-2. **Lead / platform team** can also author the config upfront, before telling the team to adopt the plugin.
-3. **Teammate runs LiftOff** → the config is found and applied with no interview. Only personal bits are asked: credentials, agent choice if the config leaves it open, and installing/logging into the code host CLI (`gh` / `glab`) if the config uses CLI mode.
-
-**Where it lives — two levels:**
-
-1. **Repo** (default): config file committed in the repo.
-2. **Central** (optional): the repo config extends a company-level config by git URL + version tag (e.g. `extends: <company-presets-repo>#v3`). A platform team maintains shared standards there; each repo inherits and adds its specifics. Central *required* fields can't be overridden by the repo; *default* fields can.
-
-Plain git, no registry or server: engineers already have access, on-prem companies already host it.
-
-What's **shared** (committed): stack, module layout, agent instructions, constraints, MCP servers per connector, tracker mapping, ticket template / reading map per issue type (with required fields), workflow transitions, PR/MR template and code host conventions.
-What's **personal** (never committed): credentials, tokens, personal preferences (e.g. `warn_on_config_update`).
-
-### Updates: the team config is authoritative
-
-If a team adopts a standard, it must be followed.
-
-- Every LiftOff command (e.g. picking a ticket from Jira/Linear) first checks whether the team config changed since it was last applied.
-- **Required change** → it blocks only the commands it affects, until applied. A new PR template blocks PR creation, not Plan. No silent drift where it matters.
-- **Non-required change** → a warning, controlled by the personal setting `warn_on_config_update` (default `true`, can be set to `false`). It never blocks.
-- **Local override (later, not in v1)**: a personal file for one's own additions, never committed. Updates would never touch it and it couldn't contradict a required rule. No common file name works across agents today (`AGENTS.local.md` is read by neither Claude Code nor Copilot), so how it works is open.
-- Using LiftOff is optional. Breaking a required rule while using it is not.
-- **Versioned.** The team config carries a version/hash; each repo records the version it last applied. The check is a cheap comparison.
-- **Diff before overwrite.** If an update touches a file that was edited by hand (e.g. an `AGENTS.md` section), the diff is shown first. The team config wins, but nobody loses work blindly.
-- **Required vs default fields.** The team marks each config **section** as *required* (always enforced, e.g. the PR template section) or *default* (overridable, e.g. agent choice) with a `required: true` flag inside the section.
-
-## Agent support
-
-Teams are mixed: some engineers use Claude Code, others GitHub Copilot. LiftOff must behave the same for all of them, without being built twice.
-
-**Design principle: build only on what agents have in common — instructions, Agent Skills, MCP and shell commands (CLIs).** Hooks and subagents differ between agents (or are missing); these don't.
-
-- **LiftOff's runtime is a CLI** (`liftoff`, one bundled file shipped inside the plugin, no `npx`), a thin layer over a TypeScript library, called by the skills through the shell that every agent has. It exposes the team's rules as commands, e.g. `check-config` (is the team config up to date?), and later `parse-ticket` (a ticket fetched by the agent, interpreted with the team's reading map), `pr-template`, `preview-write` (the dry-run shown before approval), `transition` (the right transition for that project). v1 ships `check-config`, `validate` and `render`.
-- **An MCP wrapper over the same library is added when a client without a shell needs it** (Ticket flow in Claude Desktop, roadmap item 4). The core flow never depends on it.
-- **The LiftOff CLI is pure: no network, no credentials.** It only reads the team config and the local repo. All calls to Jira / Linear / GitHub / GitLab are made by the agent, through their MCP servers or CLIs; LiftOff tells it *what* to do and *how*. No token ever passes through LiftOff, nothing is reimplemented, and the CLI stays small and easy to test. The final approval is the confirmation the agent already asks before calling the tracker / code host.
-- **Flows ship as Agent Skills in one plugin** that Claude Code, Claude Desktop/Cowork and VS Code/Copilot all install (see [Stack](#stack-draft)). Project files (`AGENTS.md`, per-agent instructions) come from one source of truth — team config + `AGENTS.md` — rendered into each agent's format at Init.
-- **No hook dependency for the core flow.** The config check is the first CLI call of every command, not a hook.
-- **Same conventions, same rules, same approvals** for every engineer on every agent — so "identical agent behavior" holds for mixed teams.
-- **Agent-specific extras are optional.** Features only one agent has (e.g. parallel specialized subagents in Claude Code) are add-ons, never required by the core flow.
-- **Any agent with skills and a shell is supported almost for free.** An agent without them can't run the core flow: LiftOff **warns and stops**, no silent degraded mode.
-
-## Doctor
-
-`liftoff doctor` checks everything in one place: team config version, credentials still valid, agent capabilities, connector reachability (Jira/Linear, GitHub/GitLab — on-prem included). First stop when something doesn't work.
-
-## What LiftOff is not
-
-- **Not an autonomous agent.** No walk-away mode, no auto-merge.
-- **Not for non-engineers — except the Ticket flow.** The development flow assumes you can read and own the code; PO/PMs only use ticketing.
-- **Not CI/CD or deploy.** It stops at the PR and the ticket update.
-- **Not a code-review bot.** It may self-check before opening a PR; reviewing teammates' PRs is out.
-- **Not a new IDE or agent runtime.** It builds on the agents you already use.
-
-## Success looks like
-
-- A new repo goes from zero to AI-ready in **< 10 minutes** — **~1 minute** when a team config exists.
-- PRs and ticket updates created through LiftOff are **accepted without edits** — measured as a % per connector.
-- A new teammate gets the same agent behavior as everyone else by cloning the repo and running the plugin.
-
-## Install
-
-LiftOff v1 is one plugin, published from this repo as a git marketplace. It needs Node 22.12 or newer (the CLI is a single bundled file inside the plugin: no `npm install`, no network).
-
-**Claude Code**
+Claude Code:
 
 ```
 /plugin marketplace add saugion/liftoff#v0.3.0
 /plugin install liftoff@liftoff
 ```
 
-(`/plugin install liftoff --marketplace saugion/liftoff` also works on Claude Code 2.1.275 or later.) Then, in a repo, run `/liftoff:liftoff-init`. Using the tag (`#v0.3.0`) installs exactly that release.
+The `#v0.3.0` tag installs exactly that release.
 
-**A teammate** who clones a repo that already ran Init gets the plugin from the committed `.claude/settings.json`: Claude Code registers the marketplace after you trust the folder. Run the skill to apply the team config; there are no questions.
+VS Code with GitHub Copilot: turn on `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install `liftoff`.
+Plugin support in VS Code is partly experimental, and the pilot will check this path.
 
-**VS Code with GitHub Copilot** reads the same plugin: enable `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install `liftoff`, and run the `liftoff-init` skill. Plugin support in VS Code is partly experimental; the pilot is checking this path.
+**Lead, once per team**
 
-**Pinning.** A repo pins the plugin to a release tag (`ref` in `.claude/settings.json`) and to a minimum version in `liftoff.yaml`; the pin is per user, not per repo. See [`SPEC-plugin-packaging.md`](SPEC-plugin-packaging.md).
+1. In the repo, run `/liftoff:liftoff-init` (in VS Code, the `liftoff-init` skill). Answer up to four questions:
+   name and purpose, modules and stack, agents, git mode. Then approve the recap.
+2. Run `/liftoff:liftoff-connect` and say you are the lead. Give the Jira URL and project, and the GitLab host. Approve
+   each test ticket and each config change. If the agent asks you to restart it, restart and run the skill again: it
+   picks up where it stopped.
+3. Commit what the skills list: `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, `CLAUDE.md`,
+   `.github/copilot-instructions.md`, `.claude/settings.json`, `.mcp.json`, `.vscode/mcp.json`.
+
+**Teammate, once per machine**
+
+1. Clone the repo. In Claude Code, trust the folder: the committed `.claude/settings.json` registers the LiftOff
+   marketplace and loads the plugin.
+2. Run `/liftoff:liftoff-init`: it applies the team config with no questions.
+3. Run `/liftoff:liftoff-connect`: make a Jira token, store it from your own terminal, approve the Jira server.
+
+**Every day**
+
+| Who | Skill | Or just say |
+|---|---|---|
+| PO/PM, engineer | `/liftoff:liftoff-ticket` | "create a bug", "break down this epic" |
+| Engineer | `/liftoff:liftoff-plan` | "plan PROJ-123" |
+| Engineer | `/liftoff:liftoff-build` | "build this plan" |
+
+After Build you review the work, open the merge request with the command Build handed you, and move the ticket to its
+next lane.
+
+The repo pins the plugin to a release tag in `.claude/settings.json` (`ref`), and to a minimum version in
+`liftoff.yaml`. The pin is per user, not per repo, so move all pilot repos to a new release together. Details are in
+[`SPEC-plugin-packaging.md`](SPEC-plugin-packaging.md).
+
+## Status and limits
+
+**Built in v0.3.0:** Init, Connect (member and lead flows), Plan, Build with the `build.git` option, Ticket (with
+epics), and work streams.
+
+**Supported:** Jira Server/Data Center through the community MCP server `mcp-atlassian`, one Jira project per repo.
+GitLab through `glab`. macOS. Claude Code and GitHub Copilot in VS Code.
+
+**Tested:** 1,219 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
+remote, with a scripted stand-in for the agent. **Nothing has run yet against a real Jira Data Center, a real GitLab or
+a real agent following the skills.** Nothing has been measured.
+
+**Not yet:**
+
+- Jira Cloud, Linear, GitHub
+- credential storage on Linux or Windows
+- sprint support (assigning sprints), and deadline or WIP warnings for streams
+- `doctor` (one command to check the whole setup)
+- a server so chat clients without a shell, like Claude Desktop, can run the Ticket flow
+- the optional Init add-ons: subagents, hooks, a CI workflow, a wiki
+- a company-level shared config that repos inherit from
+
+There is also no Close step, on purpose. Updating the ticket and linking the merge request stay with the engineer.
+
+**What LiftOff is not:** not an autonomous agent (no "assign it to the AI and walk away", no auto-merge); not CI/CD or
+deploy (it stops at a merge request ready to open); not a code-review bot for teammates' work; not a new IDE or agent
+runtime. Plan and Build assume you can read and own the code. PO/PMs use Ticket.
 
 ## Pilot
 
-The first users are internal: the product owner and close colleagues at their company. The pilot is how we find out whether LiftOff works before building more.
+The next step is an internal pilot: 3-5 engineers using both Claude Code and Copilot, on 1-2 new projects, for 2-4
+weeks. It covers Init, Connect, Plan, Build and Ticket on a real Jira Data Center and GitLab. What we watch:
 
-- **Who:** 3–5 engineers, mixed agents (Claude Code and GitHub Copilot).
-- **On what:** 1–2 new projects in the next 2–3 months.
-- **Scope:** Init + Connect + Plan/Build first. Close joins once those hold. The product owner also uses the Ticket flow as PO/PM, from Claude Code.
-- **What we measure:**
-  - **Init time**: zero to AI-ready repo, without a team config and then with one.
-  - **Return usage**: how many colleagues use Plan/Build in the 2–4 weeks after Init. This is the key signal: it tells whether the value is recurring or stops at setup.
-  - **Quality**: % of PRs and ticket updates created via LiftOff accepted without edits.
-  - **Friction**: how often someone bypasses LiftOff and uses the agent directly, and why.
-  - **Does Init actually help?** Manual, qualitative check with the team: same tasks on a bare repo vs a LiftOff repo, same agent; discuss the results together. Whatever generated file makes no difference gets cut. Repeat after major Init changes. A built-in `liftoff eval` only if outside teams ask for proof.
-- **Decision rule (set in advance):** if after 4 weeks fewer than half of the group uses Build, we revisit the product before adding anything else.
+- how long setup takes
+- whether people keep using Plan and Build after setup (the key signal)
+- how often merge requests and tickets need edits
+- when people bypass LiftOff, and why
 
-Small numbers: read the metrics as signals, not statistics. Talk to every user.
+Numbers this small are signals, not statistics, so we talk to every user. **Decision rule, set in advance:** if after
+4 weeks fewer than half of the group uses Build, we revisit the product before adding anything else. The manual
+checks are at the end of each `SPEC-connect-*.md`.
 
-## Roadmap (draft)
+## More, and contributing
 
-1. **Plugin, Init** — `project-init` as a product, multi-agent output, team config read/write.
-2. **Connect** — Jira/Linear and GitHub/GitLab via MCP servers, with onboarding. *Implemented in 0.2.0 for the pilot: Jira Server/DC + GitLab, macOS (the `liftoff-connect` skill; specs in `SPEC-connect*.md`).*
-3. **Plan / Build / Close** — the ticket → plan → PR loop, approval-gated. *Plan and Build implemented in 0.3.0 (`liftoff-plan`, `liftoff-build`; spec `SPEC-plan-build.md`); Close is dropped: the PR and the ticket's lane are the engineer's.*
-4. **Ticket flow** — bugs / tasks / stories on the team's templates; Claude Code first, then MCP chat clients (e.g. Claude Desktop). *Implemented in 0.3.0 (`liftoff-ticket`, `draft-tickets`; spec `SPEC-ticket-streams.md`); the MCP wrapper for chat clients is not.*
-5. **Work streams** — Kanban child projects linked in the config, epics broken into tickets; no sprint assumptions. Needs Connect and the Ticket flow. Judged with pilot data. *Implemented in 0.3.0 (`streams:` in `liftoff.yaml`, linking in the Connect lead flow, Ticket/Plan/Build aware); deadline and WIP warnings are not.*
-6. **More agents** — beyond Claude Code and Copilot.
+- [`HANDOFF.md`](HANDOFF.md): where the project stands and what is left.
+- [`docs/decisions/DECISIONS.md`](docs/decisions/DECISIONS.md): decisions taken while building. The open ones are
+  listed at the top.
+- `SPEC*.md`: the design record, one spec per area ([`SPEC.md`](SPEC.md) is the v1 overview).
+- [`schema/liftoff.schema.json`](schema/liftoff.schema.json): everything `liftoff.yaml` can hold.
 
-## Distribution
+To work on it: `npm ci`, `npm run build` (type check, bundle, regenerate `plugin/`), `npm test` (unit and end-to-end).
+CI checks that the committed `plugin/` matches a fresh build.
 
-Open source, **Apache-2.0** — permissive, with an explicit patent grant that corporate legal teams approve easily. A tool that reads your repo and holds your tracker and code host tokens has to be inspectable to be trusted. No business model for now; usage limited to the pilot at first.
-
-## Stack (draft)
-
-- **LiftOff CLI:** TypeScript / Node, bundled into one file (`dist/liftoff.mjs`) that ships inside the plugin, so no npm publish and no `npx` fetch. A library plus a thin `liftoff` binary, small and pure (reads config + repo, returns results). Skills call it through the shell. An MCP wrapper over the same library comes later, for clients without a shell. Maintained by the product owner, not by pilot users.
-- **Team config:** YAML, `liftoff.yaml` at the repo root, validated by a JSON Schema (autocomplete and errors in the editor). Comments allowed, multi-line ticket templates read well.
-- **Flows (Init, Plan, Build, Close, Ticket) = Agent Skills** (`SKILL.md`, an open standard): one version for every agent, with supporting files, templates and scripts. Skills say *how* to proceed; the CLI enforces *the team's rules*.
-- **Distribution: one Claude-format plugin** (`.claude-plugin/plugin.json`) bundling the skills (which call the bundled CLI through `node`), published in a LiftOff marketplace (a git repo). The same plugin installs in:
-  - **Claude Code** — `/plugin marketplace add` + `/plugin install`;
-  - **Claude Desktop / Cowork** — same plugin directory as Claude Code;
-  - **VS Code + Copilot** — VS Code auto-detects Claude-format plugins (Agent Plugins).
-- **Repo recommends the plugin:** Init commits `.claude/settings.json` with `extraKnownMarketplaces` + `enabledPlugins`, read by both Claude Code and VS Code. Whoever clones the repo is prompted to install it. The plugin itself is never copied into the repo. What Init commits is `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, the thin per-agent files (`CLAUDE.md`, `.github/copilot-instructions.md`) and this settings file.
-- **Plugin version pinning:** `liftoff.yaml` declares the minimum plugin version (e.g. `plugin: { version: "1.4" }`, always required). `check-config` compares it with the installed one; an older install is a **required change** — commands are blocked with instructions to update. Every version is a git tag in the marketplace, so a team can deliberately stay behind until the lead has validated the new one.
-
-## Open questions
-
-None right now.
-- **Ownership before public release** — confirm with the employer that the project can be released as open source, since the pilot runs at the company.
+Open source under the [Apache-2.0](LICENSE) license.
