@@ -70,6 +70,9 @@ call `jira_get_issue` (`fields="*all"`, `expand=renderedFields`) and save it the
 `build.title`, `build.targetBranch`, `build.transitions`, `build.mrTemplate`, `build.mrDescriptionFile` and
 `build.mrCreate`. Without a code host, `build.mrCreate` is null: tell the engineer there is no merge request step.
 
+A non-null `stream` means a Kanban work stream: no sprint is involved, the transitions in `build.transitions` are the
+stream's own. Say so in the dry-run.
+
 ## 4. Dry-run 1: the branch and the start transition
 
 Show, in one message, exactly what will happen: the branch `build.branch`, created from the current branch (ask

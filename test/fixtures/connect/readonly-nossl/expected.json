@@ -17,6 +17,7 @@
     "issueTypes": []
   },
   "codeHost": null,
+  "streams": [],
   "mcp": [
     {
       "agent": "claude-code",

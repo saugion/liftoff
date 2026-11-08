@@ -61,8 +61,8 @@ newer. Run `check-config` and branch on `status` and every `reasons[].code`:
 ## 2. Pick the ticket
 
 If the user gave a key (like `PROJ-123`), use it. Otherwise, if the Jira tools are available, call `jira_search`
-with the JQL `project = <tracker.project> AND assignee = currentUser() AND resolution = Unresolved ORDER BY updated
-DESC` and a limit of 10, show key, type and summary, and ask which one. If the Jira tools are not available, say to
+with the JQL `project = <the project> AND assignee = currentUser() AND resolution = Unresolved ORDER BY updated
+DESC` (`<the project>` is `tracker.project`, or a linked stream's project when the user works on a stream) and a limit of 10, show key, type and summary, and ask which one. If the Jira tools are not available, say to
 run the Connect skill and, in Claude Code, to restart the session afterwards; stop.
 
 ## 3. Read it
@@ -75,6 +75,13 @@ run the Connect skill and, in Claude Code, to restart the session afterwards; st
 4. Show the engineer what the team's reading map found: `ticket.summary`, `reading.acceptanceCriteria` (and its
    `source`), `reading.fields`, and every entry of `warnings`. A `no-acceptance-criteria` warning means **ask the
    engineer for them**; an `unknown-issue-type` warning means the lead can teach the Connect skill that type.
+
+## 3b. Work streams
+
+`parse-ticket` answers `stream`. When it is not null, the ticket belongs to a linked work stream: the work is
+**Kanban, with no sprint and no story points** (never ask for or assume either), the issue types and transitions are
+the stream's own, and `stream.module` is the code module it feeds: read that module's `AGENTS.md` first. A warning
+`types-inherited` means the stream has no learned types yet: tell the engineer.
 
 ## 4. Understand the code
 

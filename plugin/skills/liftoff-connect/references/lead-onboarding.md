@@ -182,6 +182,31 @@ teammate does next: update the plugin, rerun Init, run Connect. The table of typ
 not done), the test-ticket keys, anything left open. After this flow, **a failure on a teammate's machine is never
 fixed there**: the member flow proposes the config change to the lead.
 
+## L9. Link a work stream (optional)
+
+A time-boxed Kanban project, created by hand in Jira (**never created by LiftOff**: it needs admin rights). Ask: a
+short id, the stream's Jira project key, the code module it feeds (an id of `modules.items`, or none), and its epics
+(keys of that project, or none). Add the item to `streams.items` with a diff and approval, then `validate` (same
+rules as L5.5). Raise `plugin.version` to `0.3` if it is lower. The stream's issue types are not the tracker's: run L4
+and L5 for the **stream's project** (test tickets in that project, `[LiftOff test]`, closed not deleted) and write
+each type under `streams.items[].issueTypes`. A stream with none of its own is read with the tracker's types and a
+warning, so do this before the team relies on it. A stream needs no new MCP entry. Plan and Build never assume a
+sprint or story points for a stream.
+
+```yaml
+# splice: streams.items[]
+id: checkout-mvp
+project: STR
+mode: kanban
+epics: [STR-1, STR-2]
+issueTypes:
+  - name: Task
+    branchType: chore
+    transitions:
+      start: { name: In Progress }
+      done: { name: Done }
+```
+
 ## Boundaries
 
 - **Always:** announce and get approval for each Jira write; prefix test tickets `[LiftOff test]`; read before

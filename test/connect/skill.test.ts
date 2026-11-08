@@ -87,15 +87,16 @@ describe("lead-onboarding.md", () => {
   const indent = (t: string, n: number) => t.replace(/\n$/, "").split("\n").map((l) => " ".repeat(n) + l).join("\n") + "\n";
 
   it("has the four fragments, each starting with its splice point", () => {
-    expect(blocks.map((b) => /^# splice: (\S+)/.exec(b)![1])).toEqual(["tracker", "codeHost", "tracker.issueTypes[]", "codeHost.conventions"]);
+    expect(blocks.map((b) => /^# splice: (\S+)/.exec(b)![1])).toEqual(["tracker", "codeHost", "tracker.issueTypes[]", "codeHost.conventions", "streams.items[]"]);
   });
-  it.each([0, 1, 2, 3])("fragment %i spliced into a minimal config passes validateConfig", (i) => {
+  it.each([0, 1, 2, 3, 4])("fragment %i spliced into a minimal config passes validateConfig", (i) => {
     const b = blocks[i]!;
     const point = /^# splice: (\S+)/.exec(b)![1]!;
     const config = {
       tracker: BASE(`tracker:\n${indent(b, 2)}`, ""),
       codeHost: BASE("", `codeHost:\n${indent(b, 2)}`),
       "tracker.issueTypes[]": BASE(`tracker:\n  kind: jira-dc\n  url: https://j.local\n  project: PROJ\n  server: { version: "0.23.1" }\n  issueTypes:\n    - ${indent(b, 6).trimStart()}`, ""),
+      "streams.items[]": BASE(`tracker:\n  kind: jira-dc\n  url: https://j.local\n  project: PROJ\n  server: { version: "0.23.1" }\nstreams:\n  items:\n    - ${indent(b, 6).trimStart()}`, "").replace('version: "0.2"', 'version: "0.3"'),
       "codeHost.conventions": BASE("", `codeHost:\n  kind: gitlab\n  host: g.local\n  conventions:\n${indent(b, 4)}`),
     }[point]!;
     const r = parseConfig(config);

@@ -165,6 +165,7 @@ describe("plugin/ is small and clean", () => {
       "skills/liftoff-init/assets/module-agents-md-template.md",
       "skills/liftoff-init/references/stack-commands.md",
       "skills/liftoff-plan/SKILL.md",
+      "skills/liftoff-ticket/SKILL.md",
     ]);
   });
 
@@ -191,7 +192,7 @@ describe("the skill is loadable", () => {
     expect(front.name).toBe("liftoff-init");
     expect(front.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
     expect(front.name).toBe("liftoff-init");
-    expect(readdirSync(join(PLUGIN, "skills")).sort()).toEqual(["liftoff-build", "liftoff-connect", "liftoff-init", "liftoff-plan"]);
+    expect(readdirSync(join(PLUGIN, "skills")).sort()).toEqual(["liftoff-build", "liftoff-connect", "liftoff-init", "liftoff-plan", "liftoff-ticket"]);
   });
 
   it("has a description that says when to use it, and the license", () => {
