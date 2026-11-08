@@ -38,8 +38,9 @@ Then a recap and a **yes before anything is written**.
 ## L2. Write the base config
 
 Add, with a diff and approval, to `liftoff.yaml` by editing its text (comments stay): `tracker` and/or `codeHost`,
-and raise `plugin.version` to the installed `major.minor` if it is below `0.2`. The server version is the default
-pin from `assets/defaults.json` (`jiraServerVersion`), never below the minimum the CLI enforces. The base fragments:
+and raise `plugin.version` to the installed `major.minor` only if it is **below** `0.2` (`0.3` for a `streams` section); a pin that is already at or above that needs no change. The server version is the default
+pin from `assets/defaults.json` (`jiraServerVersion`), never below the minimum the CLI enforces. The fragments are values of the top-level key named in their `# splice:` comment; insert the key as a new top-level section
+right after `agents:` (or after `modules:` if present), never inside another section. The base fragments:
 
 ```yaml
 # splice: tracker
@@ -85,7 +86,8 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
    `schema`, **not** the allowed values); `jira_get_field_options` (project key and issue type name) for the allowed
    values of the fields that matter; `jira_search_fields` to map field names to ids. Custom field ids differ per
    instance: always use the ids you read, never a remembered one. If `jira_get_create_fields` fails, fall back to
-   `jira_search_fields` plus the first create error (slower, works).
+   `jira_search_fields` plus the first create error (slower, works). `jira_get_field_options` may answer the same list for
+   every field id: if so, take the allowed values from the create error or from the lead instead.
 4. **Propose the reading map** per type as a table for the lead to edit and approve. The acceptance-criteria entry is
    `heading:` (the section title in the description) or `field:`, for **every** type, not only Story: propose the
    section that plays that role in the template (Story "Acceptance criteria", Epic "Success criteria", Bug the
@@ -136,7 +138,7 @@ For each type, one ticket at a time:
    metadata did not declare, an invalid option, a permission), and propose the fix: a `createFields` entry (the value
    from `jira_get_field_options` or the lead) or a template change. Show the diff, get approval, retry. **At most 3
    attempts per type**, then stop and ask the lead.
-4. **Walk the workflow** on the test ticket with `jira_get_transitions` (it takes only the issue key, so it lists only
+4. **Walk the workflow** on the test ticket (moving a test ticket is part of the approved test: the lead's approval of the ticket covers it; if the names the lead gave do not exist on the instance, show the lists the instance offers and walk forward to learn the real ones) with `jira_get_transitions` (it takes only the issue key, so it lists only
    what is available from the **current** status: walking a real ticket is the only way to learn the roles) and
    `jira_transition_issue` (it accepts the transition name, case-insensitive), asking the lead at each state which
    transition plays `start`, `review` and `done` (`tracker.issueTypes[].transitions`). Record the names, and for a
@@ -184,7 +186,7 @@ Finally list the keys of every test ticket, so the lead can delete them.
 3. The repo's `.gitlab/merge_request_templates/`: prefer `Default.md` if it exists, otherwise ask which one is the
    team's default (`codeHost.conventions.mrTemplate`). A project-level default description set in GitLab's settings
    is invisible to the repo: ask.
-4. No merged MRs yet, or the lead disagrees: ask, with the built-in defaults as the starting point.
+4. No merged MRs yet, or the lead disagrees: ask, starting from these defaults: `targetBranch` the default branch from step 1, `branchPattern` `{type}/{key}-{slug}`, `titlePattern` `{key}: {summary}`, no labels, no reviewers, no `mrTemplate`. A label that is common but tied to a module or a type (backend, bug) is shown with its count and the lead decides whether it is a default for every MR. An `origin` path that differs from `glab repo view` is only noted.
 
 Then **one diff for `codeHost.conventions`**, approval, edit, `validate` (same rules as L5.5).
 
@@ -198,10 +200,10 @@ labels: [backend]
 reviewers: [alice, bob]
 ```
 
-## L7. Apply
+## L7. Apply (run it last, after every config edit, including L9)
 
-Connector sections have no `required` flag in this release. Run `check-config`: if the only changed sections are
-`tracker`, `codeHost` and `plugin`, run `render` (idempotent; connector sections render no files) with the lead's
+Connector sections (`tracker`, `codeHost`, `streams`) have no `required` flag in this release. Run `check-config`: if the only changed sections are
+`tracker`, `codeHost`, `streams` and `plugin`, run `render` (idempotent; connector sections render no files) with the lead's
 approval, so the applied record matches and `check-config` returns to `ok` on the lead's machine. Otherwise hand off
 to the Init skill.
 
@@ -221,7 +223,7 @@ short id, the stream's Jira project key, the code module it feeds (an id of `mod
 rules as L5.5). Raise `plugin.version` to `0.3` if it is lower. The stream's issue types are not the tracker's: run L4
 and L5 for the **stream's project** (test tickets in that project, `[LiftOff test]`, closed not deleted) and write
 each type under `streams.items[].issueTypes`. A stream with none of its own is read with the tracker's types and a
-warning, so do this before the team relies on it. A stream needs no new MCP entry. Plan and Build never assume a
+warning, so do this before the team relies on it. A stream needs no new MCP entry. Its issue types may repeat the tracker's (templates, reading maps, branch types, transitions): copy them under `streams.items[].issueTypes` by value, not by reference. Plan and Build never assume a
 sprint or story points for a stream.
 
 ```yaml

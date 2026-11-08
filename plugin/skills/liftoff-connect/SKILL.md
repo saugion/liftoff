@@ -63,7 +63,7 @@ Run `connect-info`. Then:
 | `plugin-outdated` | Stop. Tell the user to update the plugin to at least the pin, and how: *Claude Code: run `/reload-plugins`, or `/plugin marketplace update liftoff`; VS Code: update or reload the plugin.* |
 | `config-missing` | Suggest the Init skill. Stop. |
 | `config-invalid` | Show `errors`. Stop. |
-| `tracker` and `codeHost` both null (**no connector**) | Ask whether the user is the lead. Yes: follow `references/lead-onboarding.md` from L1. No: "ask your lead to run Connect first". Stop. |
+| `tracker` and `codeHost` both null (**no connector**) | Ask whether the user is the lead (skip the question when they already said so, e.g. "liftoff connect lead"). Yes: follow `references/lead-onboarding.md` from L1. No: "ask your lead to run Connect first". Stop. |
 | a connector, but `tracker.issueTypes` is empty or `codeHost.conventions` has nothing beyond its defaults (**lead work incomplete**) | Ask "are you the lead finishing onboarding?". Yes: follow the reference from **L3**. No: run the member flow below and tell the user the conventions are not learned yet. |
 | a connector and the lead work done | The member flow below. |
 
