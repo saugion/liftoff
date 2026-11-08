@@ -111,7 +111,7 @@ repo's full checks. Then run `plan --key <KEY>` and fix what `errors` says until
 
 ## 6. Review and approve
 
-Show the plan. Take the engineer's edits (edit the file, run `plan --key <KEY>` again). **One approval for the whole
+Check every step against `reading.acceptanceCriteria`; point out any step that departs from a criterion (an edge case the criterion answers differently counts) and ask; never resolve it in the plan yourself. Show the plan. Take the engineer's edits (edit the file, run `plan --key <KEY>` again). **One approval for the whole
 plan**: on the engineer's explicit yes, run `plan --key <KEY> --approve` and confirm `approvedValid` is true. Any
 later edit of the content (not of a checkbox) makes the approval `stale`: it must be approved again. Tell the user
 the next step is the Build skill.

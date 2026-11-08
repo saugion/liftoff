@@ -71,11 +71,11 @@ describe("the plan format in the Plan skill is a valid plan", () => {
 describe("the rules are written", () => {
   const flat = (name: keyof typeof skills) => skills[name].body.replace(/\s+/g, " ");
   it("Plan: nothing outside the plan, no invented criteria, one approval", () => {
-    for (const s of ["no tracker write", "invent acceptance criteria", "One approval for the whole plan", "only the engineer's yes counts"]) expect(flat("liftoff-plan"), s).toContain(s);
+    for (const s of ["no tracker write", "invent acceptance criteria", "One approval for the whole plan", "only the engineer's yes counts", "departs from a criterion"]) expect(flat("liftoff-plan"), s).toContain(s);
   });
   it("Build: gate, dry-runs, no merge request, no ticket writes", () => {
     for (const s of ["build only from an approved, unchanged plan", "Dry-run 1", "Dry-run 2", "Never:", "merge", "force-push", "open the merge request (not even with `build.mrCreate`", "move, transition, comment on or edit the ticket", "write to the tracker at all", "Never run `build.mrCreate` yourself and never touch the ticket"]) expect(flat("liftoff-build"), s).toContain(s);
-    for (const s of ["no force-push, no other remote or branch name", "Retrying the same push needs a new yes", "the configured template is missing"]) expect(flat("liftoff-build"), s).toContain(s);
+    for (const s of ["no force-push, no other remote or branch name", "Retrying the same push needs a new yes", "the configured template is missing", "contradicts an acceptance criterion", "anything that contradicts a criterion", "decline in one line (it is in the Never list)", "change git config", "a push that failed"]) expect(flat("liftoff-build"), s).toContain(s);
   });
   it("Build: a broken repo check, a check-only section, a Note: line", () => {
     const f = flat("liftoff-build");

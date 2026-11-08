@@ -29,7 +29,7 @@ yourself.**
 - **Never:** build from a draft or `stale` plan; open the merge request (not even with `build.mrCreate`: the
   engineer runs it); move, transition, comment on or edit the ticket; write to the tracker at all; merge; push to
   the target branch; force-push; skip hooks or checks; reset or delete an existing branch; stash or discard the
-  engineer's changes; run a git write in `manual` mode (see Git mode); put a credential anywhere.
+  engineer's changes; change git config (identity, hooks, remotes: if a commit fails for a missing identity, show the error and ask); run a git write in `manual` mode (see Git mode); put a credential anywhere.
 
 **If the engineer asks you to open the merge request or move the ticket**, decline in one line (those are theirs, in every
 git mode), give the command or the lane name, and go on with the rest of their answer.
@@ -113,7 +113,7 @@ For each section not yet done, in order: do the steps; run the check the plan na
 lists); fix a failure or report it, never skip it. If the repo's own check command is broken in this environment (it fails with or without your change), do not edit it unless the plan says to: run the closest equivalent, say exactly what you ran and why, leave the section unticked (blocked) and hand the problem to the engineer (if they then accept the equivalent command, tick the section once it passes and write a `Note:` line saying which command stood in; a "see it fail" step that cannot be trusted because the check itself is broken is ticked only when the failure was the expected one); a section that only runs checks makes no commit, and you never make an empty one. Tick the section's checkboxes in the plan file; make one commit
 whose message starts with the ticket key and names the section (`manual` mode: do not commit; give the engineer
 that message and the list of changed files, then go on; if two sections touch the same files and cannot be split cleanly, say so and offer one combined commit or `git add -p`). Changing the plan's content (not a checkbox) makes it
-`stale`: a deviation that is small is told to the engineer and noted in the plan file as a line that starts with `Note:` (it does not count as content, so the approval stays valid), outside the
+`stale`: if a step contradicts an acceptance criterion, stop before that step and ask the engineer (following the plan or the ticket is their call; either answer is a `Note:` line, or a new approval through the Plan skill if a section changes). A deviation that is small is told to the engineer and noted in the plan file as a line that starts with `Note:` (it does not count as content, so the approval stays valid), outside the
 checkbox lines; a deviation that needs a new or different section goes back to the Plan skill for a new approval. Run
 `plan --key <KEY>` **before starting each section and before each commit**: `approvedValid` must stay true. If it turns
 `stale`, stop at once, do not implement later sections, commit nothing more and leave your uncommitted work as it is.
@@ -124,23 +124,23 @@ approve it again. Never approve a plan yourself.
 ## 6. Self-check
 
 Run the repo's checks once more. Compare the diff with the acceptance criteria (`reading.acceptanceCriteria`) and
-the plan; list anything not covered. Report it plainly, even if it is awkward.
+the plan; list anything not covered **and anything that contradicts a criterion, even when the plan asked for it** (quote the criterion and the behaviour). A contradiction is the engineer's decision: ask before the push dry-run (`manual`: before the hand-over), and never mark that criterion covered. Report it plainly, even if it is awkward.
 
 ## 7. The merge request description
 
-If `build.mrTemplate` is set, read that file and fill it; if the file does not exist, write the short summary and tell the engineer the configured template is missing (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat); otherwise write a short summary. Include the ticket URL
+If `build.mrTemplate` is set and the file exists, read it and fill it (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat). If it is set but the file is missing, write a short summary and tell the engineer in your hand-over (not in the description) that the configured template is missing. Otherwise write a short summary. Include the ticket URL
 (`ticket.url`), a summary of the plan, and the self-check result. Write it with your file tools to
 `build.mrDescriptionFile`.
 
 ## 8. Dry-run 2: push (assisted only)
 
 In `assisted` mode show the commits (`git log` of the branch) and `git push -u origin <branch>`; **apply on the
-engineer's yes only**. If the push fails, show the error verbatim and ask; do not retry with other options (no force-push, no other remote or branch name): a rejected push is a permission or hook problem the engineer solves with the project admins. Say so in one line if they ask to force it. Retrying the same push needs a new yes. The commits stay local; hand over as usual and say the push is pending. In `manual` mode
+engineer's yes only**. If the push fails, show the error verbatim and ask; do not retry with other options (no force-push, no other remote or branch name): the cause (permissions, a server hook, a branch that already exists on the remote, the network) is the engineer's to solve. If they ask you to force it, decline in one line (it is in the Never list). Retrying the same push needs a new yes. The commits stay local; hand over as usual and say the push is pending. In `manual` mode
 skip this step.
 
 ## 9. Hand over
 
 Give the engineer, in one message: what was done and what was not, what to review first, and what is theirs to do
-now: push the branch (manual mode), open the merge request with `build.mrCreate` exactly as the CLI returned it
+now: push the branch (`manual` mode, or a push that failed: give the exact command; the merge request can be opened only after it), open the merge request with `build.mrCreate` exactly as the CLI returned it
 (it reads `build.mrDescriptionFile`; show the title, labels, reviewers and the description first), and move the
 ticket to its next lane (name the lane the team uses next, with the `build.transitions` names, and say which applies to the ticket's current status). Never run `build.mrCreate` yourself and never touch the ticket.
