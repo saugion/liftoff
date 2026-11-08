@@ -149,7 +149,12 @@ describe("plugin/ is small and clean", () => {
       "LICENSE",
       "THIRD_PARTY_NOTICES",
       "bin/liftoff.mjs",
+      "skills/liftoff-connect/SKILL.md",
       "skills/liftoff-connect/assets/defaults.json",
+      "skills/liftoff-connect/assets/defaults/bug.md",
+      "skills/liftoff-connect/assets/defaults/story.md",
+      "skills/liftoff-connect/assets/defaults/task.md",
+      "skills/liftoff-connect/references/lead-onboarding.md",
       "skills/liftoff-init/SKILL.md",
       "skills/liftoff-init/assets/agents-md-template.md",
       "skills/liftoff-init/assets/constraints-template.md",
@@ -183,7 +188,7 @@ describe("the skill is loadable", () => {
     expect(front.name).toBe("liftoff-init");
     expect(front.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
     expect(front.name).toBe("liftoff-init");
-    expect(readdirSync(join(PLUGIN, "skills"))).toContain(front.name);
+    expect(readdirSync(join(PLUGIN, "skills")).sort()).toEqual(["liftoff-connect", "liftoff-init"]);
   });
 
   it("has a description that says when to use it, and the license", () => {
