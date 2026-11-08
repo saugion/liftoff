@@ -21,7 +21,10 @@ export interface DraftResult {
 const KEY = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
 export const CREATED_KEY_PLACEHOLDER = "<created key>";
 
-export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig, info: ProjectInfo): DraftResult {
+// What the module check needs from the config: the module ids, and which module each stream feeds.
+export interface ModuleContext { modules: Set<string>; streamOf: Map<string, string> }
+
+export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig, info: ProjectInfo, mods: ModuleContext = { modules: new Set(), streamOf: new Map() }): DraftResult {
   const errors: DraftIssue[] = [], warnings: DraftIssue[] = [];
   const err = (code: string, message: string) => errors.push({ code, message });
   const t = isObj(raw) ? raw : {};
@@ -44,6 +47,15 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
   if (priority !== undefined && (typeof priority !== "string" || !/^[A-Za-z0-9 ._-]{1,30}$/.test(priority))) err("bad-priority", "priority must be a plain name like High");
   const fields = t.fields === undefined ? {} : t.fields;
   if (!isObj(fields) || Object.keys(fields).some((k) => !/^[A-Za-z0-9_]+$/.test(k))) err("bad-fields", "fields must be an object whose keys are Jira field ids");
+
+  const modules = t.modules === undefined ? [] : t.modules;
+  if (!Array.isArray(modules) || modules.some((m) => typeof m !== "string")) err("bad-modules", "modules must be a list of module ids");
+  else for (const m of modules as string[]) {
+    const stream = mods.streamOf.get(m);
+    if (!mods.modules.has(m)) err("unknown-module", `module '${m}' is not in modules.items`);
+    else if (info.stream && stream !== info.stream.id) err("module-wrong-project", `module '${m}' does not belong to stream ${info.stream.id}: create its ticket in its own project`);
+    else if (!info.stream && stream) err("module-in-stream", `module '${m}' belongs to stream ${stream}: its ticket goes in that stream's project; split the work into one ticket per project`);
+  }
 
   const epic = t.epic;
   if (epic !== undefined) {

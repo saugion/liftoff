@@ -78,13 +78,15 @@ For each ticket write the full description from the type's `template` (`tracker.
 `streams[].issueTypes[].template`): keep its sections, in its order, with the team's checklist and scenario
 conventions. Add `priority`, `labels` and `epic` only when the person gave them; `fields` carries any picker value
 the team needs beyond the type's `createFields` (those are added for you). Save the batch to
-`.liftoff/tmp/drafts-<n>.json` with your file tools, as
+`.liftoff/tmp/drafts-<n>.json` with your file tools (add `modules`, the ids of `modules.items` the ticket is about, whenever it concerns code), as
 
 ```json
-{ "project": "PROJ", "tickets": [ { "type": "Story", "summary": "Short title", "description": "text from the template", "priority": "Medium", "labels": ["backend"], "epic": "PROJ-12" } ] }
+{ "project": "PROJ", "tickets": [ { "type": "Story", "summary": "Short title", "description": "text from the template", "priority": "Medium", "labels": ["backend"], "modules": ["api"], "epic": "PROJ-12" } ] }
 ```
 
-Run `draft-tickets --file` on it. For every ticket with `ok` false, fix `errors` and run again until `allOk` is
+A ticket lives in one project, so a piece of work that touches a module of a stream and a module of the team's own
+project is **two tickets, one per project** (`draft-tickets` rejects the mix with `module-in-stream` or
+`module-wrong-project`): say so and split it, repeating the shared context in both. Run `draft-tickets --file` on it. For every ticket with `ok` false, fix `errors` and run again until `allOk` is
 true; show every `warnings` entry (`template-section-missing` means a section of the team's template is absent:
 add it or say why not).
 

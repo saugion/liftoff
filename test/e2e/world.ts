@@ -78,17 +78,17 @@ const initialStatus = (project: string) => (project === "STR" ? "Backlog" : "To 
 
 export interface FakeJira { url: string; requests: { method: string; path: string; auth: string | undefined }[]; issues: Issue[]; close(): Promise<void> }
 
-export async function startJira(dir: string, token = TOKEN): Promise<FakeJira> {
+export async function startJira(dir: string, token: string | string[] = TOKEN, opts: { fresh?: boolean } = {}): Promise<FakeJira> {
   const key = join(dir, "jira-key.pem"), cert = join(dir, "jira-cert.pem");
   const r = spawnSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert, "-subj", "/CN=localhost", "-days", "2"], { encoding: "utf8" });
   if (r.status !== 0) throw new Error("openssl failed: " + r.stderr);
   const requests: FakeJira["requests"] = [];
-  const issues = ISSUES();
+  const issues = opts.fresh ? ISSUES().filter((i) => i.key === "STR-1") : ISSUES(); // fresh: a new instance, only the stream's epic exists
   const server = https.createServer({ key: readFileSync(key), cert: readFileSync(cert) }, (req, res) => {
     const auth = req.headers.authorization;
     requests.push({ method: req.method!, path: req.url!, auth });
     const send = (code: number, body: unknown) => (res.writeHead(code, { "Content-Type": "application/json" }), res.end(JSON.stringify(body)));
-    if (auth !== `Bearer ${token}`) return send(401, { errorMessages: ["unauthorized"] });
+    if (!(Array.isArray(token) ? token : [token]).some((t) => auth === `Bearer ${t}`)) return send(401, { errorMessages: ["unauthorized"] });
     const url = new URL(req.url!, "https://x");
     let body = "";
     req.on("data", (c) => (body += c));

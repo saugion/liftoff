@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { connectors, projectsOf } from "../config/index.js";
-import { checkTicket } from "../plan/draft.js";
+import { checkTicket, type ModuleContext } from "../plan/draft.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
 import type { Handler, Outcome } from "./types.js";
 
@@ -33,7 +33,10 @@ export const draftTicketsCommand: Handler = ({ root, file }) => {
   const info = projectsOf(read.config).find((p) => p.project === wanted);
   if (!info) return fail("ticket-draft-invalid", `project ${String(wanted)} is neither the tracker's nor a stream's (${projectsOf(read.config).map((p) => p.project).join(", ")})`);
 
-  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info));
+  const streamOf = new Map<string, string>();
+  for (const p of projectsOf(read.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
+  const mods: ModuleContext = { modules: new Set((read.config.modules?.items ?? []).map((m) => m.id)), streamOf };
+  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods));
   return {
     exitCode: 0,
     body: {

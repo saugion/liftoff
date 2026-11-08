@@ -15663,7 +15663,7 @@ function readWithMap(t, type) {
 var isObj2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 var KEY = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
 var CREATED_KEY_PLACEHOLDER = "<created key>";
-function checkTicket(raw, index, tracker, info) {
+function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ */ new Set(), streamOf: /* @__PURE__ */ new Map() }) {
   const errors = [], warnings = [];
   const err = (code, message) => errors.push({ code, message });
   const t = isObj2(raw) ? raw : {};
@@ -15683,6 +15683,14 @@ function checkTicket(raw, index, tracker, info) {
   if (priority !== void 0 && (typeof priority !== "string" || !/^[A-Za-z0-9 ._-]{1,30}$/.test(priority))) err("bad-priority", "priority must be a plain name like High");
   const fields = t.fields === void 0 ? {} : t.fields;
   if (!isObj2(fields) || Object.keys(fields).some((k) => !/^[A-Za-z0-9_]+$/.test(k))) err("bad-fields", "fields must be an object whose keys are Jira field ids");
+  const modules = t.modules === void 0 ? [] : t.modules;
+  if (!Array.isArray(modules) || modules.some((m) => typeof m !== "string")) err("bad-modules", "modules must be a list of module ids");
+  else for (const m of modules) {
+    const stream = mods.streamOf.get(m);
+    if (!mods.modules.has(m)) err("unknown-module", `module '${m}' is not in modules.items`);
+    else if (info.stream && stream !== info.stream.id) err("module-wrong-project", `module '${m}' does not belong to stream ${info.stream.id}: create its ticket in its own project`);
+    else if (!info.stream && stream) err("module-in-stream", `module '${m}' belongs to stream ${stream}: its ticket goes in that stream's project; split the work into one ticket per project`);
+  }
   const epic = t.epic;
   if (epic !== void 0) {
     const m = typeof epic === "string" ? KEY.exec(epic) : null;
@@ -15730,7 +15738,10 @@ var draftTicketsCommand = ({ root, file }) => {
   const wanted = doc.project === void 0 ? tracker.project : doc.project;
   const info = projectsOf(read.config).find((p) => p.project === wanted);
   if (!info) return fail2("ticket-draft-invalid", `project ${String(wanted)} is neither the tracker's nor a stream's (${projectsOf(read.config).map((p) => p.project).join(", ")})`);
-  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info));
+  const streamOf = /* @__PURE__ */ new Map();
+  for (const p of projectsOf(read.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
+  const mods = { modules: new Set((read.config.modules?.items ?? []).map((m) => m.id)), streamOf };
+  const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods));
   return {
     exitCode: 0,
     body: {

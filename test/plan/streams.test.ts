@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CONFIG, cli, repo } from "./helpers.js";
 
-const WITH = CONFIG.replace('version: "0.2"', 'version: "0.3"')
+const WITH = CONFIG.replace("project: { name: acme, kind: existing }\n", "project: { name: acme, kind: existing }\nmodules:\n  items:\n    - { id: api, path: api }\n    - { id: stream-api, path: stream-api }\n").replace('version: "0.2"', 'version: "0.3"')
   .replace('  server: { version: "0.23.1" }\n', '  server: { version: "0.23.1" }\n  epicLinkField: customfield_10451\n')
   .replace("    - name: Story\n      branchType: feature\n", "    - name: Story\n      branchType: feature\n      template: |\n        ## Context\n        ## Acceptance criteria\n      createFields:\n        customfield_17064: { value: Team A }\n") +
   `streams:
@@ -11,6 +11,7 @@ const WITH = CONFIG.replace('version: "0.2"', 'version: "0.3"')
     - id: checkout-mvp
       project: STR
       mode: kanban
+      module: stream-api
       epics: [STR-1, STR-2]
       issueTypes:
         - name: Task
@@ -35,7 +36,7 @@ describe("parse-ticket on a stream", () => {
   };
   it("uses the stream's own types and transitions and reports the stream", () => {
     const { body } = parse({ key: "STR-7", summary: "Wire it", issue_type: { name: "Task" }, description: "d" });
-    expect(body.stream).toEqual({ id: "checkout-mvp", mode: "kanban", module: null, epics: ["STR-1", "STR-2"] });
+    expect(body.stream).toEqual({ id: "checkout-mvp", mode: "kanban", module: "stream-api", epics: ["STR-1", "STR-2"] });
     expect(body.known).toBe(true);
     expect(body.build.transitions).toEqual({ start: { name: "Work on it" }, review: { name: "Check" } });
     expect(body.build.branch).toBe("chore/STR-7-wire-it");
@@ -51,6 +52,25 @@ describe("parse-ticket on a stream", () => {
     const r = parse({ key: "OTHER-1", summary: "x" });
     expect(r.body.errors[0]).toMatchObject({ code: "ticket-invalid" });
     expect(r.body.errors[0].message).toMatch(/PROJ, STR, BARE/);
+  });
+});
+
+describe("draft-tickets: modules and projects", () => {
+  const t = (project: string, modules: string[], type = project === "STR" ? "Task" : "Story") => draft({ project, tickets: [{ type, summary: "x", description: "## Context\n## Acceptance criteria", modules }] }).body.tickets[0];
+  it("a ticket's modules must live in its project: team modules in the team's, the stream's module in the stream's", () => {
+    expect(t("PROJ", ["api"]).ok).toBe(true);
+    expect(t("STR", ["stream-api"]).ok).toBe(true);
+    expect(t("PROJ", ["stream-api"]).errors.map((e: any) => e.code)).toEqual(["module-in-stream"]);
+    expect(t("STR", ["api"]).errors.map((e: any) => e.code)).toEqual(["module-wrong-project"]);
+  });
+  it("mixing a stream module and a team module is rejected in either project, with the way out in the message", () => {
+    expect(t("PROJ", ["api", "stream-api"]).errors.map((e: any) => e.code)).toEqual(["module-in-stream"]);
+    expect(t("STR", ["stream-api", "api"]).errors.map((e: any) => e.code)).toEqual(["module-wrong-project"]);
+    expect(t("PROJ", ["stream-api"]).errors[0].message).toMatch(/one ticket per project/);
+  });
+  it("an unknown module and a non-list are errors", () => {
+    expect(t("PROJ", ["nope"]).errors.map((e: any) => e.code)).toEqual(["unknown-module"]);
+    expect(draft({ tickets: [{ ...story, modules: "api" }] }).body.tickets[0].errors.map((e: any) => e.code)).toContain("bad-modules");
   });
 });
 
