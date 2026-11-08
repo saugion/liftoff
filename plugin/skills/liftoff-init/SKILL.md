@@ -55,6 +55,8 @@ runs PowerShell).
 
 ## 0b. A symlinked AGENTS.md (both modes, before anything is written)
 
+(Detect a symlink with `test -L <path>` or `ls -l`.)
+
 If the root `AGENTS.md`, or any module `AGENTS.md`, is a symlink, show what it points to. The common case is
 `AGENTS.md -> CLAUDE.md`: folding into it would write through the link into `CLAUDE.md`, and `--overwrite CLAUDE.md`
 would then destroy the only copy. Ask to replace the symlink with a regular file holding the target's content (back
@@ -207,13 +209,14 @@ Copy the fragment in `assets/marketplace-entry.json` into the repo's `.claude/se
 5. Keep every other key untouched and **keep the file's indentation** (2 spaces if you cannot tell).
 6. **Always show the result before writing** (a diff, or the full content for a new file), and write only on approval.
 
-If the user declines the recommendation, skip this step: write nothing, and say in the summary that teammates will not be
+If the user declines the recommendation, skip this step (`check-config` does not depend on it and will not nag): write nothing, and say in the summary that teammates will not be
 prompted to install the plugin and must install it by hand. Only `.claude/settings.json` is written.
 
 ## 10. Verify and summarize
 
 - Run `check-config` again: it should be `ok` (or `warn` only for conflicts the user kept).
-- Every path named in `AGENTS.md` exists; the root `AGENTS.md` has `## Rules that always apply`; `liftoff.yaml` and
+- Every path named in `AGENTS.md` exists; the root `AGENTS.md` has `## Rules that always apply` (an existing root file without it, in
+  either mode: propose adding the heading as an additive diff with approval, never rewrite the file); `liftoff.yaml` and
   `.claude/settings.json` parse; the files to commit are **not gitignored** (`git check-ignore`).
 - Summary: files created, changed and skipped; conflicts left; the CLI's `notices`; unverified commands; the next step
   (commit `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, the generated `CLAUDE.md` and

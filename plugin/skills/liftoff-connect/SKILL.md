@@ -75,7 +75,7 @@ teammate after a lead adds a connector is: update the plugin, rerun Init, run Co
 
 ## 2. Prerequisites
 
-For each entry of `prerequisites`: run its `check`. For a missing one, show `why` and `install`, ask, and run
+For each entry of `prerequisites`: run its `check`. If a check fails but the user says the tool is installed, ask where (a different shell, PATH); do not install over it, and do not go on until the check passes or the user explicitly says to continue without it. For a missing one, show `why` and `install`, ask, and run
 `install` only on approval (it installs software: never silently). Check again. If `brew` itself is missing, say so
 and point to its installer; do not install it. Note: the Jira server is downloaded from PyPI on first start; on a
 network that blocks PyPI the preflight (step 3.4) fails and the user may need a `UV_INDEX_URL`.
@@ -96,7 +96,8 @@ network that blocks PyPI the preflight (step 3.4) fails and the user may need a 
    Then run `credential.keychain.check` again to confirm.
 3. **You never see the token.** You do not run `credential.keychain.add`, do not ask for the token, do not accept it
    in the chat. If the user pastes one: stop, tell them to **revoke it in Jira now** and create a new one, and do not
-   use the pasted value anywhere.
+   use the pasted value anywhere. The pasted copy stays in this session's history, so revoking is the fix; hold the other
+   steps until the new token is stored.
 4. **Preflight.** Run `credential.preflight`. It prints `uvx not found`, `no Jira token found (or the keychain is
    locked)`, or nothing (success); it never prints the token; it warms the `uv` cache and surfaces the macOS
    keychain dialog once, under the user's eyes. A failure sends the user back to the step it names.
@@ -125,10 +126,11 @@ Tell the user what comes next: **Claude Code** asks to approve the project serve
 ## 5. Verify Jira
 
 If the Jira tools are available in this session, call `jira_search` with the JQL `project = <tracker.project> ORDER
-BY updated DESC` and a limit of 1. Success: report the project and the newest ticket key. Failure:
+BY updated DESC` and a limit of 1 (the arguments are `jql` and `limit`). Success: report the project and the newest ticket key, or "connected; the project has no tickets yet" when the list is empty. Failure:
 - `401` / `403` / authentication: the token is wrong or expired: rotate (3.5).
 - `404` or "project not found": a **config problem**. Do not edit `liftoff.yaml`. Write the exact change you
   propose as a diff for the lead and say so.
+- a config that already sets `tracker.server.sslVerify: false`: say so to the lead in the summary as a note, never change it;
 - an SSL or certificate error: a **config problem** (`tracker.server.sslVerify`, or the machine's CA): propose it to
   the lead as a diff; never disable verification on your own.
 - the server did not start: you cannot see its stderr, so run `credential.preflight` again: it names what is missing.
@@ -145,7 +147,7 @@ restart the agent) and **run this skill again**; the second run skips steps 2-4 
 3. **An exported `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN` or `OAUTH_TOKEN` overrides the login.** If the status shows a
    different user or host than expected, **ask** whether one is exported in their shell profile (never print them).
 4. Verify with the fixed commands (no config value in them): `glab repo view -F json` (reachable; note the default
-   branch) and `glab mr list -P 1 -F json` (the API answers). If the repo's `origin` is not on `codeHost.host`, say
+   branch) and `glab mr list -P 1 -F json` (the API answers). If the repo's `origin` is not on `codeHost.host` (informational, nothing blocks), say
    so: a config or clone problem to hand to the lead.
 
 ## 7. Summary

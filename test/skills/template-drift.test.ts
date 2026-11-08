@@ -131,7 +131,7 @@ describe("the constraints template and the references", () => {
 
 describe("the Init skill covers what the first real-agent run had to guess", () => {
   const body = readFileSync(join(SKILL, "SKILL.md"), "utf8").replace(/\s+/g, " ");
-  it.each(["is not one of its four", "columns Module, Path, Stack, Description", "must install it by hand", "each tagged with its module", "when the stack has one that is not set up yet"])("says: %s", (x) => {
+  it.each(["is not one of its four", "propose adding the heading as an additive diff", "will not nag", "test -L", "columns Module, Path, Stack, Description", "must install it by hand", "each tagged with its module", "when the stack has one that is not set up yet"])("says: %s", (x) => {
     expect(body).toContain(x);
   });
 });

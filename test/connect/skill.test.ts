@@ -57,6 +57,10 @@ describe("the member flow speaks connect-info's contract (drift check)", () => {
   it("handles every failure shape connect-info can produce", () => {
     for (const s of ["usage", "internal", "plugin-outdated", "config-missing", "config-invalid", "not-applied", "required-changed", "exit 2"]) expect(body, s).toContain(s);
   });
+  it("covers what the member agent run had to guess", () => {
+    const f = body.replace(/\s+/g, " ");
+    for (const x of ["a different shell", "the arguments are `jql` and `limit`", "has no tickets yet", "informational, nothing blocks", "revoking is the fix", "already sets `tracker.server.sslVerify: false`"]) expect(f, x).toContain(x);
+  });
   it("routing names every state", () => {
     for (const s of ["no connector", "lead work incomplete", "lead work done", "liftoff connect lead"]) expect(body.toLowerCase(), s).toContain(s.toLowerCase());
   });
