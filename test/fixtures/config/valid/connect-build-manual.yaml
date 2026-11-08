@@ -1,0 +1,11 @@
+liftoff: 1
+plugin:
+  version: "0.3"
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [claude-code]
+build:
+  required: true
+  git: manual

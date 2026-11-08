@@ -147,3 +147,21 @@ describe("3. Build", () => {
     expect(existsSync(join(root, ".liftoff/plans/PROJ-123.md"))).toBe(true);
   });
 });
+
+describe("4. the lead chooses manual git: it is a required team rule", () => {
+  it("changing build.git blocks teammates until applied; Build is told manual; nothing else about the ticket changes", () => {
+    const before = liftoff(root, ["parse-ticket", "--file", ".liftoff/tmp/PROJ-123.json"]).body.build;
+    expect(before.git).toBe("assisted");
+    const cfg = readFileSync(join(root, "liftoff.yaml"), "utf8");
+    writeFileSync(join(root, "liftoff.yaml"), cfg.replace('plugin: { version: "0.2" }', 'plugin: { version: "0.3" }') + "build:\n  required: true\n  git: manual\n");
+    expect(liftoff(root, ["validate"]).status).toBe(0);
+    const c = liftoff(root, ["check-config"]);
+    expect(c.body.status).toBe("blocked");
+    expect(c.body.reasons.map((r: any) => r.code)).toContain("required-changed");
+    expect(liftoff(root, ["render"]).status).toBe(0);
+    expect(liftoff(root, ["check-config"]).body.status).toBe("ok");
+    const after = liftoff(root, ["parse-ticket", "--file", ".liftoff/tmp/PROJ-123.json"]).body.build;
+    expect(after.git).toBe("manual");
+    expect({ ...after, git: undefined }).toEqual({ ...before, git: undefined });
+  });
+});

@@ -100,6 +100,22 @@ describe("liftoff-ticket", () => {
   });
 });
 
+describe("Build's git mode", () => {
+  const flat = () => skills["liftoff-build"].body.replace(/\s+/g, " ");
+  it("is read from build.git, which parse-ticket returns (assisted by default, manual when the lead chose it)", () => {
+    const run = (config: string) => cli(["parse-ticket", "--root", repo(config, { "t.json": JSON.stringify({ key: "PROJ-1", summary: "S", issue_type: { name: "Story" }, description: "d" }) }), "--file", "t.json"]).body.build.git;
+    expect(run(CONFIG)).toBe("assisted");
+    expect(run(CONFIG.replace('version: "0.2"', 'version: "0.3"') + "build:\n  git: manual\n")).toBe("manual");
+  });
+  it("the skill names both modes, the key, and forbids git writes in manual mode", () => {
+    for (const x of ["build.git", "`assisted`", "`manual`", "never** run a git command that writes", "never open the merge request", "Read-only git", "Never:** run a git write in `manual` mode"]) expect(flat(), x).toContain(x);
+  });
+  it("the Init skill asks the lead and writes the answer", () => {
+    const init = readFileSync(join(ROOT, "plugin/skills/liftoff-init/SKILL.md"), "utf8").replace(/\s+/g, " ");
+    for (const x of ["Git in the Build skill", "`assisted`", "`manual`", "BUILD_GIT"]) expect(init, x).toContain(x);
+  });
+});
+
 describe("streams in Plan and Build", () => {
   it("both say a stream is Kanban with no sprint or points", () => {
     for (const n of ["liftoff-plan", "liftoff-build"] as const) expect(skills[n].body.replace(/\s+/g, " "), n).toMatch(/Kanban/);

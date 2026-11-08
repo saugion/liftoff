@@ -4,6 +4,7 @@ import type { Config, ConfigError, RawConfig } from "./types.js";
 export const MIN_CONNECT_PLUGIN = "0.2";
 export const MIN_JIRA_SERVER_VERSION = "0.22.0";
 export const MIN_STREAMS_PLUGIN = "0.3";
+export const MIN_BUILD_PLUGIN = "0.3";
 
 export type Transition = { name: string; fields?: Record<string, unknown> };
 export type IssueType = {
@@ -158,6 +159,9 @@ export function connectorErrors(raw: RawConfig): ConfigError[] {
 
   if ((tracker || codeHost) && (compareVersions(raw.plugin.version, MIN_CONNECT_PLUGIN) ?? -1) < 0) {
     errors.push({ path: "/plugin/version", message: `tracker and codeHost need plugin.version ${MIN_CONNECT_PLUGIN} or newer` });
+  }
+  if (raw.build && (compareVersions(raw.plugin.version, MIN_BUILD_PLUGIN) ?? -1) < 0) {
+    errors.push({ path: "/plugin/version", message: `the build section needs plugin.version ${MIN_BUILD_PLUGIN} or newer` });
   }
   if (tracker) {
     if (!portOk(tracker.url.slice("https://".length))) errors.push({ path: "/tracker/url", message: "port must be 1-65535" });

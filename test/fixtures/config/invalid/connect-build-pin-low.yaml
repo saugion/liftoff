@@ -1,0 +1,11 @@
+# expect: /plugin/version
+liftoff: 1
+plugin:
+  version: "0.2"
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [claude-code]
+build:
+  git: manual

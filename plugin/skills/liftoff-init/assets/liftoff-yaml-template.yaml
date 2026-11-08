@@ -16,3 +16,6 @@ modules:
 constraints:
   required: true
   file: {{CONSTRAINTS_FILE}}
+build:
+  required: true
+  git: {{BUILD_GIT}} # assisted | manual: who runs git writes (branch, commit, push, merge request) when the Build skill works

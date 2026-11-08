@@ -482,6 +482,21 @@
           }
         }
       }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "git": {
+          "enum": [
+            "assisted",
+            "manual"
+          ]
+        },
+        "required": {
+          "$ref": "#/definitions/requiredFlag"
+        }
+      }
     }
   }
 }

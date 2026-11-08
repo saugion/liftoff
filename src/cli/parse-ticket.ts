@@ -54,7 +54,7 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
       reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
       warnings,
-      build: buildInfo(ticket, tracker, type, codeHost),
+      build: { git: read.config.build?.git ?? "assisted", ...buildInfo(ticket, tracker, type, codeHost) },
     },
   };
 };

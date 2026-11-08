@@ -90,8 +90,13 @@ what you found as the defaults.
 2. Modules, the stack per module, and (for a `new` project only) the layout: monorepo (`backend/ frontend/ shared/
    [infra/]`) or single-app. An existing repo keeps what it has.
 3. Agents to target, multi-select: `claude-code`, `copilot`. Default: the one you are running in.
+4. **Git in the Build skill** (a team rule, the lead decides): `assisted` (default) means the agent creates the
+   branch, commits per plan section, pushes and opens the merge request, each group only after the engineer approves
+   a dry-run; `manual` means the agent only edits files and runs checks, and **never** stages, commits, branches,
+   pushes or opens a merge request: it hands the engineer the branch name, the commit messages and the exact
+   commands. Many teams keep git as the engineer's own: ask, explain both in one line each, and write the answer.
 
-Do **not** ask about: which sections are `required` (defaults: `constraints.required: true`, nothing else; a lead
+Do **not** ask about: which sections are `required` (defaults: `constraints.required: true` and `build.required: true`, nothing else; a lead
 edits by hand), constraint thresholds (use the template defaults), or extras (subagents, hooks, CI, wiki are not part
 of this version). Then print a recap table (the config values and the files you will create) and **get a yes before
 writing anything**.
@@ -115,6 +120,7 @@ Fill `assets/liftoff-yaml-template.yaml`:
 | `LANGUAGES`, `FRAMEWORKS` | comma-separated, or empty when unknown |
 | `MODULE_ITEMS` | `[]` for a single-app repo, otherwise the items as a block starting on a new line: `\n    - id: api\n      path: src/api\n      description: HTTP layer` |
 | `CONSTRAINTS_FILE` | `CONSTRAINTS.md` |
+| `BUILD_GIT` | `assisted` or `manual`, the answer to question 4 |
 
 Module rules:
 - A single-app repo whose code sits at the root gets `modules.items` **empty** (the root `AGENTS.md` covers it).

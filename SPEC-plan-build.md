@@ -16,7 +16,8 @@ Two skills (`liftoff-plan`, `liftoff-build`) and two pure CLI commands (`parse-t
 4. **Build asks twice, not once.** A first dry-run (create the branch, move the ticket to the `start` transition) and a second at the end (push, open the merge request). The README says "approved together"; the MR cannot be shown before the code exists, so each group is approved together.
 5. **Reading map drives the reading.** `parse-ticket` applies `tracker.issueTypes[].readingMap` to the ticket JSON the agent fetched and reports what it found and what is missing. An issue type unknown to the config is read with defaults and a warning that points back to the Connect lead flow.
 6. **Branch, title, labels, reviewers, target branch, MR template** come from `codeHost.conventions` through `parse-ticket`'s `build` object; the `glab mr create` command is built by the CLI and quoted with `shQuote`; the skill never assembles it.
-7. **Never:** merge, force-push, push to the target branch, skip hooks, delete a ticket or a branch, write to the tracker beyond the `start` transition, commit without the plan's approval, put a credential anywhere.
+7. **Git is a team option.** `build.git` in `liftoff.yaml` (`assisted` default, `manual`) decides who runs git writes; see `DECISIONS-ticket-streams.md` item 12. In `manual` the agent never writes to git and never opens the MR.
+8. **Never:** merge, force-push, push to the target branch, skip hooks, delete a ticket or a branch, write to the tracker beyond the `start` transition, commit without the plan's approval, put a credential anywhere.
 
 ## CLI
 

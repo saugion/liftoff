@@ -10,8 +10,8 @@ const fill = (template: string, values: Record<string, string>) => template.repl
 
 // What the skill substitutes into liftoff-yaml-template.yaml (see SPEC-init-flow.md step 5).
 const SAMPLE = {
-  INSTALLED_VERSION: "0.1.0",
-  PLUGIN_MIN_VERSION: "0.1",
+  INSTALLED_VERSION: "0.3.0",
+  PLUGIN_MIN_VERSION: "0.3",
   PROJECT_NAME: "acme-billing",
   PROJECT_KIND: "new",
   AGENT_TARGETS: "claude-code, copilot",
@@ -19,6 +19,7 @@ const SAMPLE = {
   FRAMEWORKS: "nestjs",
   MODULE_ITEMS: "\n    - id: api\n      path: src/api\n      description: HTTP layer\n    - id: web\n      path: apps/web",
   CONSTRAINTS_FILE: "CONSTRAINTS.md",
+  BUILD_GIT: "manual",
 };
 
 describe("liftoff-yaml-template.yaml cannot drift from the schema", () => {
@@ -30,12 +31,13 @@ describe("liftoff-yaml-template.yaml cannot drift from the schema", () => {
     const r = parseConfig(text);
     expect(r.ok, JSON.stringify(r)).toBe(true);
     expect(r.ok && r.value).toMatchObject({
-      plugin: { version: "0.1" },
+      plugin: { version: "0.3" },
       project: { name: "acme-billing", kind: "new" },
       agents: { targets: ["claude-code", "copilot"] },
       stack: { languages: ["typescript"], frameworks: ["nestjs"] },
       modules: { items: [{ id: "api", path: "src/api", description: "HTTP layer" }, { id: "web", path: "apps/web" }] },
       constraints: { required: true, file: "CONSTRAINTS.md" },
+      build: { git: "manual", required: true },
     });
   });
 
@@ -57,7 +59,7 @@ describe("liftoff-yaml-template.yaml cannot drift from the schema", () => {
 
   it("starts with the schema modeline at the release tag, then says never to put credentials in the file", () => {
     const lines = fill(template, SAMPLE).split("\n");
-    expect(lines[0]).toBe("# yaml-language-server: $schema=https://raw.githubusercontent.com/saugion/liftoff/v0.1.0/schema/liftoff.schema.json");
+    expect(lines[0]).toBe("# yaml-language-server: $schema=https://raw.githubusercontent.com/saugion/liftoff/v0.3.0/schema/liftoff.schema.json");
     expect(lines[1]).toMatch(/Never put credentials/);
   });
 

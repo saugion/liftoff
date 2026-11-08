@@ -125,3 +125,15 @@ describe("streams", () => {
     expect(b.streams).toBeDefined();
   });
 });
+
+describe("build.git", () => {
+  it("normalizes: git defaults to assisted, required to false; the section hash changes with the choice", () => {
+    expect(parseOk({ build: {} }).build).toEqual({ git: "assisted", required: false });
+    expect(parseOk({ build: { git: "manual", required: true } }).build).toEqual({ git: "manual", required: true });
+    expect(sectionHashes(parseOk({ build: { git: "manual" } })).build).not.toBe(sectionHashes(parseOk({ build: { git: "assisted" } })).build);
+  });
+  it("a required build section is listed among the required sections", async () => {
+    const { requiredSections } = await import("../../src/config/index.js");
+    expect(requiredSections(parseOk({ build: { git: "manual", required: true } }))).toContain("build");
+  });
+});

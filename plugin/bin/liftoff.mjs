@@ -14300,6 +14300,7 @@ function compareVersions(a, b) {
 var MIN_CONNECT_PLUGIN = "0.2";
 var MIN_JIRA_SERVER_VERSION = "0.22.0";
 var MIN_STREAMS_PLUGIN = "0.3";
+var MIN_BUILD_PLUGIN = "0.3";
 function projectsOf(config) {
   const { tracker } = connectors(config);
   if (!tracker) return [];
@@ -14400,6 +14401,9 @@ function connectorErrors(raw) {
   if ((tracker || codeHost) && (compareVersions(raw.plugin.version, MIN_CONNECT_PLUGIN) ?? -1) < 0) {
     errors.push({ path: "/plugin/version", message: `tracker and codeHost need plugin.version ${MIN_CONNECT_PLUGIN} or newer` });
   }
+  if (raw.build && (compareVersions(raw.plugin.version, MIN_BUILD_PLUGIN) ?? -1) < 0) {
+    errors.push({ path: "/plugin/version", message: `the build section needs plugin.version ${MIN_BUILD_PLUGIN} or newer` });
+  }
   if (tracker) {
     if (!portOk(tracker.url.slice("https://".length))) errors.push({ path: "/tracker/url", message: "port must be 1-65535" });
     if ((compareVersions(tracker.server.version, MIN_JIRA_SERVER_VERSION) ?? -1) < 0) {
@@ -14455,6 +14459,7 @@ function normalize(raw) {
       constraints: { file: raw.constraints.file ?? "CONSTRAINTS.md", required: raw.constraints.required ?? false }
     },
     ...raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker) },
+    ...raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } },
     ...raw.streams && { streams: Object.keys(raw.streams).length === 0 ? {} : normalizeStreams(raw.streams) },
     ...raw.codeHost && { codeHost: Object.keys(raw.codeHost).length === 0 ? {} : normalizeCodeHost(raw.codeHost) }
   };
@@ -14967,6 +14972,21 @@ var liftoff_schema_default = {
               }
             }
           }
+        }
+      }
+    },
+    build: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        git: {
+          enum: [
+            "assisted",
+            "manual"
+          ]
+        },
+        required: {
+          $ref: "#/definitions/requiredFlag"
         }
       }
     }
@@ -15822,7 +15842,7 @@ var parseTicketCommand = ({ root, file }) => {
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
       reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
       warnings,
-      build: buildInfo(ticket, tracker, type, codeHost)
+      build: { git: read.config.build?.git ?? "assisted", ...buildInfo(ticket, tracker, type, codeHost) }
     }
   };
 };

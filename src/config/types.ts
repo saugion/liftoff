@@ -21,6 +21,7 @@ export interface RawConfig {
   tracker?: Record<string, never> | RawTracker;
   codeHost?: Record<string, never> | RawCodeHost;
   streams?: Record<string, never> | RawStreams;
+  build?: { git?: "assisted" | "manual"; required?: boolean };
 }
 
 // Normalized: defaults applied inside every section that is present. An absent section stays absent.
@@ -35,6 +36,7 @@ export interface Config {
   tracker?: Record<string, never> | TrackerConfig;
   codeHost?: Record<string, never> | CodeHostConfig;
   streams?: Record<string, never> | StreamsConfig;
+  build?: { git: "assisted" | "manual"; required: boolean }; // assisted: the agent runs git after an approved dry-run; manual: the engineer runs every git write
 }
 
 export interface ConfigError {
