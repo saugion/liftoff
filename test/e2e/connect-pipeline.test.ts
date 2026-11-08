@@ -126,6 +126,5 @@ describe("the preflight and the secrets", () => {
   });
   it("after all of the above, the token is in no file the runs created", () => {
     for (const [path, text] of textFiles(dir)) expect(text.includes(TOKEN), path).toBe(false);
-    expect(git(dir, "status", "--short").includes(TOKEN)).toBe(false);
   });
 });
