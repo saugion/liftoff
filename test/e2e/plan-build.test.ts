@@ -104,13 +104,12 @@ describe("3. Build", () => {
     writeFileSync(plan, approved);
     expect(liftoff(root, ["plan", "--key", key]).body).toMatchObject({ stale: false, approvedValid: true });
   });
-  it("dry-run 1 approved: branch from the conventions, then the ticket moves to In Progress", async () => {
+  it("dry-run 1 approved: the branch from the conventions; the ticket is not touched (the lane names are only a hint)", async () => {
     git(root, "switch", "-q", "-c", build().branch);
     expect(git(root, "branch", "--show-current")).toBe("feature/PROJ-123-add-login");
-    const available = (await mcp.call("jira_get_transitions", { issue_key: key })).json.transitions.map((t: any) => t.name);
+    const available = (await mcp.call("jira_get_transitions", { issue_key: key })).json.transitions.map((t: any) => t.name); // a read, as the engineer's hint check
     expect(available).toContain(build().transitions.start.name);
-    expect((await mcp.call("jira_transition_issue", { issue_key: key, transition: build().transitions.start.name })).isError).toBe(false);
-    expect(jira.issues.find((i) => i.key === key)!.fields.status).toEqual({ name: "In Progress" });
+    expect(jira.issues.find((i) => i.key === key)!.fields.status).toEqual({ name: "To Do" });
   });
   it("implements section by section: checks run, boxes ticked, one commit each; the approval survives", () => {
     const plan = join(root, ".liftoff/plans/PROJ-123.md");
@@ -124,23 +123,26 @@ describe("3. Build", () => {
     expect(liftoff(root, ["plan", "--key", key]).body).toMatchObject({ approvedValid: true, stale: false, done: 3, total: 3 });
     expect(git(root, "rev-list", "--count", "main..HEAD")).toBe("2");
   });
-  it("dry-run 2 approved: push, then the CLI's own glab command opens the merge request", () => {
+  it("dry-run 2 approved: the agent pushes the branch and writes the description; it does not open the merge request", () => {
     const b = build();
     write(root, b.mrDescriptionFile, "## What\nLogin\n\n## Ticket\nhttps://x/browse/PROJ-123\n\n## How to test\nsh check.sh\n");
     git(root, "push", "-q", "-u", "origin", b.branch);
-    const r = sh(b.mrCreate, root, env);
+    expect(existsSync(env.FAKE_GLAB_LOG!)).toBe(false);
+  });
+  it("the engineer then runs the CLI's glab command as handed over, and it works", () => {
+    const r = sh(build().mrCreate, root, env);
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout.trim()).toBe("https://gitlab.company.local/acme/billing/-/merge_requests/7");
     const calls = readFileSync(env.FAKE_GLAB_LOG!, "utf8").split("---\n").filter(Boolean).map((c) => c.trim().split("\n"));
     expect(calls).toEqual([[ "mr", "create", "--source-branch", "feature/PROJ-123-add-login", "--target-branch", "main", "--title", "PROJ-123: Add login", "--description-file", ".liftoff/plans/PROJ-123.mr.md", "--label", "backend", "--reviewer", "alice", "--yes" ]]);
     expect(readFileSync(env.FAKE_GLAB_LOG + ".description", "utf8")).toContain("## How to test");
   });
-  it("the result: the remote has the branch with the two commits, main is untouched, the tree is clean, Close has not run", () => {
+  it("the result: branch with two commits on the remote, main untouched, tree clean, and Jira received no write at all", () => {
     expect(git(dir, "--git-dir", remote, "rev-list", "--count", "main..feature/PROJ-123-add-login")).toBe("2");
     expect(git(dir, "--git-dir", remote, "log", "-1", "--format=%s", "main")).toBe("chore: liftoff-jira MCP entry");
     expect(git(root, "status", "--short")).toBe("");
-    expect(jira.issues.find((i) => i.key === "PROJ-123")!.fields.status).toEqual({ name: "In Progress" }); // not "In Review": that is Close
-    expect(jira.requests.filter((r) => r.method === "POST").map((r) => r.path)).toEqual(["/rest/api/2/issue/PROJ-123/transitions"]);
+    expect(jira.issues.find((i) => i.key === "PROJ-123")!.fields.status).toEqual({ name: "To Do" });
+    expect(jira.requests.filter((r) => r.method !== "GET")).toEqual([]);
   });
   it("the token is in no file of the whole run", () => {
     for (const [path, text] of textFiles(dir)) expect(text.includes(TOKEN), path).toBe(false);

@@ -73,8 +73,11 @@ describe("the rules are written", () => {
   it("Plan: nothing outside the plan, no invented criteria, one approval", () => {
     for (const s of ["no tracker write", "invent acceptance criteria", "One approval for the whole plan", "only the engineer's yes counts"]) expect(flat("liftoff-plan"), s).toContain(s);
   });
-  it("Build: gate, two dry-runs, no merge, no Close", () => {
-    for (const s of ["build only from an approved, unchanged plan", "Dry-run 1", "Dry-run 2", "Never:", "merge", "force-push", "not** part of Build"]) expect(flat("liftoff-build"), s).toContain(s);
+  it("Build: gate, dry-runs, no merge request, no ticket writes", () => {
+    for (const s of ["build only from an approved, unchanged plan", "Dry-run 1", "Dry-run 2", "Never:", "merge", "force-push", "open the merge request (not even with `build.mrCreate`", "move, transition, comment on or edit the ticket", "write to the tracker at all", "Never run `build.mrCreate` yourself and never touch the ticket"]) expect(flat("liftoff-build"), s).toContain(s);
+  });
+  it("Build makes no tracker write: it names no write or transition tool", () => {
+    expect(skills["liftoff-build"].body).not.toMatch(/jira_(transition_issue|get_transitions|create_issue|update_issue|add_comment)/);
   });
 });
 
@@ -108,7 +111,7 @@ describe("Build's git mode", () => {
     expect(run(CONFIG.replace('version: "0.2"', 'version: "0.3"') + "build:\n  git: manual\n")).toBe("manual");
   });
   it("the skill names both modes, the key, and forbids git writes in manual mode", () => {
-    for (const x of ["build.git", "`assisted`", "`manual`", "never** run a git command that writes", "never open the merge request", "Read-only git", "Never:** run a git write in `manual` mode"]) expect(flat(), x).toContain(x);
+    for (const x of ["build.git", "`assisted`", "`manual`", "never** run a git command that writes", "Read-only git", "run a git write in `manual` mode"]) expect(flat(), x).toContain(x);
   });
   it("the Init skill asks the lead and writes the answer", () => {
     const init = readFileSync(join(ROOT, "plugin/skills/liftoff-init/SKILL.md"), "utf8").replace(/\s+/g, " ");

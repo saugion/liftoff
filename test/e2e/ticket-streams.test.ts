@@ -131,16 +131,16 @@ describe("Plan and Build on a stream ticket use the stream's workflow", () => {
     write(root, `.liftoff/plans/${key}.md`, `---\nticket: ${key}\nstatus: draft\n---\n# Plan\n\n## 1. Form\n- [ ] create backend/form.txt\n`);
     expect(liftoff(root, ["plan", "--key", key, "--approve"]).body).toMatchObject({ status: "approved", approvedValid: true });
   });
-  it("the Kanban start transition works; the sprint team's does not exist here", async () => {
+  it("the stream's lane names are only a hint: the workflow offers them, the ticket stays where it is", async () => {
     const build = liftoff(root, ["parse-ticket", "--file", `.liftoff/tmp/${key}.json`]).body.build;
     const names = (await mcp.call("jira_get_transitions", { issue_key: key })).json.transitions.map((t: any) => t.name);
     expect(names).toEqual(["Work on it"]);
+    expect(names).toContain(build.transitions.start.name);
     expect(names).not.toContain("Start progress");
     git(root, "switch", "-q", "-c", build.branch);
-    expect((await mcp.call("jira_transition_issue", { issue_key: key, transition: build.transitions.start.name })).isError).toBe(false);
-    expect(jira.issues.find((i) => i.key === key)!.fields.status).toEqual({ name: "Doing" });
+    expect(jira.issues.find((i) => i.key === key)!.fields.status).toEqual({ name: "Backlog" });
   });
-  it("commit, push, merge request on the stream's conventions", () => {
+  it("commit and push by the agent; the merge request command the engineer would run follows the stream's conventions", () => {
     const build = liftoff(root, ["parse-ticket", "--file", `.liftoff/tmp/${key}.json`]).body.build;
     write(root, "backend/form.txt", "form\n");
     git(root, "add", "-A"); git(root, "commit", "-qm", "STR-3: Form");

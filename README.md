@@ -132,13 +132,13 @@ The engineer picks a ticket. The agent reads it — using the learned reading ma
 
 ### 4. Build — plan → PR
 
-The agent implements the approved plan using the repo's `AGENTS.md`, constraints and subagents, then prepares a branch and PR following the code host conventions. The engineer reviews the work.
+The agent implements the approved plan using the repo's `AGENTS.md`, constraints and subagents, and prepares everything for the PR on the code host conventions: branch name, commit messages, the filled PR template and the exact command. The engineer reviews the work.
 
-Side writes — ticket to "In Progress", branch, PR — are **approved together** in one dry-run.
+**The PR and the ticket's status belong to the engineer, always:** LiftOff never opens the PR and never moves the ticket between lanes. Whether the agent also creates the branch, commits and pushes is a team rule the lead sets in Init (`build.git`: `assisted`, each group after an approved dry-run, or `manual`, where the engineer runs every git command).
 
-### 5. Close — keep everything in sync
+### 5. Close — superseded
 
-Ticket status, PR link and summary comment are updated, approved **together** in one dry-run.
+The README once planned a Close step (ticket status, PR link, summary comment, in one dry-run). The engineer now owns the PR and the ticket's status, so LiftOff does not build it.
 
 ### Ticket flow — write tickets on the team's standards
 
@@ -265,7 +265,7 @@ Small numbers: read the metrics as signals, not statistics. Talk to every user.
 
 1. **Plugin, Init** — `project-init` as a product, multi-agent output, team config read/write.
 2. **Connect** — Jira/Linear and GitHub/GitLab via MCP servers, with onboarding. *Implemented in 0.2.0 for the pilot: Jira Server/DC + GitLab, macOS (the `liftoff-connect` skill; specs in `SPEC-connect*.md`).*
-3. **Plan / Build / Close** — the ticket → plan → PR loop, approval-gated. *Plan and Build implemented in 0.3.0 (`liftoff-plan`, `liftoff-build`; spec `SPEC-plan-build.md`); Close is next.*
+3. **Plan / Build / Close** — the ticket → plan → PR loop, approval-gated. *Plan and Build implemented in 0.3.0 (`liftoff-plan`, `liftoff-build`; spec `SPEC-plan-build.md`); Close is dropped: the PR and the ticket's lane are the engineer's.*
 4. **Ticket flow** — bugs / tasks / stories on the team's templates; Claude Code first, then MCP chat clients (e.g. Claude Desktop). *Implemented in 0.3.0 (`liftoff-ticket`, `draft-tickets`; spec `SPEC-ticket-streams.md`); the MCP wrapper for chat clients is not.*
 5. **Work streams** — Kanban child projects linked in the config, epics broken into tickets; no sprint assumptions. Needs Connect and the Ticket flow. Judged with pilot data. *Implemented in 0.3.0 (`streams:` in `liftoff.yaml`, linking in the Connect lead flow, Ticket/Plan/Build aware); deadline and WIP warnings are not.*
 6. **More agents** — beyond Claude Code and Copilot.

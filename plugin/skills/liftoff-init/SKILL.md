@@ -91,10 +91,11 @@ what you found as the defaults.
    [infra/]`) or single-app. An existing repo keeps what it has.
 3. Agents to target, multi-select: `claude-code`, `copilot`. Default: the one you are running in.
 4. **Git in the Build skill** (a team rule, the lead decides): `assisted` (default) means the agent creates the
-   branch, commits per plan section, pushes and opens the merge request, each group only after the engineer approves
-   a dry-run; `manual` means the agent only edits files and runs checks, and **never** stages, commits, branches,
-   pushes or opens a merge request: it hands the engineer the branch name, the commit messages and the exact
-   commands. Many teams keep git as the engineer's own: ask, explain both in one line each, and write the answer.
+   branch, commits per plan section and pushes the branch, each group only after the engineer approves a dry-run;
+   `manual` means the agent only edits files and runs checks, and **never** stages, commits, branches or pushes: it
+   hands the engineer the branch name, the commit messages and the exact commands. In both cases the engineer opens
+   the merge request and moves the ticket between lanes (always theirs). Ask, explain both in one line each, and
+   write the answer.
 
 Do **not** ask about: which sections are `required` (defaults: `constraints.required: true` and `build.required: true`, nothing else; a lead
 edits by hand), constraint thresholds (use the template defaults), or extras (subagents, hooks, CI, wiki are not part
