@@ -102,9 +102,9 @@ start name, when the team has one) is theirs to do.
 ## 5. Implement, section by section
 
 For each section not yet done, in order: do the steps; run the check the plan names (and the repo checks `AGENTS.md`
-lists); fix a failure or report it, never skip it. If the repo's own check command is broken in this environment (it fails with or without your change), do not edit it unless the plan says to: run the closest equivalent, say exactly what you ran and why, leave the section unticked (blocked) and hand the problem to the engineer; a section that only runs checks makes no commit, and you never make an empty one. Tick the section's checkboxes in the plan file; make one commit
+lists); fix a failure or report it, never skip it. If the repo's own check command is broken in this environment (it fails with or without your change), do not edit it unless the plan says to: run the closest equivalent, say exactly what you ran and why, leave the section unticked (blocked) and hand the problem to the engineer (if they then accept the equivalent command, tick the section once it passes and write a `Note:` line saying which command stood in; a "see it fail" step that cannot be trusted because the check itself is broken is ticked only when the failure was the expected one); a section that only runs checks makes no commit, and you never make an empty one. Tick the section's checkboxes in the plan file; make one commit
 whose message starts with the ticket key and names the section (`manual` mode: do not commit; give the engineer
-that message and the list of changed files, then go on). Changing the plan's content (not a checkbox) makes it
+that message and the list of changed files, then go on; if two sections touch the same files and cannot be split cleanly, say so and offer one combined commit or `git add -p`). Changing the plan's content (not a checkbox) makes it
 `stale`: a deviation that is small is told to the engineer and noted in the plan file as a line that starts with `Note:` (it does not count as content, so the approval stays valid), outside the
 checkbox lines; a deviation that needs a new or different section goes back to the Plan skill for a new approval. Run
 `plan --key <KEY>` now and then: `approvedValid` must stay true.

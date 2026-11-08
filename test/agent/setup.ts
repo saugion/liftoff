@@ -38,7 +38,7 @@ createInterface({ input: p.stdout }).on("line", (l) => { const m = JSON.parse(l)
 const req = (method, params) => new Promise((ok) => { const i = ++id; waiting.set(i, ok); p.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: i, method, params }) + "\\n"); });
 await req("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "jira-tool", version: "0" } });
 p.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\\n");
-const r = tool === "--list" ? await req("tools/list", {}) : await req("tools/call", { name: tool, arguments: JSON.parse(json) });
+const r = tool === "--list" ? await req("tools/list", {}) : await req("tools/call", { name: tool, arguments: JSON.parse(json.startsWith("@") ? readFileSync(json.slice(1), "utf8") : json) });
 p.kill();
 if (r.error) { console.error(r.error.message); process.exit(1); }
 if (tool === "--list") console.log(r.result.tools.map((t) => t.name).join("\\n"));
@@ -47,7 +47,7 @@ else { console.log(r.result.content[0].text); if (r.result.isError) process.exit
 write(dir, "bin/jira-tool.mjs", shim);
 const wrapper = `#!/bin/sh
 # Stand-in for the Jira MCP tools. Usage: jira-tool <tool_name> '<json arguments>'   |   jira-tool --list
-export JIRA_TOOL_MCP=${JSON.stringify(join(repo, ".mcp.json"))} JIRA_TOOL_CWD=${JSON.stringify(repo)}
+export NODE_NO_WARNINGS=1 JIRA_TOOL_MCP=${JSON.stringify(join(repo, ".mcp.json"))} JIRA_TOOL_CWD=${JSON.stringify(repo)}
 export JIRA_TOOL_ENV='${JSON.stringify(env).replace(/'/g, "'\\''")}'
 exec ${JSON.stringify(process.execPath)} ${JSON.stringify(join(dir, "bin/jira-tool.mjs"))} "$@"
 `;

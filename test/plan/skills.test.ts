@@ -78,7 +78,7 @@ describe("the rules are written", () => {
   });
   it("Build: a broken repo check, a check-only section, a Note: line", () => {
     const f = flat("liftoff-build");
-    for (const x of ["closest equivalent", "never make an empty one", "does not count as content"]) expect(f, x).toContain(x);
+    for (const x of ["closest equivalent", "never make an empty one", "does not count as content", "accept the equivalent command", "one combined commit"]) expect(f, x).toContain(x);
   });
   it("Plan: writes the plan after the answers, shows the outline with the questions, handles field-missing", () => {
     const f = flat("liftoff-plan");
