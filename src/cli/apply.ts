@@ -56,7 +56,7 @@ function pointsAtSiblingAgentsMd(abs: string): boolean {
   }
 }
 
-// What happens to one generated file, per the plan table in SPEC-cli.md.
+// What happens to one generated file, (plan table: created / unchanged / refreshed / conflict / skipped-symlink).
 function planFile(realRoot: string, file: RenderedFile, overwrite: ReadonlySet<string>): Planned {
   const base = { path: file.path, agent: file.agent };
   const abs = join(realRoot, file.path);

@@ -14,12 +14,12 @@ git remote. **Nothing has run against a real Jira Data Center, a real GitLab or 
 | CLI (`validate`, `check-config`, `render`, `connect-info`, `parse-ticket`, `plan`, `draft-tickets`) | `src/cli/`, `src/plan/`, `src/connect/` |
 | Skills: `liftoff-init`, `-connect`, `-plan`, `-build`, `-ticket` | `plugin/skills/` |
 | Shipped CLI bundle (committed, must equal a fresh build) | `plugin/bin/liftoff.mjs` |
-| Specs (design record) | `SPEC*.md` |
+| Reasoning behind the design | `docs/design-notes.md` (the per-module specs were removed; they are in git history up to commit 79ab5e3) |
 | Decisions the agent took alone, to review | `docs/decisions/DECISIONS.md` |
 
 ## What is left
 
-- **The pilot** (the README's "Pilot" section): run Init, Connect (lead and member), Plan, Build and Ticket on a real Jira DC and GitLab, in Claude Code and in VS Code Copilot. The manual checklists are at the end of each `SPEC-connect-*.md`. Open questions that only the pilot can answer are listed at the end of the specs.
+- **The pilot** (the README's "Pilot" section): run Init, Connect (lead and member), Plan, Build and Ticket on a real Jira DC and GitLab, in Claude Code and in VS Code Copilot. The manual checklist, with the open questions only the pilot can answer, is `docs/pilot-checklist.md`.
 - **Open decisions** (see the top of `docs/decisions/DECISIONS.md`): where the plan file lives, one ticket per project for work across a stream and a team module, the assumed shape of `jira_get_issue` / `jira_create_issue` results.
 - **Not built:** the MCP wrapper for chat clients (Claude Desktop), `doctor`, sprint support, stream deadline/WIP warnings, the optional Init add-ons (subagents, hooks, CI, wiki, folder reorganization). Close was dropped: the merge request and the ticket's lane belong to the engineer.
 - **Decision rule for the pilot:** if after 4 weeks fewer than half of the group uses Build, revisit the product before adding anything.

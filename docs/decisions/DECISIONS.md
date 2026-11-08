@@ -4,6 +4,8 @@ Every decision the agent took on its own while building LiftOff 0.2 and 0.3 (202
 Each is reversible; the commit that carries it is in the git history. Numbers are per section and are cited as
 "Connect 5", "Plan and Build 17", "Ticket flow 12".
 
+The specs these notes cite (`SPEC*.md`) were removed from the working tree; they are in git history up to commit 79ab5e3.
+
 **Open for review first:** Plan and Build 4 (where the plan lives), 5 (dry-runs); Ticket flow 12 (git option),
 15-16 (the merge request and the ticket's lane are the engineer's), 18 (one ticket per project).
 

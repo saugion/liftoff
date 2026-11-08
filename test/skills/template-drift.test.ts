@@ -8,7 +8,7 @@ const asset = (name: string) => readFileSync(join(SKILL, "assets", name), "utf8"
 
 const fill = (template: string, values: Record<string, string>) => template.replace(/\{\{([A-Z_]+)\}\}/g, (_m, key: string) => values[key] ?? `<<MISSING ${key}>>`);
 
-// What the skill substitutes into liftoff-yaml-template.yaml (see SPEC-init-flow.md step 5).
+// What the skill substitutes into liftoff-yaml-template.yaml (the placeholder table in the Init skill, step 5).
 const SAMPLE = {
   INSTALLED_VERSION: "0.3.0",
   PLUGIN_MIN_VERSION: "0.3",

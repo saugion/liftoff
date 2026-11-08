@@ -6,7 +6,7 @@ import { buildTempBundle, tempDir } from "../helpers.js";
 
 // The bundle must run alone (no node_modules next to it), spawn nothing, and write only inside the repo root.
 // Node's permission model proves the last two at runtime; it does NOT cover the network (the static guard does).
-// `--permission` is the stable flag from Node 24; on 22.12 it was experimental, so this runs on 24+ (CI), per SPEC-cli.
+// `--permission` is the stable flag from Node 24; on 22.12 it was experimental, so this runs on 24+ (CI).
 const major = Number(process.versions.node.split(".")[0]);
 
 describe.skipIf(major < 24)("the bundle under `node --permission`", () => {

@@ -141,8 +141,7 @@ After Build you review the work, open the merge request with the command Build h
 next lane.
 
 The repo pins the plugin to a release tag in `.claude/settings.json` (`ref`), and to a minimum version in
-`liftoff.yaml`. The pin is per user, not per repo, so move all pilot repos to a new release together. Details are in
-[`SPEC-plugin-packaging.md`](SPEC-plugin-packaging.md).
+`liftoff.yaml`. The pin is per user, not per repo, so move all pilot repos to a new release together.
 
 ## Status and limits
 
@@ -184,14 +183,15 @@ weeks. It covers Init, Connect, Plan, Build and Ticket on a real Jira Data Cente
 
 Numbers this small are signals, not statistics, so we talk to every user. **Decision rule, set in advance:** if after
 4 weeks fewer than half of the group uses Build, we revisit the product before adding anything else. The manual
-checks are at the end of each `SPEC-connect-*.md`.
+checks are in [`docs/pilot-checklist.md`](docs/pilot-checklist.md).
 
 ## More, and contributing
 
-- [`HANDOFF.md`](HANDOFF.md): where the project stands and what is left.
+- [`docs/HANDOFF.md`](docs/HANDOFF.md): where the project stands and what is left.
+- [`docs/pilot-checklist.md`](docs/pilot-checklist.md): the manual checks to run on a real Jira and GitLab.
+- [`docs/design-notes.md`](docs/design-notes.md): the reasoning behind the choices that are not obvious from the code.
 - [`docs/decisions/DECISIONS.md`](docs/decisions/DECISIONS.md): decisions taken while building. The open ones are
   listed at the top.
-- `SPEC*.md`: the design record, one spec per area ([`SPEC.md`](SPEC.md) is the v1 overview).
 - [`schema/liftoff.schema.json`](schema/liftoff.schema.json): everything `liftoff.yaml` can hold.
 
 To work on it: `npm ci`, `npm run build` (type check, bundle, regenerate `plugin/`), `npm test` (unit and end-to-end).
