@@ -68,8 +68,13 @@ export const ISSUES = (): Issue[] => [
   issue("PROJ-123", "Story", "Add login", "As a user I want to log in.\n\nh2. Acceptance criteria\n* valid credentials open the dashboard\n* a wrong password is refused\n\nh2. Notes\nsee design", "<p>As a user I want to log in.</p><h2>Acceptance criteria</h2><ul><li>valid credentials open the dashboard</li><li>a wrong password is refused</li></ul><h2>Notes</h2><p>see design</p>", { customfield_10016: 5 }),
   issue("PROJ-124", "Bug", "Crash on empty cart", "The app crashes when the cart is empty.", "<p>The app crashes when the cart is empty.</p>", { customfield_10201: "no crash on an empty cart; a message is shown" }),
   issue("PROJ-125", "Epic", "Payments", "", ""),
+  issue("STR-1", "Epic", "Checkout MVP", "Ship a checkout in 4 weeks.", "<p>Ship a checkout in 4 weeks.</p>", { status: { name: "Backlog" } }),
 ];
-const FLOW: Record<string, [string, string][]> = { "To Do": [["Start progress", "In Progress"]], "In Progress": [["Ready for review", "In Review"], ["Stop progress", "To Do"]], "In Review": [] };
+const SPRINT_FLOW: Record<string, [string, string][]> = { "To Do": [["Start progress", "In Progress"]], "In Progress": [["Ready for review", "In Review"], ["Stop progress", "To Do"]], "In Review": [] };
+// The Kanban stream project has its own workflow: other state and transition names.
+const KANBAN_FLOW: Record<string, [string, string][]> = { Backlog: [["Work on it", "Doing"]], Doing: [["Check", "Review"], ["Back to backlog", "Backlog"]], Review: [] };
+const flowOf = (key: string) => (key.startsWith("STR-") ? KANBAN_FLOW : SPRINT_FLOW);
+const initialStatus = (project: string) => (project === "STR" ? "Backlog" : "To Do");
 
 export interface FakeJira { url: string; requests: { method: string; path: string; auth: string | undefined }[]; issues: Issue[]; close(): Promise<void> }
 
@@ -88,15 +93,30 @@ export async function startJira(dir: string, token = TOKEN): Promise<FakeJira> {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
+      if (url.pathname === "/rest/api/2/search") {
+        const project = /project\s*=\s*"?([A-Z0-9_]+)"?/.exec(url.searchParams.get("jql") ?? "")?.[1];
+        const hits = issues.filter((i) => !project || i.key.startsWith(project + "-"));
+        return send(200, { total: hits.length, issues: hits });
+      }
+      if (url.pathname === "/rest/api/2/issue" && req.method === "POST") {
+        const f = JSON.parse(body).fields as Record<string, any>;
+        const project = f.project?.key as string;
+        const n = issues.filter((i) => i.key.startsWith(project + "-")).length + 1;
+        const { project: _p, issuetype, ...rest } = f;
+        const created = issue(`${project}-${n}`, issuetype.name, rest.summary, rest.description ?? "", `<p>${rest.description ?? ""}</p>`, { ...rest, status: { name: initialStatus(project) } });
+        issues.push(created);
+        return send(201, { id: String(1000 + n), key: created.key });
+      }
       const m = /^\/rest\/api\/2\/issue\/([A-Z0-9_-]+)(\/transitions)?$/.exec(url.pathname);
-      if (url.pathname === "/rest/api/2/search") return send(200, { total: issues.length, issues });
       const found = m && issues.find((i) => i.key === m[1]);
       if (!found) return send(404, { errorMessages: ["Issue does not exist"] });
+      if (req.method === "PUT" && !m![2]) { Object.assign(found.fields, JSON.parse(body).fields); return send(204, {}); }
       const status = (found.fields.status as { name: string }).name;
+      const flow = flowOf(found.key);
       if (!m![2]) return send(200, found);
-      if (req.method === "GET") return send(200, { transitions: FLOW[status]!.map(([name], i) => ({ id: String(i + 1), name })) });
+      if (req.method === "GET") return send(200, { transitions: (flow[status] ?? []).map(([name], i) => ({ id: String(i + 1), name })) });
       const want = JSON.parse(body).transition?.name as string;
-      const hit = FLOW[status]!.find(([name]) => name.toLowerCase() === want?.toLowerCase());
+      const hit = (flow[status] ?? []).find(([name]) => name.toLowerCase() === want?.toLowerCase());
       if (!hit) return send(400, { errorMessages: [`transition '${want}' is not available from '${status}'`] });
       found.fields.status = { name: hit[1] };
       send(204, {});

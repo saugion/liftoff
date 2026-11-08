@@ -41,6 +41,11 @@ const flat = (i) => ({ key: i.key, summary: i.fields.summary, issue_type: i.fiel
 const handlers = {
   jira_get_issue: async (a) => flat(await jira("GET", `/rest/api/2/issue/${encodeURIComponent(a.issue_key)}?expand=renderedFields`)),
   jira_search: async (a) => { const r = await jira("GET", `/rest/api/2/search?jql=${encodeURIComponent(a.jql)}&maxResults=${a.limit ?? 10}`); return { total: r.total, issues: r.issues.map(flat) }; },
+  jira_create_issue: async (a) => {
+    const { key } = await jira("POST", "/rest/api/2/issue", { fields: { project: { key: a.project_key }, issuetype: { name: a.issue_type }, summary: a.summary, description: a.description, ...(a.additional_fields ?? {}) } });
+    return { message: "Issue created successfully", issue: { key } };
+  },
+  jira_update_issue: async (a) => { await jira("PUT", `/rest/api/2/issue/${a.issue_key}`, { fields: a.fields }); return { message: "Issue updated successfully" }; },
   jira_get_transitions: async (a) => (await jira("GET", `/rest/api/2/issue/${a.issue_key}/transitions`)),
   jira_transition_issue: async (a) => { await jira("POST", `/rest/api/2/issue/${a.issue_key}/transitions`, { transition: { name: a.transition } }); return { ok: true }; },
 };

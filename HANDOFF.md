@@ -1,6 +1,8 @@
 # LiftOff — Handoff
 
-> **Update 2026-11-08 (later): the MVP (Init + Connect + Plan + Build) is implemented as `0.3.0`, untagged and unpushed.** Plan/Build: `SPEC-plan-build.md`; autonomous decisions to review: `DECISIONS-connect.md`, `DECISIONS-plan-build.md`. End-to-end tests (`test/e2e/`, fake Jira/glab, real git) pass; nothing has run against a real Jira DC / GitLab yet. Close, Ticket flow, work streams, `doctor` are not built.
+> **Update 2026-11-08 (latest): Ticket flow (`liftoff-ticket`) and work streams (`streams:`) are in the MVP too, same `0.3.0`; spec `SPEC-ticket-streams.md`, decisions `DECISIONS-ticket-streams.md`, e2e `test/e2e/ticket-streams.test.ts`. Close, the MCP wrapper for chat clients, `doctor` and sprint support are not built.**
+>
+> **Earlier: the MVP (Init + Connect + Plan + Build) is implemented as `0.3.0`, untagged and unpushed.** Plan/Build: `SPEC-plan-build.md`; autonomous decisions to review: `DECISIONS-connect.md`, `DECISIONS-plan-build.md`. End-to-end tests (`test/e2e/`, fake Jira/glab, real git) pass; nothing has run against a real Jira DC / GitLab yet. Close, Ticket flow, work streams, `doctor` are not built.
 >
 > **Earlier update 2026-11-08:** Connect (roadmap 2) is implemented on `main` as version `0.2.0` (not tagged, not pushed). Specs: `SPEC-connect*.md`. Autonomous decisions to review: `DECISIONS-connect.md`. Not yet run against a real Jira DC / GitLab: the manual checklists in the Connect specs are the next step, then `git tag -a v0.2.0`.
 
