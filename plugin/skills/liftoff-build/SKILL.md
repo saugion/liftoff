@@ -128,14 +128,14 @@ the plan; list anything not covered. Report it plainly, even if it is awkward.
 
 ## 7. The merge request description
 
-If `build.mrTemplate` is set, read that file and fill it (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat); otherwise write a short summary. Include the ticket URL
+If `build.mrTemplate` is set, read that file and fill it; if the file does not exist, write the short summary and tell the engineer the configured template is missing (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat); otherwise write a short summary. Include the ticket URL
 (`ticket.url`), a summary of the plan, and the self-check result. Write it with your file tools to
 `build.mrDescriptionFile`.
 
 ## 8. Dry-run 2: push (assisted only)
 
 In `assisted` mode show the commits (`git log` of the branch) and `git push -u origin <branch>`; **apply on the
-engineer's yes only**. If the push fails, show the error and ask; do not retry with other options. In `manual` mode
+engineer's yes only**. If the push fails, show the error verbatim and ask; do not retry with other options (no force-push, no other remote or branch name): a rejected push is a permission or hook problem the engineer solves with the project admins. Say so in one line if they ask to force it. Retrying the same push needs a new yes. The commits stay local; hand over as usual and say the push is pending. In `manual` mode
 skip this step.
 
 ## 9. Hand over
