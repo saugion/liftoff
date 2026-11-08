@@ -1,0 +1,23 @@
+# expect: /tracker/epicLinkField
+liftoff: 1
+plugin:
+  version: "0.3"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code]
+modules:
+  items:
+    - { id: backend, path: backend }
+tracker:
+  kind: jira-dc
+  url: https://jira.company.local
+  project: PROJ
+  server: { version: "0.23.1" }
+  epicLinkField: custom-field
+streams:
+  items:
+    - id: checkout-mvp
+      project: STR
+      mode: kanban

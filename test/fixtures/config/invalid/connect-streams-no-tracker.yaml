@@ -1,0 +1,17 @@
+# expect: /streams
+liftoff: 1
+plugin:
+  version: "0.3"
+project:
+  name: acme
+  kind: existing
+agents:
+  targets: [claude-code]
+modules:
+  items:
+    - { id: backend, path: backend }
+streams:
+  items:
+    - id: checkout-mvp
+      project: STR
+      mode: kanban

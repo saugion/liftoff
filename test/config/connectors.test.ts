@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { compareVersions as cliCompare } from "../../src/cli/version.js";
-import { configHash, connectors, compareVersions, parseConfig, readConfig, sectionHashes, validateConfig } from "../../src/config/index.js";
+import { configHash, connectors, compareVersions, projectsOf, parseConfig, readConfig, sectionHashes, validateConfig } from "../../src/config/index.js";
 import type { Config } from "../../src/config/index.js";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures", "config");
@@ -11,7 +11,7 @@ const valid = (name: string): Config => {
   if (!r.ok) throw new Error(JSON.stringify(r.errors));
   return r.value;
 };
-const base = { liftoff: 1, plugin: { version: "0.2" }, project: { name: "a", kind: "new" }, agents: { targets: ["copilot"] } };
+const base = { liftoff: 1, plugin: { version: "0.3" }, project: { name: "a", kind: "new" }, agents: { targets: ["copilot"] } };
 const tracker = { kind: "jira-dc", url: "https://jira.company.local", project: "PROJ", server: { version: "0.23.1" } };
 const codeHost = { kind: "gitlab", host: "gitlab.company.local" };
 const errorsOf = (extra: object) => {
@@ -103,3 +103,25 @@ function parseOk(extra: object): Config {
   if (!r.ok) throw new Error(JSON.stringify(r.errors));
   return r.value;
 }
+
+describe("streams", () => {
+  const streams = { items: [{ id: "mvp", project: "STR", mode: "kanban" }, { id: "two", project: "STR2", mode: "kanban", issueTypes: [{ name: "Bug" }] }] };
+  it("normalizes: epics and issueTypes default to empty; {} stays {}", () => {
+    const c = parseOk({ tracker, streams });
+    expect((c.streams as any).items[0]).toEqual({ id: "mvp", project: "STR", mode: "kanban", epics: [], issueTypes: [] });
+    expect(parseOk({ tracker, streams: {} }).streams).toEqual({});
+  });
+  it("projectsOf: the tracker's project first, then each stream; a stream without types inherits the tracker's", () => {
+    const withTypes = { ...tracker, issueTypes: [{ name: "Story" }] };
+    const p = projectsOf(parseOk({ tracker: withTypes, streams }));
+    expect(p.map((x) => [x.project, x.stream?.id, x.inherited, x.issueTypes.map((t) => t.name)])).toEqual([
+      ["PROJ", undefined, false, ["Story"]], ["STR", "mvp", true, ["Story"]], ["STR2", "two", false, ["Bug"]],
+    ]);
+    expect(projectsOf(parseOk({ codeHost }))).toEqual([]);
+  });
+  it("a stream section changes only its own section hash", () => {
+    const a = sectionHashes(parseOk({ tracker })), b = sectionHashes(parseOk({ tracker, streams }));
+    expect(b.tracker).toBe(a.tracker);
+    expect(b.streams).toBeDefined();
+  });
+});

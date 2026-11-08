@@ -319,6 +319,9 @@
           "items": {
             "$ref": "#/definitions/issueType"
           }
+        },
+        "epicLinkField": {
+          "$ref": "#/definitions/idToken"
         }
       },
       "additionalProperties": false,
@@ -427,6 +430,56 @@
         ],
         "properties": {
           "host": true
+        }
+      }
+    },
+    "streams": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "project",
+              "mode"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "project": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{1,19}$"
+              },
+              "mode": {
+                "enum": [
+                  "kanban"
+                ]
+              },
+              "module": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "epics": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{1,19}-[0-9]+$"
+                }
+              },
+              "issueTypes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/issueType"
+                }
+              }
+            }
+          }
         }
       }
     }

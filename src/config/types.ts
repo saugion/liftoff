@@ -1,4 +1,4 @@
-import type { CodeHostConfig, RawCodeHost, RawTracker, TrackerConfig } from "./connectors.js";
+import type { CodeHostConfig, RawCodeHost, RawStreams, RawTracker, StreamsConfig, TrackerConfig } from "./connectors.js";
 
 export const AGENTS = ["claude-code", "copilot"] as const;
 export type Agent = (typeof AGENTS)[number];
@@ -20,6 +20,7 @@ export interface RawConfig {
   constraints?: { file?: string; required?: boolean };
   tracker?: Record<string, never> | RawTracker;
   codeHost?: Record<string, never> | RawCodeHost;
+  streams?: Record<string, never> | RawStreams;
 }
 
 // Normalized: defaults applied inside every section that is present. An absent section stays absent.
@@ -33,6 +34,7 @@ export interface Config {
   constraints?: { file: string; required: boolean };
   tracker?: Record<string, never> | TrackerConfig;
   codeHost?: Record<string, never> | CodeHostConfig;
+  streams?: Record<string, never> | StreamsConfig;
 }
 
 export interface ConfigError {

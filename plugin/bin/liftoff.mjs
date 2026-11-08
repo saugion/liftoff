@@ -14299,6 +14299,7 @@ function compareVersions(a, b) {
 // src/config/connectors.ts
 var MIN_CONNECT_PLUGIN = "0.2";
 var MIN_JIRA_SERVER_VERSION = "0.22.0";
+var MIN_STREAMS_PLUGIN = "0.3";
 function connectors(config) {
   return {
     ...isConnector(config.tracker) && { tracker: config.tracker },
@@ -14326,10 +14327,21 @@ function normalizeIssueType(t) {
     transitions
   };
 }
+var normalizeStreams = (s) => ({
+  items: (s.items ?? []).map((i) => ({
+    id: i.id,
+    project: i.project,
+    mode: i.mode,
+    ...i.module !== void 0 && { module: i.module },
+    epics: [...i.epics ?? []],
+    issueTypes: (i.issueTypes ?? []).map(normalizeIssueType)
+  }))
+});
 var normalizeTracker = (t) => ({
   kind: t.kind,
   url: normalizeUrl(t.url),
   project: t.project,
+  ...t.epicLinkField !== void 0 && { epicLinkField: t.epicLinkField },
   server: { version: t.server.version, sslVerify: t.server.sslVerify ?? true, readOnly: t.server.readOnly ?? false },
   issueTypes: (t.issueTypes ?? []).map(normalizeIssueType)
 });
@@ -14355,6 +14367,23 @@ var portOk = (hostPort) => {
 function badPlaceholders(pattern, allowed) {
   return [...pattern.matchAll(/\{([^}]*)\}/g)].map((m) => m[1]).filter((p) => !allowed.includes(p));
 }
+function issueTypeErrors(types, base) {
+  const errors = [];
+  const seen = /* @__PURE__ */ new Map();
+  types.forEach((t, i) => {
+    const key = t.name.toLowerCase();
+    const first = seen.get(key);
+    if (first === void 0) seen.set(key, i);
+    else errors.push({ path: `${base}/${i}/name`, message: `duplicate issue type '${t.name}' (first at ${base}/${first}/name)` });
+    const ids = /* @__PURE__ */ new Map();
+    (t.readingMap?.fields ?? []).forEach((f, j) => {
+      const firstId = ids.get(f.id);
+      if (firstId === void 0) ids.set(f.id, j);
+      else errors.push({ path: `${base}/${i}/readingMap/fields/${j}/id`, message: `duplicate field id '${f.id}' (first at index ${firstId})` });
+    });
+  });
+  return errors;
+}
 function connectorErrors(raw) {
   const errors = [];
   const tracker = isConnector(raw.tracker) ? raw.tracker : void 0;
@@ -14367,19 +14396,7 @@ function connectorErrors(raw) {
     if ((compareVersions(tracker.server.version, MIN_JIRA_SERVER_VERSION) ?? -1) < 0) {
       errors.push({ path: "/tracker/server/version", message: `mcp-atlassian ${MIN_JIRA_SERVER_VERSION} or newer is needed (the lead flow uses tools added in it)` });
     }
-    const seen = /* @__PURE__ */ new Map();
-    (tracker.issueTypes ?? []).forEach((t, i) => {
-      const key = t.name.toLowerCase();
-      const first = seen.get(key);
-      if (first === void 0) seen.set(key, i);
-      else errors.push({ path: `/tracker/issueTypes/${i}/name`, message: `duplicate issue type '${t.name}' (first at /tracker/issueTypes/${first}/name)` });
-      const ids = /* @__PURE__ */ new Map();
-      (t.readingMap?.fields ?? []).forEach((f, j) => {
-        const firstId = ids.get(f.id);
-        if (firstId === void 0) ids.set(f.id, j);
-        else errors.push({ path: `/tracker/issueTypes/${i}/readingMap/fields/${j}/id`, message: `duplicate field id '${f.id}' (first at index ${firstId})` });
-      });
-    });
+    errors.push(...issueTypeErrors(tracker.issueTypes ?? [], "/tracker/issueTypes"));
   }
   if (codeHost) {
     if (!portOk(codeHost.host)) errors.push({ path: "/codeHost/host", message: "port must be 1-65535" });
@@ -14388,6 +14405,26 @@ function connectorErrors(raw) {
     if (bp.length) errors.push({ path: "/codeHost/conventions/branchPattern", message: `unknown placeholder {${bp[0]}}; allowed: {key} {slug} {type}` });
     const tp = c?.titlePattern !== void 0 ? badPlaceholders(c.titlePattern, ["key", "summary", "type"]) : [];
     if (tp.length) errors.push({ path: "/codeHost/conventions/titlePattern", message: `unknown placeholder {${tp[0]}}; allowed: {key} {summary} {type}` });
+  }
+  const items = isConnector(raw.streams) ? raw.streams.items ?? [] : [];
+  if (items.length > 0) {
+    if (!tracker) errors.push({ path: "/streams", message: "streams need a tracker: link the Jira instance first (Connect skill)" });
+    if ((compareVersions(raw.plugin.version, MIN_STREAMS_PLUGIN) ?? -1) < 0) errors.push({ path: "/plugin/version", message: `streams need plugin.version ${MIN_STREAMS_PLUGIN} or newer` });
+    const ids = /* @__PURE__ */ new Map(), projects = /* @__PURE__ */ new Map();
+    const modules = new Set((raw.modules?.items ?? []).map((m) => m.id));
+    items.forEach((s, i) => {
+      const at = `/streams/items/${i}`;
+      if (ids.has(s.id)) errors.push({ path: `${at}/id`, message: `duplicate stream id '${s.id}' (first at /streams/items/${ids.get(s.id)}/id)` });
+      else ids.set(s.id, i);
+      if (tracker && s.project === tracker.project) errors.push({ path: `${at}/project`, message: `'${s.project}' is the tracker's own project, not a stream` });
+      else if (projects.has(s.project)) errors.push({ path: `${at}/project`, message: `duplicate stream project '${s.project}' (first at /streams/items/${projects.get(s.project)}/project)` });
+      else projects.set(s.project, i);
+      if (s.module !== void 0 && !modules.has(s.module)) errors.push({ path: `${at}/module`, message: `module '${s.module}' is not in modules.items` });
+      (s.epics ?? []).forEach((e, j) => {
+        if (!e.startsWith(`${s.project}-`)) errors.push({ path: `${at}/epics/${j}`, message: `epic ${e} is not in the stream's project ${s.project}` });
+      });
+      errors.push(...issueTypeErrors(s.issueTypes ?? [], `${at}/issueTypes`));
+    });
   }
   return errors;
 }
@@ -14409,6 +14446,7 @@ function normalize(raw) {
       constraints: { file: raw.constraints.file ?? "CONSTRAINTS.md", required: raw.constraints.required ?? false }
     },
     ...raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker) },
+    ...raw.streams && { streams: Object.keys(raw.streams).length === 0 ? {} : normalizeStreams(raw.streams) },
     ...raw.codeHost && { codeHost: Object.keys(raw.codeHost).length === 0 ? {} : normalizeCodeHost(raw.codeHost) }
   };
 }
@@ -14759,6 +14797,9 @@ var liftoff_schema_default = {
           items: {
             $ref: "#/definitions/issueType"
           }
+        },
+        epicLinkField: {
+          $ref: "#/definitions/idToken"
         }
       },
       additionalProperties: false,
@@ -14867,6 +14908,56 @@ var liftoff_schema_default = {
         ],
         properties: {
           host: true
+        }
+      }
+    },
+    streams: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "id",
+              "project",
+              "mode"
+            ],
+            properties: {
+              id: {
+                type: "string",
+                pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              project: {
+                type: "string",
+                pattern: "^[A-Z][A-Z0-9_]{1,19}$"
+              },
+              mode: {
+                enum: [
+                  "kanban"
+                ]
+              },
+              module: {
+                type: "string",
+                pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              epics: {
+                type: "array",
+                items: {
+                  type: "string",
+                  pattern: "^[A-Z][A-Z0-9_]{1,19}-[0-9]+$"
+                }
+              },
+              issueTypes: {
+                type: "array",
+                items: {
+                  $ref: "#/definitions/issueType"
+                }
+              }
+            }
+          }
         }
       }
     }

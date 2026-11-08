@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { normalizeCodeHost, normalizeTracker, type RawCodeHost, type RawTracker } from "./connectors.js";
+import { normalizeCodeHost, normalizeStreams, normalizeTracker, type RawCodeHost, type RawStreams, type RawTracker } from "./connectors.js";
 import type { Config, RawConfig } from "./types.js";
 
 // Applies the defaults inside every section that is present. An absent section stays absent
@@ -20,6 +20,7 @@ export function normalize(raw: RawConfig): Config {
       constraints: { file: raw.constraints.file ?? "CONSTRAINTS.md", required: raw.constraints.required ?? false },
     }),
     ...(raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker as RawTracker) }),
+    ...(raw.streams && { streams: Object.keys(raw.streams).length === 0 ? {} : normalizeStreams(raw.streams as RawStreams) }),
     ...(raw.codeHost && { codeHost: Object.keys(raw.codeHost).length === 0 ? {} : normalizeCodeHost(raw.codeHost as RawCodeHost) }),
   };
 }
