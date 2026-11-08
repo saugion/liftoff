@@ -86,3 +86,15 @@ After editing a skill on disk, run `/reload-plugins`. `claude plugin validate <r
 - Whether epics of a stream should be discovered by search instead of listed in the config.
 - How many people use Plan and Build after setup (the decision rule in the README).
 - Other tools for the same stack: Jira Cloud, Linear, GitHub, Linux and Windows credential storage.
+
+## Agent-driven smoke runs (a real agent follows the skills)
+
+`test/agent/setup.ts` prepares a workspace for an agent to run a skill against: a fake Jira that stays up, an Init'ed repo
+with the Jira entry wired, and `bin/jira-tool` (a shell command that stands in for the MCP tools, because a sub-agent
+has none attached). Build and start it: `npx esbuild test/agent/setup.ts --bundle --platform=node --format=esm
+--outfile=dist/agent/setup.mjs` (with the `createRequire` banner used in the repo's history), then
+`node dist/agent/setup.mjs <empty dir>`; `<dir>/jira-state.json` shows the Jira state. One agent executes the skill (it ends
+its turn with `QUESTION FOR USER:` wherever the skill asks) and another plays the lead or the PO; relay between them, then
+check the result yourself: `liftoff.yaml` diff, the tickets in `jira-state.json`, `git status`. The first runs (Connect lead
+flow for three template choices, then the Ticket flow for an epic with a story and a bug) passed and produced the wording
+fixes listed in the commit "lessons from the first real-agent run". Still to do this way: Init, Plan, Build, the member flow.
