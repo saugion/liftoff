@@ -72,7 +72,7 @@ In both modes the merge request and the ticket's status are the engineer's.
 Root = `git rev-parse --show-toplevel`. `node --version` must be 22.12 or newer. Run `check-config`: stop on
 `plugin-outdated`, `config-missing`, `config-invalid` (as in the other skills); `not-applied` and `required-changed`
 say to run the Init skill, but go on even when the overall `status` reads `blocked` because of them: tell the engineer once, never insist or
-run Init yourself, and read the rules (`build.git` included) from what `parse-ticket` returns now. `git status` must show a clean tree; if not, ask what to do and do nothing
+run Init yourself (`optional-changed`: mention it once and go on), and read the rules (`build.git` included) from what `parse-ticket` returns now. `git status` must show a clean tree; if not, ask what to do and do nothing
 destructive.
 
 ## 2. The plan gate
@@ -114,7 +114,7 @@ lists); fix a failure or report it, never skip it. If the repo's own check comma
 whose message starts with the ticket key and names the section (`manual` mode: do not commit; give the engineer
 that message and the list of changed files, then go on; if two sections touch the same files and cannot be split cleanly, say so and offer one combined commit or `git add -p`). Changing the plan's content (not a checkbox) makes it
 `stale`: if a step contradicts an acceptance criterion, stop before that step and ask the engineer (following the plan or the ticket is their call; either answer is a `Note:` line, or a new approval through the Plan skill if a section changes). A deviation that is small is told to the engineer and noted in the plan file as a line that starts with `Note:` (it does not count as content, so the approval stays valid), outside the
-checkbox lines; a deviation that needs a new or different section goes back to the Plan skill for a new approval. Run
+checkbox lines (a `Note:` records a deviation only, never a preference or a chat); a deviation that needs a new or different section goes back to the Plan skill for a new approval. Run
 `plan --key <KEY>` **before starting each section and before each commit**: `approvedValid` must stay true. If it turns
 `stale`, stop at once, do not implement later sections, commit nothing more and leave your uncommitted work as it is.
 Ticking checkboxes and `Note:` lines never make a plan stale, only changed text does (a hand edit, usually); the CLI gives no diff, so
@@ -128,7 +128,7 @@ the plan; list anything not covered **and anything that contradicts a criterion,
 
 ## 7. The merge request description
 
-If `build.mrTemplate` is set and the file exists, read it and fill it (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat). If it is set but the file is missing, write a short summary and tell the engineer in your hand-over (not in the description) that the configured template is missing. Otherwise write a short summary. Include the ticket URL
+If `build.mrTemplate` is set and the file exists, read it and fill it (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat). If `parse-ticket` warns `mr-template-missing`, write a short summary and tell the engineer in your hand-over (not in the description) that the configured template is missing. Otherwise write a short summary. Include the ticket URL
 (`ticket.url`), a summary of the plan, and the self-check result. Write it with your file tools to
 `build.mrDescriptionFile`.
 
@@ -136,7 +136,7 @@ If `build.mrTemplate` is set and the file exists, read it and fill it (for a par
 
 In `assisted` mode show the commits (`git log` of the branch) and `git push -u origin <branch>`; **apply on the
 engineer's yes only**. If the push fails, show the error verbatim and ask; do not retry with other options (no force-push, no other remote or branch name): the cause (permissions, a server hook, a branch that already exists on the remote, the network) is the engineer's to solve. If they ask you to force it, decline in one line (it is in the Never list). Retrying the same push needs a new yes. The commits stay local; hand over as usual and say the push is pending. In `manual` mode
-skip this step.
+skip this step (if the engineer's own push fails, the same advice holds).
 
 ## 9. Hand over
 

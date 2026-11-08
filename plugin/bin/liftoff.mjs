@@ -15776,7 +15776,7 @@ var draftTicketsCommand = ({ root, file }) => {
 };
 
 // src/cli/parse-ticket.ts
-import { readFileSync as readFileSync5, statSync as statSync3 } from "node:fs";
+import { existsSync as existsSync5, readFileSync as readFileSync5, statSync as statSync3 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 
 // src/connect/shell.ts
@@ -15862,6 +15862,8 @@ var parseTicketCommand = ({ root, file }) => {
   if (reading.acceptanceCriteria.source === "none") warnings.push({ code: "no-acceptance-criteria", message: "no acceptance criteria found with the reading map: ask the engineer, do not invent them" });
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
+  const tpl = codeHost?.conventions.mrTemplate;
+  if (tpl && !existsSync5(resolve2(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   return {
     exitCode: 0,
@@ -15878,7 +15880,7 @@ var parseTicketCommand = ({ root, file }) => {
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync5, readFileSync as readFileSync6 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync6 } from "node:fs";
 import { join as join7 } from "node:path";
 
 // src/plan/file.ts
@@ -15957,7 +15959,7 @@ var planCommand = ({ root, key, approve }) => {
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   const rel = planFile2(key);
   const file = join7(root, rel);
-  if (!existsSync5(file)) return fail4("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  if (!existsSync6(file)) return fail4("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
   if (!isInside(resolveReal(root), real)) return fail4("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
   const plan = readPlan(readFileSync6(real, "utf8"), key);

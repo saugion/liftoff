@@ -6,7 +6,7 @@ import { CONFIG, cli, repo } from "./helpers.js";
 
 const story = (extra: object = {}) => ({ key: "PROJ-123", summary: "Add login", issue_type: { name: "Story" }, status: { name: "To Do" }, description: "Intro\n\n## Acceptance criteria\n- user can log in\n- bad password is refused\n\n## Notes\nx", ...extra });
 const parse = (ticket: unknown, config = CONFIG) => {
-  const dir = repo(config, { "t.json": typeof ticket === "string" ? ticket : JSON.stringify(ticket) });
+  const dir = repo(config, { "t.json": typeof ticket === "string" ? ticket : JSON.stringify(ticket), ".gitlab/merge_request_templates/Default.md": "# MR" });
   return cli(["parse-ticket", "--root", dir, "--file", "t.json"]);
 };
 
@@ -65,6 +65,14 @@ describe("parse-ticket: build conventions", () => {
     const cfg = CONFIG.slice(0, CONFIG.indexOf("codeHost:"));
     const b = parse({ key: "PROJ-9", summary: "Fix  the Thing!", issue_type: { name: "Task" }, description: "d" }, cfg).body.build;
     expect(b).toMatchObject({ branch: "PROJ-9-fix-the-thing", title: "PROJ-9: Fix the Thing!", targetBranch: null, mrCreate: null, transitions: { start: null, review: null } });
+  });
+  it("warns when the configured MR template file is missing, not when it exists", () => {
+    const code = (files: Record<string, string>) => {
+      const dir = repo(CONFIG, { "t.json": JSON.stringify(story()), ...files });
+      return cli(["parse-ticket", "--root", dir, "--file", "t.json"]).body.warnings.map((w: any) => w.code);
+    };
+    expect(code({})).toContain("mr-template-missing");
+    expect(code({ ".gitlab/merge_request_templates/Default.md": "# MR" })).not.toContain("mr-template-missing");
   });
   it("a read-only tracker offers no transitions", () => {
     const { body } = parse(story(), CONFIG.replace('server: { version: "0.23.1" }', 'server: { version: "0.23.1", readOnly: true }'));
