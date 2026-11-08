@@ -75,7 +75,7 @@ describe("the rules are written", () => {
   });
   it("Build: gate, dry-runs, no merge request, no ticket writes", () => {
     for (const s of ["build only from an approved, unchanged plan", "Dry-run 1", "Dry-run 2", "Never:", "merge", "force-push", "open the merge request (not even with `build.mrCreate`", "move, transition, comment on or edit the ticket", "write to the tracker at all", "Never run `build.mrCreate` yourself and never touch the ticket"]) expect(flat("liftoff-build"), s).toContain(s);
-    for (const s of ["no force-push, no other remote or branch name", "Retrying the same push needs a new yes", "the configured template is missing", "contradicts an acceptance criterion", "anything that contradicts a criterion", "decline in one line (it is in the Never list)", "change git config", "a push that failed", "mr-template-missing", "mention it once and go on", "records a deviation only", "the same advice holds"]) expect(flat("liftoff-build"), s).toContain(s);
+    for (const s of ["no force-push, no other remote or branch name", "Retrying the same push needs a new yes", "the configured template is missing", "contradicts an acceptance criterion", "anything that contradicts a criterion", "decline in one line (it is in the Never list)", "change git config", "a push that failed", "mr-template-missing", "mention it once and go on", "records a deviation only", "the same advice holds", "also when the file exists", "the saved file can be stale", "Do the same read and comparison again before the push dry-run"]) expect(flat("liftoff-build"), s).toContain(s);
   });
   it("Build: a broken repo check, a check-only section, a Note: line", () => {
     const f = flat("liftoff-build");

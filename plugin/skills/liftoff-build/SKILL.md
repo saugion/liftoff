@@ -88,9 +88,11 @@ Run `plan --key <KEY>` (the key from the user, or the only plan in `.liftoff/pla
 
 ## 3. The ticket and the conventions
 
-Run `parse-ticket` on `.liftoff/tmp/<KEY>.json` (create the folder if it does not exist) (run it again here even if Plan did: the config may have changed). If the file is missing, or the engineer says the ticket changed,
-call `jira_get_issue` (`fields="*all"`, `expand=renderedFields`) and save it there first (a read; it is the only
-tracker call this skill makes). You need `build.git`, `build.branch`, `build.title`, `build.targetBranch`,
+Run `parse-ticket` on `.liftoff/tmp/<KEY>.json` (create the folder if it does not exist) (run it again here even if Plan did: the config may have changed). Always call `jira_get_issue` (`fields="*all"`, `expand=renderedFields`)
+and save it there first, also when the file exists (a read; it is the only tracker call this skill makes): the ticket may have changed
+since Plan, and the saved file can be stale. Compare the acceptance criteria that `parse-ticket` returns with the plan: if one is
+new, changed or gone and the plan does not say so, stop before any step, tell the engineer which criterion differs, and send them back to
+the Plan skill. Do the same read and comparison again before the push dry-run. You need `build.git`, `build.branch`, `build.title`, `build.targetBranch`,
 `build.mrTemplate`, `build.mrDescriptionFile` and `build.mrCreate`. Without a code host, `build.mrCreate` is null:
 tell the engineer there is no merge request command.
 
