@@ -232,11 +232,11 @@ LiftOff v1 is one plugin, published from this repo as a git marketplace. It need
 **Claude Code**
 
 ```
-/plugin marketplace add saugion/liftoff#v0.1.0
+/plugin marketplace add saugion/liftoff#v0.3.0
 /plugin install liftoff@liftoff
 ```
 
-(`/plugin install liftoff --marketplace saugion/liftoff` also works on Claude Code 2.1.275 or later.) Then, in a repo, run `/liftoff:liftoff-init`. Using the tag (`#v0.1.0`) installs exactly that release.
+(`/plugin install liftoff --marketplace saugion/liftoff` also works on Claude Code 2.1.275 or later.) Then, in a repo, run `/liftoff:liftoff-init`. Using the tag (`#v0.3.0`) installs exactly that release.
 
 **A teammate** who clones a repo that already ran Init gets the plugin from the committed `.claude/settings.json`: Claude Code registers the marketplace after you trust the folder. Run the skill to apply the team config; there are no questions.
 

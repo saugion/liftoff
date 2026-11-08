@@ -1,5 +1,7 @@
 # LiftOff — Handoff
 
+> **Released 2026-11-08 as `v0.3.0`** (tag pushed with `main`): Init, Connect, Plan, Build, Ticket flow (with epics), work streams, `build.git` option. Not yet run against a real Jira DC / GitLab.
+>
 > **Update 2026-11-08 (latest): Ticket flow (`liftoff-ticket`) and work streams (`streams:`) are in the MVP too, same `0.3.0`; spec `SPEC-ticket-streams.md`, decisions `DECISIONS-ticket-streams.md`, e2e `test/e2e/ticket-streams.test.ts`. Close is dropped (the MR and the ticket's lane are the engineer's); the MCP wrapper for chat clients, `doctor` and sprint support are not built.**
 >
 > **Earlier: the MVP (Init + Connect + Plan + Build) is implemented as `0.3.0`, untagged and unpushed.** Plan/Build: `SPEC-plan-build.md`; autonomous decisions to review: `DECISIONS-connect.md`, `DECISIONS-plan-build.md`. End-to-end tests (`test/e2e/`, fake Jira/glab, real git) pass; nothing has run against a real Jira DC / GitLab yet. Close, Ticket flow, work streams, `doctor` are not built.
