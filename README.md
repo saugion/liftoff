@@ -1,9 +1,10 @@
 # LiftOff
 
-LiftOff is a plugin for AI coding agents (Claude Code, and GitHub Copilot in VS Code). It gives a whole team one set
-of rules for its agents and connects those agents to the team's Jira and GitLab. A ticket then goes to a plan, to
-reviewed code, to a merge request ready to open, and every step follows the team's conventions. The engineer stays in
-charge the whole time.
+LiftOff is a plugin for AI coding agents (Claude Code, and GitHub Copilot in VS Code). Without it, every engineer
+tells their agent how the team works in their own words, and the agent doesn't know your Jira or your GitLab. With it,
+the team writes its rules down once, in one file, and every engineer's agent follows them. The agent can read a
+ticket, write a plan, write the code and prepare the merge request, all the way the team does it. The engineer approves
+every step and stays in charge.
 
 Current release: **v0.3.0**, built and tested, not yet piloted. See [Status](#status-and-limits).
 
@@ -17,6 +18,47 @@ Current release: **v0.3.0**, built and tested, not yet piloted. See [Status](#st
 - **The engineer stays in charge.** LiftOff proposes, the engineer approves. LiftOff never merges, never opens the
   merge request and never moves a ticket on the board.
 - **The lead sets it up once.** After that, a teammate needs a few minutes per machine: clone, apply, connect.
+
+## A day with LiftOff
+
+A team of four builds a web app. They use Jira for tickets and GitLab for code. Nina is the lead. Marco is the product
+owner. Sara is an engineer. Each of them uses an AI agent.
+
+**Once, for the team (Nina, about 30 minutes)**
+
+1. Nina runs `/liftoff:liftoff-init` in the repo. The agent asks a few questions (what the project is, its modules,
+   which agents the team uses) and writes the team's rules: `liftoff.yaml`, an `AGENTS.md` with instructions for the
+   agents, and `CONSTRAINTS.md` with the quality bar.
+2. Nina runs `/liftoff:liftoff-connect`. The agent looks at the team's real Jira tickets and GitLab merge requests and
+   learns how the team writes them: where the acceptance criteria go, how branches and titles are named, which
+   states a ticket moves through. It creates a few test tickets to prove it got them right.
+3. Nina commits the files. That is the whole setup.
+
+**Once per machine (Sara, about 5 minutes)**
+
+Sara clones the repo, runs `/liftoff:liftoff-init` (no questions, it applies Nina's rules) and
+`/liftoff:liftoff-connect` (she makes her own Jira token and keeps it in her own keychain).
+
+**Every day**
+
+1. **Marco asks for a ticket.** He types: *"create a story: users can reset their password by email"*. The agent
+   writes it on the team's story template, shows him the full text, and creates it in Jira only after he says yes.
+   Result: `PROJ-123`, written the way Sara expects to read it.
+2. **Sara plans it.** She types *"plan PROJ-123"*. The agent reads the ticket and the code, and writes a plan in short
+   sections ("add the reset endpoint", "send the email", "tests") with a check for each acceptance criterion. The plan
+   is a local file. Nothing goes to Jira. Sara reads it, changes what she dislikes and approves it once.
+3. **Sara builds it.** She types *"build this plan"*. The agent works one section at a time and runs the team's checks
+   after each. In the default mode it shows a preview before every git step: create the branch, commit the section,
+   push. Sara approves each one. If the ticket changed in the meantime, or the plan no longer matches it, the agent
+   stops and says so.
+4. **The agent hands back a ready merge request.** The branch is pushed. The agent prints the merge request title and
+   description in the team's format and the exact `glab` command to open it, after checking its own work against the
+   acceptance criteria.
+5. **Sara finishes.** She reviews the code, opens the merge request with that command and moves the ticket to the
+   next column herself. LiftOff never opens the merge request, never merges and never moves a ticket.
+
+At no point does the agent act alone. Everything that leaves the laptop (a ticket, a branch, a push) is shown first
+and waits for a yes.
 
 ## The problem
 
