@@ -102,8 +102,9 @@ A non-null `stream` means a Kanban work stream: no sprint is involved. The ticke
 Show what will happen: the branch `build.branch`, created from the current branch (ask which base if it is not
 `build.targetBranch`), and that each plan section will be one commit on it. **Apply on the engineer's yes only.** In
 `assisted` mode create the branch with `git switch -c`; in `manual` mode the dry-run is only the branch name: tell the
-engineer to create it and wait until they say they are on it. A branch that already exists: ask (resume it, or pick
-another name); never reset it. Remind the engineer that moving the ticket to its working lane (`build.transitions`
+engineer to create it and wait until they say they are on it. A branch that already exists, or one you are already on with some sections committed (a resume): ask once (resume it, or
+pick another name); never reset it. On a resume the plan's ticks say where you are: check that the branch's commits
+match the ticked sections before you go on. In `assisted` mode the yes to this dry-run covers the one commit per section. Remind the engineer that moving the ticket to its working lane (`build.transitions`
 start name, when the team has one) is theirs to do.
 
 ## 5. Implement, section by section
@@ -114,7 +115,11 @@ whose message starts with the ticket key and names the section (`manual` mode: d
 that message and the list of changed files, then go on; if two sections touch the same files and cannot be split cleanly, say so and offer one combined commit or `git add -p`). Changing the plan's content (not a checkbox) makes it
 `stale`: a deviation that is small is told to the engineer and noted in the plan file as a line that starts with `Note:` (it does not count as content, so the approval stays valid), outside the
 checkbox lines; a deviation that needs a new or different section goes back to the Plan skill for a new approval. Run
-`plan --key <KEY>` now and then: `approvedValid` must stay true.
+`plan --key <KEY>` **before starting each section and before each commit**: `approvedValid` must stay true. If it turns
+`stale`, stop at once, do not implement later sections, commit nothing more and leave your uncommitted work as it is.
+Ticking checkboxes and `Note:` lines never make a plan stale, only changed text does (a hand edit, usually); the CLI gives no diff, so
+tell the engineer the plan text changed since the approval, ask what they changed, and send them to the Plan skill to
+approve it again. Never approve a plan yourself.
 
 ## 6. Self-check
 
