@@ -128,3 +128,10 @@ describe("the constraints template and the references", () => {
     expect(readdirSync(join(SKILL, "references"))).toEqual(["stack-commands.md"]);
   });
 });
+
+describe("the Init skill covers what the first real-agent run had to guess", () => {
+  const body = readFileSync(join(SKILL, "SKILL.md"), "utf8").replace(/\s+/g, " ");
+  it.each(["is not one of its four", "columns Module, Path, Stack, Description", "must install it by hand", "each tagged with its module", "when the stack has one that is not set up yet"])("says: %s", (x) => {
+    expect(body).toContain(x);
+  });
+});

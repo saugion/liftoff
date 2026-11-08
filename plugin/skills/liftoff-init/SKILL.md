@@ -68,7 +68,7 @@ Run `check-config`. Branch on `status` and on **every** entry of `reasons[].code
 |---|---|
 | exit 2, `usage` / `internal`, or stdout that is not JSON | Show `message` or stderr. Stop. |
 | `blocked` + `plugin-outdated` | Stop. Tell the user to update the plugin to at least `minimum`, and how: *Claude Code: run `/reload-plugins`, or `/plugin marketplace update liftoff`; VS Code: update or reload the plugin.* Change nothing. |
-| `blocked` + `config-missing` | **Interview mode.** Keep `installedVersion` for step 5. If `hint.nearestRoot` is set **and `<nearestRoot>/liftoff.yaml` exists**, ask whether to use that root instead of starting a second config. |
+| `blocked` + `config-missing` | **Interview mode.** Keep `installedVersion` for step 5. If `hint.nearestRoot` is set **and `<nearestRoot>/liftoff.yaml` exists**, ask whether to use that root instead of starting a second config (this question comes before the interview and is not one of its four). |
 | `blocked` + `config-invalid` | Show `errors` (`path`, `line`). Offer a fix **as a diff, with approval**. If `git ls-files --error-unmatch liftoff.yaml` says the file is tracked, say "ask the lead" instead of editing. |
 | `blocked` + `not-applied` or `required-changed` | **Apply mode.** |
 | `warn` + `optional-changed` | Apply mode, no prompt: apply, and report what changed. |
@@ -139,7 +139,7 @@ later (for example a path collision) is handled the same way: show `path`, fix t
 - **Before the first backup of the run**, make sure `<root>/.liftoff/.gitignore` exists and contains `*` (create it with
   your file tools if missing), so backups can never be committed. **A backup never overwrites an existing one**: use
   `.liftoff/backup/<path>`, or `<path>.1`, `.2`, ... if that exists.
-- **Root:** fill `assets/agents-md-template.md`. Modules table, commands table (mark any command you did not run
+- **Root:** fill `assets/agents-md-template.md`. Modules table (columns Module, Path, Stack, Description), commands table (columns Module, Task, Command; mark any command you did not run
   `(unverified)`: a command counts as checked only when its script, task or wrapper exists; run one only with the
   user's consent), the agent files list (`CLAUDE.md` and each module's `CLAUDE.md` for `claude-code`;
   `.github/copilot-instructions.md` for `copilot`). Remove a placeholder line that has nothing to put in it
@@ -158,7 +158,10 @@ later (for example a path collision) is handled the same way: show `path`, fix t
 ## 7. CONSTRAINTS.md
 
 Create it from `assets/constraints-template.md` if it is missing. Defaults: Build `green`, coverage target `80%` (or
-`n/a` with check `not configured` when the stack has no coverage tool). An existing one is never touched.
+`n/a` with check `not configured` when the stack has no coverage tool; when the stack has one that is not set up yet, keep the
+threshold and write `not configured` as the check). A cell that needs one command per module lists them all, each tagged with
+its module (`./gradlew build` (api), `npm run build` (web)); a dimension with no tool yet is written `not configured`. An
+existing one is never touched.
 
 ## 8. Render and resolve
 
@@ -204,7 +207,8 @@ Copy the fragment in `assets/marketplace-entry.json` into the repo's `.claude/se
 5. Keep every other key untouched and **keep the file's indentation** (2 spaces if you cannot tell).
 6. **Always show the result before writing** (a diff, or the full content for a new file), and write only on approval.
 
-Only `.claude/settings.json` is written.
+If the user declines the recommendation, skip this step: write nothing, and say in the summary that teammates will not be
+prompted to install the plugin and must install it by hand. Only `.claude/settings.json` is written.
 
 ## 10. Verify and summarize
 

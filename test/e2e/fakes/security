@@ -1,5 +1,19 @@
 #!/bin/sh
-# A stand-in for the macOS `security` tool: answers find-generic-password with $FAKE_KEYCHAIN_TOKEN and logs the call.
+# A stand-in for the macOS `security` tool. Two modes:
+#  - FAKE_KEYCHAIN_FILE set: a tiny store. add-generic-password reads the secret from stdin (like the real prompt), 
+#    find-generic-password prints it with -w (and succeeds silently without), exit 44 when empty.
+#  - otherwise: find-generic-password answers with $FAKE_KEYCHAIN_TOKEN (older tests).
 [ -n "$FAKE_KEYCHAIN_LOG" ] && echo "$*" >> "$FAKE_KEYCHAIN_LOG"
+if [ -n "$FAKE_KEYCHAIN_FILE" ]; then
+  case "$1" in
+    add-generic-password) IFS= read -r secret; printf '%s' "$secret" > "$FAKE_KEYCHAIN_FILE"; exit 0 ;;
+    find-generic-password)
+      [ -s "$FAKE_KEYCHAIN_FILE" ] || exit 44
+      case " $* " in *" -w "*) cat "$FAKE_KEYCHAIN_FILE"; echo ;; esac
+      exit 0 ;;
+    delete-generic-password) rm -f "$FAKE_KEYCHAIN_FILE"; exit 0 ;;
+  esac
+  exit 0
+fi
 if [ "$1" = "find-generic-password" ] && [ -n "$FAKE_KEYCHAIN_TOKEN" ]; then printf '%s\n' "$FAKE_KEYCHAIN_TOKEN"; exit 0; fi
 exit 44
