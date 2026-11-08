@@ -6,7 +6,7 @@ description: >
   Use when the user says "liftoff init", "init project", "set up this repo for AI agents", "apply the team config",
   or when a repo has a liftoff.yaml that was never applied on this machine.
 license: Apache-2.0
-allowed-tools: Bash(node "${CLAUDE_SKILL_DIR}/scripts/liftoff.mjs" *)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *)
 ---
 
 # LiftOff Init
@@ -32,10 +32,10 @@ rendering, safe writes). Never guess what the CLI can tell you. Read its JSON, n
 
 ## Running the CLI
 
-The CLI is `scripts/liftoff.mjs` next to this SKILL.md. Run it as
-`node "${CLAUDE_SKILL_DIR}/scripts/liftoff.mjs" <command> --root "<abs path>"`.
+The CLI is `bin/liftoff.mjs` at the root of the plugin, shared with the other LiftOff skills. Run it as
+`node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" <command> --root "<abs path>"`.
 **If the path you are about to run still contains `${`, your host did not substitute it: build the absolute path
-from the directory this SKILL.md was loaded from.**
+from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.mjs` from there).**
 
 Commands: `validate`, `check-config`, `render [--overwrite <path>]...`. Stdout is always **one JSON document**; read it
 whatever the exit code (exit 1 is a normal state, e.g. the config is missing). Exit 2 or stdout that is not JSON

@@ -166,7 +166,7 @@ describe("the plugin pin blocks render (and only the pin does)", () => {
     expect(list(dir).filter((p) => /CLAUDE\.md$|copilot-instructions\.md$/.test(p))).toEqual([]);
   };
 
-  it.each(["0.2", "9.0", "0.1.1", "1.0.0"])("a pin of %s is newer than the installed plugin: plugin-outdated, exit 1, nothing written", (pin) => {
+  it.each(["0.3", "9.0", "0.2.1", "1.0.0"])("a pin of %s is newer than the installed plugin: plugin-outdated, exit 1, nothing written", (pin) => {
     const dir = makeRepo({ pluginVersion: pin });
     const { exitCode, body } = render(dir);
     expect(exitCode).toBe(1);

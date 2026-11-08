@@ -1,4 +1,4 @@
-Third-party software bundled into scripts/liftoff.mjs.
+Third-party software bundled into bin/liftoff.mjs.
 
 ## ajv@8.20.0 (MIT)
 

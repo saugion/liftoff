@@ -31,4 +31,6 @@ jobs:
       - run: npm run build
       - name: The committed artifact equals a fresh build
         run: git diff --exit-code -- plugin
+      - name: No generated plugin file is untracked
+        run: test -z "$(git status --porcelain -- plugin)"
       - run: npm test

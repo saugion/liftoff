@@ -80,7 +80,7 @@ describe("check-config: reads that fail are a CheckResult, not the fatal shape",
 });
 
 describe("check-config: the plugin pin comes first", () => {
-  it.each(["0.2", "9.0", "0.1.1", "1.0.0"])("a pin of %s above the installed plugin: only plugin-outdated, with the minimum", (pin) => {
+  it.each(["0.3", "9.0", "0.2.1", "1.0.0"])("a pin of %s above the installed plugin: only plugin-outdated, with the minimum", (pin) => {
     const dir = tempDir();
     write(dir, HEAD(pin));
     const { exitCode, body } = check(dir);

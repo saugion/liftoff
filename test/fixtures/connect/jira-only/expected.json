@@ -1,0 +1,84 @@
+{
+  "ok": true,
+  "installedVersion": "0.0.0-test",
+  "agents": [
+    "claude-code",
+    "copilot"
+  ],
+  "tracker": {
+    "kind": "jira-dc",
+    "url": "https://jira.company.local",
+    "project": "PROJ",
+    "server": {
+      "version": "0.23.1",
+      "sslVerify": true,
+      "readOnly": false
+    },
+    "issueTypes": []
+  },
+  "codeHost": null,
+  "mcp": [
+    {
+      "agent": "claude-code",
+      "file": ".mcp.json",
+      "serversKey": "mcpServers",
+      "server": "liftoff-jira",
+      "entry": {
+        "command": "sh",
+        "args": [
+          "-c",
+          "command -v uvx >/dev/null || { echo \"liftoff: uvx not found (brew install uv)\" >&2; exit 1; }; T=\"$(printenv LIFTOFF_JIRA_TOKEN)\"; [ -n \"$T\" ] || T=\"$(security find-generic-password -a \"$(id -un)\" -s 'liftoff-jira@jira.company.local' -w 2>/dev/null)\"; [ -n \"$T\" ] || { echo \"liftoff: no Jira token found (or the keychain is locked); run the LiftOff Connect skill\" >&2; exit 1; }; JIRA_PERSONAL_TOKEN=\"$T\" exec uvx mcp-atlassian@0.23.1 --env-file /dev/null"
+        ],
+        "env": {
+          "JIRA_URL": "https://jira.company.local",
+          "JIRA_SSL_VERIFY": "true",
+          "READ_ONLY_MODE": "false",
+          "ENABLED_TOOLS": "jira_get_issue,jira_search,jira_get_project_issues,jira_create_issue,jira_update_issue,jira_search_fields,jira_get_field_options,jira_add_comment,jira_get_transitions,jira_transition_issue,jira_get_project_issue_types,jira_get_create_fields",
+          "TOOLSETS": "jira_issues,jira_fields,jira_comments,jira_transitions,jira_projects"
+        }
+      }
+    },
+    {
+      "agent": "copilot",
+      "file": ".vscode/mcp.json",
+      "serversKey": "servers",
+      "server": "liftoff-jira",
+      "entry": {
+        "type": "stdio",
+        "command": "sh",
+        "args": [
+          "-c",
+          "command -v uvx >/dev/null || { echo \"liftoff: uvx not found (brew install uv)\" >&2; exit 1; }; T=\"$(printenv LIFTOFF_JIRA_TOKEN)\"; [ -n \"$T\" ] || T=\"$(security find-generic-password -a \"$(id -un)\" -s 'liftoff-jira@jira.company.local' -w 2>/dev/null)\"; [ -n \"$T\" ] || { echo \"liftoff: no Jira token found (or the keychain is locked); run the LiftOff Connect skill\" >&2; exit 1; }; JIRA_PERSONAL_TOKEN=\"$T\" exec uvx mcp-atlassian@0.23.1 --env-file /dev/null"
+        ],
+        "env": {
+          "JIRA_URL": "https://jira.company.local",
+          "JIRA_SSL_VERIFY": "true",
+          "READ_ONLY_MODE": "false",
+          "ENABLED_TOOLS": "jira_get_issue,jira_search,jira_get_project_issues,jira_create_issue,jira_update_issue,jira_search_fields,jira_get_field_options,jira_add_comment,jira_get_transitions,jira_transition_issue,jira_get_project_issue_types,jira_get_create_fields",
+          "TOOLSETS": "jira_issues,jira_fields,jira_comments,jira_transitions,jira_projects"
+        }
+      }
+    }
+  ],
+  "credential": {
+    "envVar": "LIFTOFF_JIRA_TOKEN",
+    "envCheck": "[ -n \"$(printenv LIFTOFF_JIRA_TOKEN)\" ]",
+    "keychain": {
+      "service": "liftoff-jira@jira.company.local",
+      "check": "security find-generic-password -a \"$(id -un)\" -s 'liftoff-jira@jira.company.local' >/dev/null 2>&1",
+      "add": "security add-generic-password -U -a \"$(id -un)\" -s 'liftoff-jira@jira.company.local' -w",
+      "remove": "security delete-generic-password -a \"$(id -un)\" -s 'liftoff-jira@jira.company.local'"
+    },
+    "preflight": "sh -c 'command -v uvx >/dev/null || { echo \"liftoff: uvx not found (brew install uv)\" >&2; exit 1; }; T=\"$(printenv LIFTOFF_JIRA_TOKEN)\"; [ -n \"$T\" ] || T=\"$(security find-generic-password -a \"$(id -un)\" -s '\\''liftoff-jira@jira.company.local'\\'' -w 2>/dev/null)\"; [ -n \"$T\" ] || { echo \"liftoff: no Jira token found (or the keychain is locked); run the LiftOff Connect skill\" >&2; exit 1; }; exec uvx mcp-atlassian@0.23.1 --version >/dev/null'",
+    "createToken": "In Jira: your profile, Personal Access Tokens, Create token (an admin may have to enable personal access tokens)."
+  },
+  "prerequisites": [
+    {
+      "id": "uv",
+      "why": "runs the Jira MCP server",
+      "check": "uvx --version",
+      "install": "brew install uv"
+    }
+  ],
+  "gitlab": null
+}

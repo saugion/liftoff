@@ -29,7 +29,7 @@ describe("checkVersionArg", () => {
 
 describe("isReleasePath", () => {
   it("allows the version files, the lockfile and the plugin, nothing else", () => {
-    for (const p of ["package.json", "package-lock.json", "plugin/skills/liftoff-init/scripts/liftoff.mjs", "plugin/LICENSE"]) expect(isReleasePath(p), p).toBe(true);
+    for (const p of ["package.json", "package-lock.json", "plugin/bin/liftoff.mjs", "plugin/LICENSE"]) expect(isReleasePath(p), p).toBe(true);
     for (const p of ["src/cli/main.ts", "test/x.ts", "README.md", "pluginx/a", "scripts/build.mjs"]) expect(isReleasePath(p), p).toBe(false);
   });
 });
@@ -57,7 +57,7 @@ function fake(world: World = {}) {
     if (line === "git status --porcelain") return world.status ?? "";
     if (line === "git rev-parse --abbrev-ref HEAD") return world.branch ?? "main\n";
     if (line.startsWith("git tag --list")) return world.existingTag ?? "";
-    if (line === "git diff --cached --name-only") return world.staged ?? "package.json\npackage-lock.json\nplugin/skills/liftoff-init/scripts/liftoff.mjs\n";
+    if (line === "git diff --cached --name-only") return world.staged ?? "package.json\npackage-lock.json\nplugin/bin/liftoff.mjs\n";
     return "";
   };
   return { calls, exec };

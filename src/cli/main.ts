@@ -3,19 +3,21 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { render } from "./apply.js";
 import { checkConfigCommand } from "./check.js";
+import { connectInfo } from "./connect-info.js";
 import type { Handler, RunResult } from "./types.js";
 import { validate } from "./validate.js";
 
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render> [--root <abs-dir>] [--overwrite <path>]... | --help";
+  "liftoff <validate|check-config|render|connect-info> [--root <abs-dir>] [--overwrite <path>]... | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
   validate,
   "check-config": checkConfigCommand,
   render,
+  "connect-info": connectInfo,
 };
 
 function json(root: string, exitCode: RunResult["exitCode"], body: Record<string, unknown>, stderr = ""): RunResult {

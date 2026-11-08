@@ -396,7 +396,7 @@ var require_directives = __commonJS({
         return tag[0] === "!" ? tag : `!<${tag}>`;
       }
       toString(doc) {
-        const lines = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [];
+        const lines2 = this.yaml.explicit ? [`%YAML ${this.yaml.version || "1.2"}`] : [];
         const tagEntries = Object.entries(this.tags);
         let tagNames;
         if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
@@ -412,9 +412,9 @@ var require_directives = __commonJS({
           if (handle === "!!" && prefix === "tag:yaml.org,2002:")
             continue;
           if (!doc || tagNames.some((tn) => tn.startsWith(prefix)))
-            lines.push(`%TAG ${handle} ${prefix}`);
+            lines2.push(`%TAG ${handle} ${prefix}`);
         }
-        return lines.join("\n");
+        return lines2.join("\n");
       }
     };
     Directives.defaultYaml = { explicit: false, version: "1.2" };
@@ -1875,22 +1875,22 @@ var require_stringifyCollection = __commonJS({
       const { indent, options: { commentString } } = ctx;
       const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
       let chompKeep = false;
-      const lines = [];
+      const lines2 = [];
       for (let i = 0; i < items.length; ++i) {
         const item = items[i];
         let comment2 = null;
         if (identity.isNode(item)) {
           if (!chompKeep && item.spaceBefore)
-            lines.push("");
-          addCommentBefore(ctx, lines, item.commentBefore, chompKeep);
+            lines2.push("");
+          addCommentBefore(ctx, lines2, item.commentBefore, chompKeep);
           if (item.comment)
             comment2 = item.comment;
         } else if (identity.isPair(item)) {
           const ik = identity.isNode(item.key) ? item.key : null;
           if (ik) {
             if (!chompKeep && ik.spaceBefore)
-              lines.push("");
-            addCommentBefore(ctx, lines, ik.commentBefore, chompKeep);
+              lines2.push("");
+            addCommentBefore(ctx, lines2, ik.commentBefore, chompKeep);
           }
         }
         chompKeep = false;
@@ -1899,15 +1899,15 @@ var require_stringifyCollection = __commonJS({
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
           chompKeep = false;
-        lines.push(blockItemPrefix + str2);
+        lines2.push(blockItemPrefix + str2);
       }
       let str;
-      if (lines.length === 0) {
+      if (lines2.length === 0) {
         str = flowChars.start + flowChars.end;
       } else {
-        str = lines[0];
-        for (let i = 1; i < lines.length; ++i) {
-          const line = lines[i];
+        str = lines2[0];
+        for (let i = 1; i < lines2.length; ++i) {
+          const line = lines2[i];
           str += line ? `
 ${indent}${line}` : "\n";
         }
@@ -1930,22 +1930,22 @@ ${indent}${line}` : "\n";
       });
       let reqNewline = false;
       let linesAtValue = 0;
-      const lines = [];
+      const lines2 = [];
       for (let i = 0; i < items.length; ++i) {
         const item = items[i];
         let comment = null;
         if (identity.isNode(item)) {
           if (item.spaceBefore)
-            lines.push("");
-          addCommentBefore(ctx, lines, item.commentBefore, false);
+            lines2.push("");
+          addCommentBefore(ctx, lines2, item.commentBefore, false);
           if (item.comment)
             comment = item.comment;
         } else if (identity.isPair(item)) {
           const ik = identity.isNode(item.key) ? item.key : null;
           if (ik) {
             if (ik.spaceBefore)
-              lines.push("");
-            addCommentBefore(ctx, lines, ik.commentBefore, false);
+              lines2.push("");
+            addCommentBefore(ctx, lines2, ik.commentBefore, false);
             if (ik.comment)
               reqNewline = true;
           }
@@ -1962,12 +1962,12 @@ ${indent}${line}` : "\n";
         if (comment)
           reqNewline = true;
         let str = stringify.stringify(item, itemCtx, () => comment = null);
-        reqNewline || (reqNewline = lines.length > linesAtValue || str.includes("\n"));
+        reqNewline || (reqNewline = lines2.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
         } else if (ctx.options.trailingComma) {
           if (ctx.options.lineWidth > 0) {
-            reqNewline || (reqNewline = lines.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
+            reqNewline || (reqNewline = lines2.reduce((sum, line) => sum + line.length + 2, 2) + (str.length + 2) > ctx.options.lineWidth);
           }
           if (reqNewline) {
             str += ",";
@@ -1975,35 +1975,35 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           str += stringifyComment.lineComment(str, itemIndent, commentString(comment));
-        lines.push(str);
-        linesAtValue = lines.length;
+        lines2.push(str);
+        linesAtValue = lines2.length;
       }
       const { start, end } = flowChars;
-      if (lines.length === 0) {
+      if (lines2.length === 0) {
         return start + end;
       } else {
         if (!reqNewline) {
-          const len = lines.reduce((sum, line) => sum + line.length + 2, 2);
+          const len = lines2.reduce((sum, line) => sum + line.length + 2, 2);
           reqNewline = ctx.options.lineWidth > 0 && len > ctx.options.lineWidth;
         }
         if (reqNewline) {
           let str = start;
-          for (const line of lines)
+          for (const line of lines2)
             str += line ? `
 ${indentStep}${indent}${line}` : "\n";
           return `${str}
 ${indent}${end}`;
         } else {
-          return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
+          return `${start}${fcPadding}${lines2.join(" ")}${fcPadding}${end}`;
         }
       }
     }
-    function addCommentBefore({ indent, options: { commentString } }, lines, comment, chompKeep) {
+    function addCommentBefore({ indent, options: { commentString } }, lines2, comment, chompKeep) {
       if (comment && chompKeep)
         comment = comment.replace(/^\n+/, "");
       if (comment) {
         const ic = stringifyComment.indentComment(commentString(comment), indent);
-        lines.push(ic.trimStart());
+        lines2.push(ic.trimStart());
       }
     }
     exports.stringifyCollection = stringifyCollection;
@@ -2641,11 +2641,11 @@ var require_binary = __commonJS({
         if (type !== Scalar.Scalar.QUOTE_DOUBLE) {
           const lineWidth = Math.max(ctx.options.lineWidth - ctx.indent.length, ctx.options.minContentWidth);
           const n = Math.ceil(str.length / lineWidth);
-          const lines = new Array(n);
+          const lines2 = new Array(n);
           for (let i = 0, o = 0; i < n; ++i, o += lineWidth) {
-            lines[i] = str.substr(o, lineWidth);
+            lines2[i] = str.substr(o, lineWidth);
           }
-          str = lines.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
+          str = lines2.join(type === Scalar.Scalar.BLOCK_LITERAL ? "\n" : " ");
         }
         return stringifyString.stringifyString({ comment, type, value: str }, ctx, onComment, onChompKeep);
       }
@@ -3325,35 +3325,35 @@ var require_stringifyDocument = __commonJS({
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
-      const lines = [];
+      const lines2 = [];
       let hasDirectives = options.directives === true;
       if (options.directives !== false && doc.directives) {
         const dir = doc.directives.toString(doc);
         if (dir) {
-          lines.push(dir);
+          lines2.push(dir);
           hasDirectives = true;
         } else if (doc.directives.docStart)
           hasDirectives = true;
       }
       if (hasDirectives)
-        lines.push("---");
+        lines2.push("---");
       const ctx = stringify.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
-        if (lines.length !== 1)
-          lines.unshift("");
+        if (lines2.length !== 1)
+          lines2.unshift("");
         const cs = commentString(doc.commentBefore);
-        lines.unshift(stringifyComment.indentComment(cs, ""));
+        lines2.unshift(stringifyComment.indentComment(cs, ""));
       }
       let chompKeep = false;
       let contentComment = null;
       if (doc.contents) {
         if (identity.isNode(doc.contents)) {
           if (doc.contents.spaceBefore && hasDirectives)
-            lines.push("");
+            lines2.push("");
           if (doc.contents.commentBefore) {
             const cs = commentString(doc.contents.commentBefore);
-            lines.push(stringifyComment.indentComment(cs, ""));
+            lines2.push(stringifyComment.indentComment(cs, ""));
           }
           ctx.forceBlockIndent = !!doc.comment;
           contentComment = doc.contents.comment;
@@ -3362,36 +3362,36 @@ var require_stringifyDocument = __commonJS({
         let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
-        if ((body[0] === "|" || body[0] === ">") && lines[lines.length - 1] === "---") {
-          lines[lines.length - 1] = `--- ${body}`;
+        if ((body[0] === "|" || body[0] === ">") && lines2[lines2.length - 1] === "---") {
+          lines2[lines2.length - 1] = `--- ${body}`;
         } else
-          lines.push(body);
+          lines2.push(body);
       } else {
-        lines.push(stringify.stringify(doc.contents, ctx));
+        lines2.push(stringify.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
           const cs = commentString(doc.comment);
           if (cs.includes("\n")) {
-            lines.push("...");
-            lines.push(stringifyComment.indentComment(cs, ""));
+            lines2.push("...");
+            lines2.push(stringifyComment.indentComment(cs, ""));
           } else {
-            lines.push(`... ${cs}`);
+            lines2.push(`... ${cs}`);
           }
         } else {
-          lines.push("...");
+          lines2.push("...");
         }
       } else {
         let dc = doc.comment;
         if (dc && chompKeep)
           dc = dc.replace(/^\n+/, "");
         if (dc) {
-          if ((!chompKeep || contentComment) && lines[lines.length - 1] !== "")
-            lines.push("");
-          lines.push(stringifyComment.indentComment(commentString(dc), ""));
+          if ((!chompKeep || contentComment) && lines2[lines2.length - 1] !== "")
+            lines2.push("");
+          lines2.push(stringifyComment.indentComment(commentString(dc), ""));
         }
       }
-      return lines.join("\n") + "\n";
+      return lines2.join("\n") + "\n";
     }
     exports.stringifyDocument = stringifyDocument;
   }
@@ -4453,17 +4453,17 @@ var require_resolve_block_scalar = __commonJS({
       if (!header)
         return { value: "", type: null, comment: "", range: [start, start, start] };
       const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
-      const lines = scalar.source ? splitLines(scalar.source) : [];
-      let chompStart = lines.length;
-      for (let i = lines.length - 1; i >= 0; --i) {
-        const content = lines[i][1];
+      const lines2 = scalar.source ? splitLines(scalar.source) : [];
+      let chompStart = lines2.length;
+      for (let i = lines2.length - 1; i >= 0; --i) {
+        const content = lines2[i][1];
         if (content === "" || content === "\r")
           chompStart = i;
         else
           break;
       }
       if (chompStart === 0) {
-        const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
+        const value2 = header.chomp === "+" && lines2.length > 0 ? "\n".repeat(Math.max(1, lines2.length - 1)) : "";
         let end2 = start + header.length;
         if (scalar.source)
           end2 += scalar.source.length;
@@ -4473,7 +4473,7 @@ var require_resolve_block_scalar = __commonJS({
       let offset = scalar.offset + header.length;
       let contentStart = 0;
       for (let i = 0; i < chompStart; ++i) {
-        const [indent, content] = lines[i];
+        const [indent, content] = lines2[i];
         if (content === "" || content === "\r") {
           if (header.indent === 0 && indent.length > trimIndent)
             trimIndent = indent.length;
@@ -4493,17 +4493,17 @@ var require_resolve_block_scalar = __commonJS({
         }
         offset += indent.length + content.length + 1;
       }
-      for (let i = lines.length - 1; i >= chompStart; --i) {
-        if (lines[i][0].length > trimIndent)
+      for (let i = lines2.length - 1; i >= chompStart; --i) {
+        if (lines2[i][0].length > trimIndent)
           chompStart = i + 1;
       }
       let value = "";
       let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
-        value += lines[i][0].slice(trimIndent) + "\n";
+        value += lines2[i][0].slice(trimIndent) + "\n";
       for (let i = contentStart; i < chompStart; ++i) {
-        let [indent, content] = lines[i];
+        let [indent, content] = lines2[i];
         offset += indent.length + content.length + 1;
         const crlf = content[content.length - 1] === "\r";
         if (crlf)
@@ -4540,8 +4540,8 @@ var require_resolve_block_scalar = __commonJS({
         case "-":
           break;
         case "+":
-          for (let i = chompStart; i < lines.length; ++i)
-            value += "\n" + lines[i][0].slice(trimIndent);
+          for (let i = chompStart; i < lines2.length; ++i)
+            value += "\n" + lines2[i][0].slice(trimIndent);
           if (value[value.length - 1] !== "\n")
             value += "\n";
           break;
@@ -4616,10 +4616,10 @@ var require_resolve_block_scalar = __commonJS({
       const first = split[0];
       const m = first.match(/^( *)/);
       const line0 = m?.[1] ? [m[1], first.slice(m[1].length)] : ["", first];
-      const lines = [line0];
+      const lines2 = [line0];
       for (let i = 1; i < split.length; i += 2)
-        lines.push([split[i], split[i + 1]]);
-      return lines;
+        lines2.push([split[i], split[i + 1]]);
+      return lines2;
     }
     exports.resolveBlockScalar = resolveBlockScalar;
   }
@@ -10231,9 +10231,9 @@ var require_compile = __commonJS({
       if (_sch)
         return _sch;
       const rootId = (0, resolve_1.getFullPath)(this.opts.uriResolver, sch.root.baseId);
-      const { es5, lines } = this.opts.code;
+      const { es5, lines: lines2 } = this.opts.code;
       const { ownProperties } = this.opts;
-      const gen = new codegen_1.CodeGen(this.scope, { es5, lines, ownProperties });
+      const gen = new codegen_1.CodeGen(this.scope, { es5, lines: lines2, ownProperties });
       let _ValidationError;
       if (sch.$async) {
         _ValidationError = gen.scopeValue("Error", {
@@ -11740,8 +11740,8 @@ var require_core = __commonJS({
         this._loading = {};
         this._cache = /* @__PURE__ */ new Map();
         opts = this.opts = { ...opts, ...requiredOptions(opts) };
-        const { es5, lines } = this.opts.code;
-        this.scope = new codegen_2.ValueScope({ scope: {}, prefixes: EXT_SCOPE_NAMES, es5, lines });
+        const { es5, lines: lines2 } = this.opts.code;
+        this.scope = new codegen_2.ValueScope({ scope: {}, prefixes: EXT_SCOPE_NAMES, es5, lines: lines2 });
         this.logger = getLogger(opts.logger);
         const formatOpt = opts.validateFormats;
         opts.validateFormats = false;
@@ -14299,6 +14299,12 @@ function compareVersions(a, b) {
 // src/config/connectors.ts
 var MIN_CONNECT_PLUGIN = "0.2";
 var MIN_JIRA_SERVER_VERSION = "0.22.0";
+function connectors(config) {
+  return {
+    ...isConnector(config.tracker) && { tracker: config.tracker },
+    ...isConnector(config.codeHost) && { codeHost: config.codeHost }
+  };
+}
 var isConnector = (v) => v !== null && typeof v === "object" && Object.keys(v).length > 0;
 var normalizeUrl = (url) => {
   const m = /^(https:\/\/)([^/:]+)(:\d+)?(\/.*)?$/.exec(url);
@@ -15128,7 +15134,7 @@ var validate2 = ({ root }) => {
 };
 
 // package.json
-var package_default = { version: "0.1.0" };
+var package_default = { version: "0.2.0" };
 
 // src/cli/version.ts
 var INSTALLED_VERSION = package_default.version;
@@ -15308,8 +15314,8 @@ function applyRender(root, opts) {
   if (config.agents.targets.includes("claude-code")) {
     needed.push(...(config.modules?.items ?? []).map((m) => `${normalizeModulePath(m.path)}/AGENTS.md`));
   }
-  const preflight = checkAgentsMd(realRoot, needed, plannedReal);
-  if (preflight.length > 0) return fatal(...preflight);
+  const preflight2 = checkAgentsMd(realRoot, needed, plannedReal);
+  if (preflight2.length > 0) return fatal(...preflight2);
   const touched = [...generated.map((f) => f.path), GITIGNORE_PATH, APPLIED_PATH];
   const escaping = touched.filter((rel) => !isInside(realRoot, resolveReal(join5(realRoot, rel))));
   if (escaping.length > 0) {
@@ -15431,12 +15437,123 @@ var checkConfigCommand = ({ root }) => {
   return { exitCode: result2.status === "blocked" ? 1 : 0, body: { ...result2 } };
 };
 
+// src/connect/shell.ts
+var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
+
+// src/connect/launcher.ts
+var TOKEN_ENV = "LIFTOFF_JIRA_TOKEN";
+var keychainService = (tracker) => `liftoff-jira@${/^https:\/\/([^/]+)/.exec(tracker.url)[1]}`;
+var keychainRead = (service) => `security find-generic-password -a "$(id -un)" -s ${shQuote(service)}`;
+function lines(tracker, last) {
+  const service = keychainService(tracker);
+  return [
+    `command -v uvx >/dev/null || { echo "liftoff: uvx not found (brew install uv)" >&2; exit 1; }`,
+    `T="$(printenv ${TOKEN_ENV})"`,
+    `[ -n "$T" ] || T="$(${keychainRead(service)} -w 2>/dev/null)"`,
+    `[ -n "$T" ] || { echo "liftoff: no Jira token found (or the keychain is locked); run the LiftOff Connect skill" >&2; exit 1; }`,
+    last
+  ];
+}
+var pkg = (tracker) => `mcp-atlassian@${tracker.server.version}`;
+var launcher = (tracker) => lines(tracker, `JIRA_PERSONAL_TOKEN="$T" exec uvx ${pkg(tracker)} --env-file /dev/null`).join("; ");
+var preflight = (tracker) => `sh -c ${shQuote(lines(tracker, `exec uvx ${pkg(tracker)} --version >/dev/null`).join("; "))}`;
+var keychainCommands = (tracker) => {
+  const service = keychainService(tracker);
+  const base = (verb) => `security ${verb} -a "$(id -un)" -s ${shQuote(service)}`;
+  return {
+    service,
+    check: `${keychainRead(service)} >/dev/null 2>&1`,
+    add: `${base("add-generic-password -U")} -w`,
+    remove: base("delete-generic-password")
+  };
+};
+
+// src/connect/tools.ts
+var TOOLSET_OF = {
+  jira_get_issue: "jira_issues",
+  jira_search: "jira_issues",
+  jira_get_project_issues: "jira_issues",
+  jira_create_issue: "jira_issues",
+  jira_update_issue: "jira_issues",
+  jira_search_fields: "jira_fields",
+  jira_get_field_options: "jira_fields",
+  jira_add_comment: "jira_comments",
+  jira_get_transitions: "jira_transitions",
+  jira_transition_issue: "jira_transitions",
+  jira_get_project_issue_types: "jira_projects",
+  jira_get_create_fields: "jira_projects"
+};
+var JIRA_TOOLS = Object.keys(TOOLSET_OF);
+var TOOLSETS = [...new Set(Object.values(TOOLSET_OF))];
+
+// src/connect/info.ts
+var FILES = {
+  "claude-code": { file: ".mcp.json", serversKey: "mcpServers", extra: {} },
+  copilot: { file: ".vscode/mcp.json", serversKey: "servers", extra: { type: "stdio" } }
+};
+function buildInfo(config, installedVersion) {
+  const { tracker, codeHost } = connectors(config);
+  const mcp = tracker ? [...config.agents.targets].sort().map((agent) => ({
+    agent,
+    file: FILES[agent].file,
+    serversKey: FILES[agent].serversKey,
+    server: "liftoff-jira",
+    entry: {
+      ...FILES[agent].extra,
+      command: "sh",
+      args: ["-c", launcher(tracker)],
+      env: {
+        JIRA_URL: tracker.url,
+        JIRA_SSL_VERIFY: String(tracker.server.sslVerify),
+        READ_ONLY_MODE: String(tracker.server.readOnly),
+        ENABLED_TOOLS: JIRA_TOOLS.join(","),
+        TOOLSETS: TOOLSETS.join(",")
+      }
+    }
+  })) : [];
+  const credential = tracker && {
+    envVar: TOKEN_ENV,
+    envCheck: `[ -n "$(printenv ${TOKEN_ENV})" ]`,
+    keychain: keychainCommands(tracker),
+    preflight: preflight(tracker),
+    createToken: "In Jira: your profile, Personal Access Tokens, Create token (an admin may have to enable personal access tokens)."
+  };
+  const prerequisites = [
+    ...tracker ? [{ id: "uv", why: "runs the Jira MCP server", check: "uvx --version", install: "brew install uv" }] : [],
+    ...codeHost ? [{ id: "glab", why: "GitLab access", check: "glab --version", install: "brew install glab" }] : []
+  ];
+  const gitlab = codeHost && {
+    host: codeHost.host,
+    login: `glab auth login --hostname ${shQuote(codeHost.host)}`,
+    status: `glab auth status --hostname ${shQuote(codeHost.host)} -F json`
+  };
+  return {
+    ok: true,
+    installedVersion,
+    agents: config.agents.targets,
+    tracker: tracker ?? null,
+    codeHost: codeHost ?? null,
+    mcp,
+    credential: credential ?? null,
+    prerequisites,
+    gitlab: gitlab ?? null
+  };
+}
+
+// src/cli/connect-info.ts
+var connectInfo = ({ root }) => {
+  const read = readConfigWithPin(root);
+  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
+  return { exitCode: 0, body: buildInfo(read.config, INSTALLED_VERSION) };
+};
+
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render> [--root <abs-dir>] [--overwrite <path>]... | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info> [--root <abs-dir>] [--overwrite <path>]... | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
-  render
+  render,
+  "connect-info": connectInfo
 };
 function json(root, exitCode, body, stderr = "") {
   return { stdout: JSON.stringify({ root, ...body }) + "\n", stderr, exitCode };

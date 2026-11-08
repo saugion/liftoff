@@ -29,3 +29,5 @@ jobs:
       # The plugin is installed from git without a build: what is committed must be what a fresh build makes.
       - name: Committed plugin files equal a fresh build
         run: git diff --exit-code -- plugin
+      - name: No generated plugin file is untracked
+        run: test -z "$(git status --porcelain -- plugin)"

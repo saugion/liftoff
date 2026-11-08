@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "installedVersion": "0.0.0-test",
+  "agents": [
+    "claude-code",
+    "copilot"
+  ],
+  "tracker": null,
+  "codeHost": null,
+  "mcp": [],
+  "credential": null,
+  "prerequisites": [],
+  "gitlab": null
+}

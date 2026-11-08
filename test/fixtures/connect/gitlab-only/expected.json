@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "installedVersion": "0.0.0-test",
+  "agents": [
+    "claude-code",
+    "copilot"
+  ],
+  "tracker": null,
+  "codeHost": {
+    "kind": "gitlab",
+    "host": "gitlab.company.local",
+    "conventions": {
+      "labels": [],
+      "reviewers": []
+    }
+  },
+  "mcp": [],
+  "credential": null,
+  "prerequisites": [
+    {
+      "id": "glab",
+      "why": "GitLab access",
+      "check": "glab --version",
+      "install": "brew install glab"
+    }
+  ],
+  "gitlab": {
+    "host": "gitlab.company.local",
+    "login": "glab auth login --hostname 'gitlab.company.local'",
+    "status": "glab auth status --hostname 'gitlab.company.local' -F json"
+  }
+}

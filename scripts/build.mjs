@@ -3,7 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
-const SKILL_SCRIPT = "plugin/skills/liftoff-init/scripts/liftoff.mjs";
+const SKILL_SCRIPT = "plugin/bin/liftoff.mjs";
+const DEFAULTS_OUT = "plugin/skills/liftoff-connect/assets/defaults.json";
 const ENTRY_FRAGMENT = "plugin/skills/liftoff-init/assets/marketplace-entry.json";
 
 // src/cli/version.ts imports package.json for its version. Embed the version only: not the scripts and the
@@ -67,7 +68,7 @@ export function thirdPartyNotices(packages) {
     const text = file ? readFileSync(join(dir, file), "utf8").replace(/\r\n/g, "\n").trim() : "(this package ships no license file)";
     return `## ${name}@${pkg.version} (${pkg.license})\n\n${text}\n`;
   });
-  return `Third-party software bundled into scripts/liftoff.mjs.\n\n${sections.join("\n")}`;
+  return `Third-party software bundled into bin/liftoff.mjs.\n\n${sections.join("\n")}`;
 }
 
 // The fragment `liftoff-init` copies into a repo's .claude/settings.json. The ref is the release tag.
@@ -101,6 +102,7 @@ export async function buildPlugin() {
   copyFileSync("LICENSE", "plugin/LICENSE");
   write("plugin/THIRD_PARTY_NOTICES", thirdPartyNotices(bundledPackages(metafile)));
   write(ENTRY_FRAGMENT, json(marketplaceEntry(version)));
+  write(DEFAULTS_OUT, readFileSync("src/connect/defaults.json", "utf8")); // the lead flow reads the default server pin here
   return { version, packages: bundledPackages(metafile) };
 }
 

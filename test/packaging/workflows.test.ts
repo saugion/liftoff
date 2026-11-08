@@ -8,6 +8,9 @@ const load = (name: string) => parse(readFileSync(join(DIR, name), "utf8")) as R
 const steps = (wf: Record<string, any>, job: string): any[] => wf.jobs[job].steps;
 const runs = (wf: Record<string, any>, job: string): string[] => steps(wf, job).filter((s) => s.run).map((s) => s.run as string);
 
+// `git diff` ignores files that were never committed, and a release adds generated files.
+const UNTRACKED = 'test -z "$(git status --porcelain -- plugin)"';
+
 describe("workflows", () => {
   it("are exactly ci.yml and release-check.yml", () => {
     expect(readdirSync(DIR).sort()).toEqual(["ci.yml", "release-check.yml"]);
@@ -37,7 +40,7 @@ describe("ci.yml", () => {
   });
 
   it("installs from the lockfile, then typechecks, builds and tests, then checks the committed plugin files", () => {
-    expect(runs(wf, "test")).toEqual(["npm ci", "npm run typecheck", "npm run build", "npm test", "git diff --exit-code -- plugin"]);
+    expect(runs(wf, "test")).toEqual(["npm ci", "npm run typecheck", "npm run build", "npm test", "git diff --exit-code -- plugin", UNTRACKED]);
   });
 });
 
@@ -58,7 +61,7 @@ describe("release-check.yml", () => {
   });
 
   it("rebuilds from a clean install and compares with what is committed, then runs the tests", () => {
-    expect(runs(wf, "check").slice(-4)).toEqual(["npm ci", "npm run build", "git diff --exit-code -- plugin", "npm test"]);
+    expect(runs(wf, "check").slice(-5)).toEqual(["npm ci", "npm run build", "git diff --exit-code -- plugin", UNTRACKED, "npm test"]);
   });
 
   it("says how to delete a bad tag (a published tag is immutable, so it has to go before anyone pins it)", () => {

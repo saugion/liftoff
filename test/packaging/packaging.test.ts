@@ -12,7 +12,7 @@ const read = (...p: string[]) => readFileSync(join(ROOT, ...p), "utf8");
 const readJson = (...p: string[]) => JSON.parse(read(...p)) as Record<string, any>;
 const PLUGIN = join(ROOT, "plugin");
 const SKILL = join(PLUGIN, "skills", "liftoff-init");
-const ARTIFACT = join(SKILL, "scripts", "liftoff.mjs");
+const ARTIFACT = join(PLUGIN, "bin", "liftoff.mjs");
 
 const walk = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
@@ -148,6 +148,8 @@ describe("plugin/ is small and clean", () => {
       ".claude-plugin/plugin.json",
       "LICENSE",
       "THIRD_PARTY_NOTICES",
+      "bin/liftoff.mjs",
+      "skills/liftoff-connect/assets/defaults.json",
       "skills/liftoff-init/SKILL.md",
       "skills/liftoff-init/assets/agents-md-template.md",
       "skills/liftoff-init/assets/constraints-template.md",
@@ -155,7 +157,6 @@ describe("plugin/ is small and clean", () => {
       "skills/liftoff-init/assets/marketplace-entry.json",
       "skills/liftoff-init/assets/module-agents-md-template.md",
       "skills/liftoff-init/references/stack-commands.md",
-      "skills/liftoff-init/scripts/liftoff.mjs",
     ]);
   });
 
@@ -182,7 +183,7 @@ describe("the skill is loadable", () => {
     expect(front.name).toBe("liftoff-init");
     expect(front.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
     expect(front.name).toBe("liftoff-init");
-    expect(readdirSync(join(PLUGIN, "skills"))).toEqual([front.name]);
+    expect(readdirSync(join(PLUGIN, "skills"))).toContain(front.name);
   });
 
   it("has a description that says when to use it, and the license", () => {
@@ -191,19 +192,20 @@ describe("the skill is loadable", () => {
   });
 
   it("allowed-tools is the exact quoted rule that matches the command form the body tells the agent to run", () => {
-    const rule = 'Bash(node "${CLAUDE_SKILL_DIR}/scripts/liftoff.mjs" *)';
+    const rule = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *)';
     expect(front["allowed-tools"]).toBe(rule);
     // Rules match the literal command text: the body must show the same prefix, quotes included.
-    expect(body).toContain('node "${CLAUDE_SKILL_DIR}/scripts/liftoff.mjs" <command> --root "<abs path>"');
+    expect(body).toContain('node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" <command> --root "<abs path>"');
   });
 
   it("has the fallback for hosts that do not substitute ${CLAUDE_SKILL_DIR} (VS Code passes it through)", () => {
     expect(body).toMatch(/still contains `\$\{`/);
     expect(body).toMatch(/directory this SKILL\.md was loaded from/);
+    expect(body).toContain("../../bin/liftoff.mjs");
   });
 
   it("every file the skill refers to exists", () => {
-    const referenced = [...body.matchAll(/`((?:assets|references|scripts)\/[A-Za-z0-9_.-]+)`/g)].map((m) => m[1]!);
+    const referenced = [...body.matchAll(/`((?:assets|references)\/[A-Za-z0-9_.-]+)`/g)].map((m) => m[1]!);
     expect(referenced.length).toBeGreaterThan(4);
     for (const rel of new Set(referenced)) expect(existsSync(join(SKILL, rel)), rel).toBe(true);
   });

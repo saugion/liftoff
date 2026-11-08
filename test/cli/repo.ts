@@ -11,7 +11,7 @@ export interface Options {
   modules?: string[];
   agentsMd?: boolean | string[]; // true: root + every module; false: none; list: exactly these paths
   extra?: string;
-  pluginVersion?: string; // the pin in liftoff.yaml (default "0.1", below the installed 0.1.0)
+  pluginVersion?: string; // the pin in liftoff.yaml (default "0.1", below the installed version)
 }
 
 export function makeRepo(opts: Options = {}): string {
