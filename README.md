@@ -32,6 +32,8 @@ owner. Sara is an engineer. Each of them uses an AI agent.
 2. Nina runs `/liftoff:liftoff-connect`. The agent looks at the team's real Jira tickets and GitLab merge requests and
    learns how the team writes them: where the acceptance criteria go, how branches and titles are named, which
    states a ticket moves through. It creates a few test tickets to prove it got them right.
+   Starting a brand-new project with no tickets or merge requests yet? Nina picks a built-in template or lists the
+   sections she wants, and answers a few questions about branch and title names. The rest works the same.
 3. Nina commits the files. That is the whole setup.
 
 **Once per machine (Sara, about 5 minutes)**
