@@ -10,8 +10,11 @@ export type ErrorCode =
   | "usage"
   | "internal";
 
+// Codes of the Plan and Build commands. Kept apart from ErrorCode (v1) on purpose.
+export type PlanErrorCode = "no-tracker" | "ticket-invalid" | "plan-missing" | "plan-invalid";
+
 export interface CliError {
-  code: ErrorCode;
+  code: ErrorCode | PlanErrorCode;
   message: string;
   path?: string; // JSON pointer, config problems only
   file?: string; // file path relative to root, file problems only
@@ -28,6 +31,9 @@ export interface RunResult {
 export interface Context {
   root: string; // absolute
   overwrite: string[];
+  file?: string; // parse-ticket
+  key?: string; // plan
+  approve?: boolean; // plan
 }
 
 // What a command handler returns; `run` adds `root` and serializes it.

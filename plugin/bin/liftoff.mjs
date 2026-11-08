@@ -1507,7 +1507,7 @@ var require_stringify = __commonJS({
         props.push(doc.directives.tagString(tag));
       return props.join(" ");
     }
-    function stringify(item, ctx, onComment, onChompKeep) {
+    function stringify2(item, ctx, onComment, onChompKeep) {
       if (identity.isPair(item))
         return item.toString(ctx, onComment, onChompKeep);
       if (identity.isAlias(item)) {
@@ -1536,7 +1536,7 @@ var require_stringify = __commonJS({
 ${ctx.indent}${str}`;
     }
     exports.createStringifyContext = createStringifyContext;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -1546,7 +1546,7 @@ var require_stringifyPair = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
       const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
@@ -1568,7 +1568,7 @@ var require_stringifyPair = __commonJS({
       });
       let keyCommentDone = false;
       let chompKeep = false;
-      let str = stringify.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
+      let str = stringify2.stringify(key, ctx, () => keyCommentDone = true, () => chompKeep = true);
       if (!explicitKey && !ctx.inFlow && str.length > 1024) {
         if (simpleKeys)
           throw new Error("With simple keys, single line scalar must not span more than 1024 characters");
@@ -1620,7 +1620,7 @@ ${indent}:`;
         ctx.indent = ctx.indent.substring(2);
       }
       let valueCommentDone = false;
-      const valueStr = stringify.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
+      const valueStr = stringify2.stringify(value, ctx, () => valueCommentDone = true, () => chompKeep = true);
       let ws = " ";
       if (keyComment || vsb || vcb) {
         ws = vsb ? "\n" : "";
@@ -1761,7 +1761,7 @@ var require_addPairToJSMap = __commonJS({
     "use strict";
     var log = require_log();
     var merge = require_merge();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var identity = require_identity();
     var toJS = require_toJS();
     function addPairToJSMap(ctx, map, { key, value }) {
@@ -1797,7 +1797,7 @@ var require_addPairToJSMap = __commonJS({
       if (typeof jsKey !== "object")
         return String(jsKey);
       if (identity.isNode(key) && ctx?.doc) {
-        const strCtx = stringify.createStringifyContext(ctx.doc, {});
+        const strCtx = stringify2.createStringifyContext(ctx.doc, {});
         strCtx.anchors = /* @__PURE__ */ new Set();
         for (const node of ctx.anchors.keys())
           strCtx.anchors.add(node.anchor);
@@ -1864,12 +1864,12 @@ var require_stringifyCollection = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyCollection(collection, ctx, options) {
       const flow = ctx.inFlow ?? collection.flow;
-      const stringify2 = flow ? stringifyFlowCollection : stringifyBlockCollection;
-      return stringify2(collection, ctx, options);
+      const stringify3 = flow ? stringifyFlowCollection : stringifyBlockCollection;
+      return stringify3(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
       const { indent, options: { commentString } } = ctx;
@@ -1894,7 +1894,7 @@ var require_stringifyCollection = __commonJS({
           }
         }
         chompKeep = false;
-        let str2 = stringify.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
+        let str2 = stringify2.stringify(item, itemCtx, () => comment2 = null, () => chompKeep = true);
         if (comment2)
           str2 += stringifyComment.lineComment(str2, itemIndent, commentString(comment2));
         if (chompKeep && comment2)
@@ -1961,7 +1961,7 @@ ${indent}${line}` : "\n";
         }
         if (comment)
           reqNewline = true;
-        let str = stringify.stringify(item, itemCtx, () => comment = null);
+        let str = stringify2.stringify(item, itemCtx, () => comment = null);
         reqNewline || (reqNewline = lines2.length > linesAtValue || str.includes("\n"));
         if (i < items.length - 1) {
           str += ",";
@@ -3322,7 +3322,7 @@ var require_stringifyDocument = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var stringify = require_stringify();
+    var stringify2 = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyDocument(doc, options) {
       const lines2 = [];
@@ -3337,7 +3337,7 @@ var require_stringifyDocument = __commonJS({
       }
       if (hasDirectives)
         lines2.push("---");
-      const ctx = stringify.createStringifyContext(doc, options);
+      const ctx = stringify2.createStringifyContext(doc, options);
       const { commentString } = ctx.options;
       if (doc.commentBefore) {
         if (lines2.length !== 1)
@@ -3359,7 +3359,7 @@ var require_stringifyDocument = __commonJS({
           contentComment = doc.contents.comment;
         }
         const onChompKeep = contentComment ? void 0 : () => chompKeep = true;
-        let body = stringify.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
+        let body = stringify2.stringify(doc.contents, ctx, () => contentComment = null, onChompKeep);
         if (contentComment)
           body += stringifyComment.lineComment(body, "", commentString(contentComment));
         if ((body[0] === "|" || body[0] === ">") && lines2[lines2.length - 1] === "---") {
@@ -3367,7 +3367,7 @@ var require_stringifyDocument = __commonJS({
         } else
           lines2.push(body);
       } else {
-        lines2.push(stringify.stringify(doc.contents, ctx));
+        lines2.push(stringify2.stringify(doc.contents, ctx));
       }
       if (doc.directives?.docEnd) {
         if (doc.comment) {
@@ -5503,7 +5503,7 @@ var require_cst_scalar = __commonJS({
 var require_cst_stringify = __commonJS({
   "node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
-    var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
+    var stringify2 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
         case "block-scalar": {
@@ -5556,7 +5556,7 @@ var require_cst_stringify = __commonJS({
         res += stringifyToken(value);
       return res;
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -7267,7 +7267,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse(src, reviver, options) {
+    function parse2(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7286,7 +7286,7 @@ var require_public_api = __commonJS({
       }
       return doc.toJS(Object.assign({ reviver: _reviver }, options));
     }
-    function stringify(value, replacer, options) {
+    function stringify2(value, replacer, options) {
       let _replacer = null;
       if (typeof replacer === "function" || Array.isArray(replacer)) {
         _replacer = replacer;
@@ -7308,10 +7308,10 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse;
+    exports.parse = parse2;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
   }
 });
 
@@ -7495,10 +7495,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify(x) {
+    function stringify2(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -10318,7 +10318,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref);
+      let _sch = resolve3.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -10345,7 +10345,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref) {
+    function resolve3(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -11205,11 +11205,11 @@ var require_fast_uri = __commonJS({
         normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse(serialize(uri, options), options);
+        parse2(serialize(uri, options), options);
       }
       return uri;
     }
-    function resolve2(baseURI, relativeURI, options) {
+    function resolve3(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -11248,8 +11248,8 @@ var require_fast_uri = __commonJS({
     function resolveComponent(base, relative3, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse(serialize(base, options), options);
-        relative3 = parse(serialize(relative3, options), options);
+        base = parse2(serialize(base, options), options);
+        relative3 = parse2(serialize(relative3, options), options);
       }
       options = options || {};
       if (!options.tolerant && relative3.scheme) {
@@ -11567,7 +11567,7 @@ var require_fast_uri = __commonJS({
       }
       return { parsed, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme };
     }
-    function parse(uri, opts) {
+    function parse2(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
     }
     function normalizeString(uri, opts) {
@@ -11600,11 +11600,11 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize: normalize2,
-      resolve: resolve2,
+      resolve: resolve3,
       resolveComponent,
       equal,
       serialize,
-      parse
+      parse: parse2
     };
     module.exports = fastUri;
     module.exports.default = fastUri;
@@ -14273,8 +14273,8 @@ var require_ajv = __commonJS({
 });
 
 // src/cli/main.ts
-import { statSync as statSync2 } from "node:fs";
-import { resolve } from "node:path";
+import { statSync as statSync3 } from "node:fs";
+import { resolve as resolve2 } from "node:path";
 import { parseArgs } from "node:util";
 
 // src/cli/apply.ts
@@ -15437,8 +15437,288 @@ var checkConfigCommand = ({ root }) => {
   return { exitCode: result2.status === "blocked" ? 1 : 0, body: { ...result2 } };
 };
 
+// src/cli/parse-ticket.ts
+import { readFileSync as readFileSync4, statSync as statSync2 } from "node:fs";
+import { resolve } from "node:path";
+
 // src/connect/shell.ts
 var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
+
+// src/plan/build.ts
+var KEY_RE = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
+var planFile2 = (key) => `.liftoff/plans/${key}.md`;
+var mrDescriptionFile = (key) => `.liftoff/plans/${key}.mr.md`;
+function slugify(s, max = 40) {
+  const slug = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/g, "");
+  return slug || "work";
+}
+var fill = (pattern, values) => pattern.replace(/\{(key|slug|type|summary)\}/g, (_m, k) => values[k] ?? "");
+function safeBranch(name) {
+  const b = name.replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/\.{2,}/g, ".").replace(/\/{2,}/g, "/").replace(/^[-/.]+|[/.-]+$/g, "").replace(/\.lock$/, "");
+  return b || "work";
+}
+function buildInfo(t, tracker, type, codeHost) {
+  const conv = codeHost?.conventions;
+  const typeWord = type?.branchType ?? slugify(t.issueType || "task");
+  const branch = safeBranch(fill(conv?.branchPattern ?? "{key}-{slug}", { key: t.key, slug: slugify(t.summary), type: typeWord }));
+  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType });
+  const labels = conv?.labels ?? [];
+  const reviewers = conv?.reviewers ?? [];
+  const descFile = mrDescriptionFile(t.key);
+  const mrCreate = codeHost ? [
+    "glab mr create",
+    `--source-branch ${shQuote(branch)}`,
+    ...conv?.targetBranch ? [`--target-branch ${shQuote(conv.targetBranch)}`] : [],
+    `--title ${shQuote(title)}`,
+    `--description-file ${shQuote(descFile)}`,
+    ...labels.map((l) => `--label ${shQuote(l)}`),
+    ...reviewers.map((r) => `--reviewer ${shQuote(r)}`),
+    "--yes"
+  ].join(" ") : null;
+  const readOnly = tracker.server.readOnly;
+  return {
+    branch,
+    title,
+    targetBranch: conv?.targetBranch ?? null,
+    labels,
+    reviewers,
+    mrTemplate: conv?.mrTemplate ?? null,
+    transitions: { start: readOnly ? null : type?.transitions.start ?? null, review: readOnly ? null : type?.transitions.review ?? null },
+    readOnly,
+    planFile: planFile2(t.key),
+    mrDescriptionFile: descFile,
+    mrCreate
+  };
+}
+
+// src/plan/ticket.ts
+var isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+function flatten(v) {
+  if (v === null || v === void 0) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(flatten).filter(Boolean).join(", ");
+  if (isObj(v)) {
+    for (const k of ["value", "name", "displayName", "text"]) if (v[k] !== void 0 && v[k] !== null) return flatten(v[k]);
+    return JSON.stringify(v);
+  }
+  return "";
+}
+function lookup(raw, id) {
+  for (const holder of [raw, raw.fields, raw.custom_fields]) {
+    if (isObj(holder) && holder[id] !== void 0 && holder[id] !== null) return holder[id];
+  }
+  return void 0;
+}
+function readTicket(text) {
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { error: "the ticket file is not valid JSON" };
+  }
+  if (!isObj(raw)) return { error: "the ticket file must hold a JSON object" };
+  const key = flatten(raw.key);
+  if (!key) return { error: "the ticket has no `key`" };
+  const type = lookup(raw, "issue_type") ?? lookup(raw, "issuetype");
+  const rendered = isObj(raw.renderedFields) ? flatten(raw.renderedFields.description) : "";
+  return {
+    key,
+    summary: flatten(lookup(raw, "summary")),
+    issueType: flatten(type),
+    ...lookup(raw, "status") !== void 0 && { status: flatten(lookup(raw, "status")) },
+    description: flatten(lookup(raw, "description")),
+    ...rendered && { rendered },
+    raw
+  };
+}
+function fieldText(t, id) {
+  return flatten(lookup(t.raw, id));
+}
+var ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
+function fromHtml(s) {
+  return s.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_m, n, t) => `
+${"#".repeat(Number(n))} ${t}
+`).replace(/<li[^>]*>/gi, "\n- ").replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (e) => ENTITIES[e]);
+}
+var normTitle = (s) => s.replace(/<[^>]+>/g, "").replace(/[*_:#]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+function headingOf(line) {
+  const md = /^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line);
+  if (md) return md[1];
+  const wiki = /^\s*h[1-6]\.\s+(.*?)\s*$/.exec(line);
+  if (wiki) return wiki[1];
+  const bold = /^\s*\*{1,2}([^*\n]+?)\*{1,2}:?\s*$/.exec(line);
+  return bold ? bold[1] : void 0;
+}
+function underHeading(text, title) {
+  const lines2 = (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/);
+  const want = normTitle(title);
+  const start = lines2.findIndex((l) => {
+    const h = headingOf(l);
+    return h !== void 0 && normTitle(h) === want;
+  });
+  if (start < 0) return "";
+  const body = [];
+  for (const l of lines2.slice(start + 1)) {
+    if (headingOf(l) !== void 0) break;
+    body.push(l);
+  }
+  return body.join("\n").trim();
+}
+function readWithMap(t, type) {
+  const ac = type?.readingMap.acceptanceCriteria;
+  let acceptanceCriteria = { source: "none", text: "" };
+  if (ac && "field" in ac) {
+    const text = fieldText(t, ac.field);
+    if (text) acceptanceCriteria = { source: "field", text };
+  } else {
+    const title = ac && "heading" in ac ? ac.heading : "Acceptance criteria";
+    const text = underHeading(t.description, title) || (t.rendered ? underHeading(t.rendered, title) : "");
+    if (text) acceptanceCriteria = { source: "heading", text };
+  }
+  const fields = (type?.readingMap.fields ?? []).map((f) => ({ id: f.id, label: f.label, value: fieldText(t, f.id) }));
+  return { acceptanceCriteria, fields: fields.filter((f) => f.value), missing: fields.filter((f) => !f.value).map((f) => f.id) };
+}
+
+// src/cli/parse-ticket.ts
+var fail2 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
+var MAX_BYTES = 2e6;
+var parseTicketCommand = ({ root, file }) => {
+  if (!file) return fail2("usage", "parse-ticket needs --file <ticket.json>", 2);
+  const read = readConfigWithPin(root);
+  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
+  const { tracker, codeHost } = connectors(read.config);
+  if (!tracker) return fail2("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
+  const path = resolve(root, file);
+  let text;
+  try {
+    if (statSync2(path).size > MAX_BYTES) return fail2("ticket-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
+    text = readFileSync4(path, "utf8");
+  } catch (e) {
+    return fail2("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const ticket = readTicket(text);
+  if ("error" in ticket) return fail2("ticket-invalid", ticket.error);
+  const km = KEY_RE.exec(ticket.key);
+  if (!km) return fail2("ticket-invalid", `'${ticket.key}' is not an issue key like ${tracker.project}-123`);
+  if (km[1] !== tracker.project) return fail2("ticket-invalid", `${ticket.key} is not in the configured project ${tracker.project}`);
+  const type = tracker.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+  const reading = readWithMap(ticket, type);
+  const warnings = [];
+  if (!type) warnings.push({ code: "unknown-issue-type", message: `issue type '${ticket.issueType}' is not in liftoff.yaml: read with defaults; the lead can add it with the Connect skill` });
+  if (reading.acceptanceCriteria.source === "none") warnings.push({ code: "no-acceptance-criteria", message: "no acceptance criteria found with the reading map: ask the engineer, do not invent them" });
+  if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
+  for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
+  return {
+    exitCode: 0,
+    body: {
+      ok: true,
+      ticket: { key: ticket.key, url: `${tracker.url}/browse/${ticket.key}`, summary: ticket.summary, issueType: ticket.issueType, ...ticket.status && { status: ticket.status }, description: ticket.description },
+      known: type !== void 0,
+      reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
+      warnings,
+      build: buildInfo(ticket, tracker, type, codeHost)
+    }
+  };
+};
+
+// src/cli/plan.ts
+import { existsSync as existsSync5, readFileSync as readFileSync5 } from "node:fs";
+import { join as join7 } from "node:path";
+
+// src/plan/file.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+function bodyHash2(body) {
+  return sha256(body.replace(/\r\n/g, "\n").replace(/\[[xX]\]/g, "[ ]").trim());
+}
+function readPlan(text, key) {
+  const crlf = text.includes("\r\n");
+  const lf = text.replace(/\r\n/g, "\n").replace(/^﻿/, "");
+  const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(lf);
+  if (!m) return { ok: false, errors: ["the plan must start with a front matter block (---)"] };
+  let fm;
+  try {
+    fm = (0, import_yaml2.parse)(m[1]);
+  } catch {
+    return { ok: false, errors: ["the front matter is not valid YAML"] };
+  }
+  if (fm === null || typeof fm !== "object" || Array.isArray(fm)) return { ok: false, errors: ["the front matter must be a mapping"] };
+  const front = fm;
+  const errors = [];
+  if (front.ticket !== key) errors.push(`front matter ticket must be ${key}`);
+  if (front.status !== "draft" && front.status !== "approved") errors.push("front matter status must be draft or approved");
+  if (front.status === "approved" && typeof front.approvedHash !== "string") errors.push("an approved plan needs approvedHash");
+  const body = m[2];
+  const sections = [];
+  for (const line of body.split("\n")) {
+    const h = /^##\s+(\d+)\.\s+(.+?)\s*$/.exec(line);
+    if (h) sections.push({ n: Number(h[1]), title: h[2], done: 0, total: 0 });
+    else if (/^##\s/.test(line)) errors.push(`a section heading must look like "## 1. Title": ${line.trim()}`);
+    else {
+      const box = /^\s*[-*]\s+\[([ xX])\]\s+\S/.exec(line);
+      const cur = sections[sections.length - 1];
+      if (box && cur) {
+        cur.total++;
+        if (box[1] !== " ") cur.done++;
+      }
+    }
+  }
+  if (sections.length === 0) errors.push("the plan needs at least one section (## 1. Title)");
+  sections.forEach((s, i) => {
+    if (s.n !== i + 1) errors.push(`sections must be numbered 1..n without gaps (found ${s.n} at position ${i + 1})`);
+    if (s.total === 0) errors.push(`section ${s.n} has no checkbox item ("- [ ] step")`);
+  });
+  if (secretGuard({ text }).length > 0) errors.push("the plan text looks like a credential; credentials never go in a plan");
+  if (errors.length > 0) return { ok: false, errors };
+  return {
+    ok: true,
+    status: front.status,
+    ...typeof front.approvedHash === "string" && { approvedHash: front.approvedHash },
+    sections,
+    hash: bodyHash2(body),
+    frontMatter: front,
+    body,
+    crlf
+  };
+}
+function approvedText(p) {
+  const fm = (0, import_yaml2.stringify)({ ...p.frontMatter, status: "approved", approvedHash: p.hash }).trimEnd();
+  const text = `---
+${fm}
+---
+${p.body}`;
+  return p.crlf ? text.replace(/\n/g, "\r\n") : text;
+}
+
+// src/cli/plan.ts
+var fail3 = (code, message, extra = {}, exitCode = 1) => ({
+  exitCode,
+  body: { ok: false, errors: [{ code, message, ...extra }] }
+});
+var planCommand = ({ root, key, approve }) => {
+  if (!key || !KEY_RE.test(key)) return fail3("usage", "plan needs --key <ISSUE-KEY> (like PROJ-123)", {}, 2);
+  const read = readConfigWithPin(root);
+  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
+  const rel = planFile2(key);
+  const file = join7(root, rel);
+  if (!existsSync5(file)) return fail3("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  const real = resolveReal(file);
+  if (!isInside(resolveReal(root), real)) return fail3("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
+  const plan = readPlan(readFileSync5(real, "utf8"), key);
+  if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
+  let status = plan.status;
+  let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
+  if (approve) {
+    ensureSelfIgnore(resolveReal(root));
+    atomicWrite(real, approvedText(plan));
+    status = "approved";
+    approvedValid = true;
+  }
+  const stale = status === "approved" && !approvedValid;
+  const done = plan.sections.reduce((n, s) => n + s.done, 0);
+  const total = plan.sections.reduce((n, s) => n + s.total, 0);
+  return { exitCode: 0, body: { ok: true, key, path: rel, status, approvedValid, stale, sections: plan.sections, done, total } };
+};
 
 // src/connect/launcher.ts
 var TOKEN_ENV = "LIFTOFF_JIRA_TOKEN";
@@ -15491,7 +15771,7 @@ var FILES = {
   "claude-code": { file: ".mcp.json", serversKey: "mcpServers", extra: {} },
   copilot: { file: ".vscode/mcp.json", serversKey: "servers", extra: { type: "stdio" } }
 };
-function buildInfo(config, installedVersion) {
+function buildInfo2(config, installedVersion) {
   const { tracker, codeHost } = connectors(config);
   const mcp = tracker ? [...config.agents.targets].sort().map((agent) => ({
     agent,
@@ -15544,16 +15824,18 @@ function buildInfo(config, installedVersion) {
 var connectInfo = ({ root }) => {
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
-  return { exitCode: 0, body: buildInfo(read.config, INSTALLED_VERSION) };
+  return { exitCode: 0, body: buildInfo2(read.config, INSTALLED_VERSION) };
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info> [--root <abs-dir>] [--overwrite <path>]... | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
   render,
-  "connect-info": connectInfo
+  "connect-info": connectInfo,
+  "parse-ticket": parseTicketCommand,
+  plan: planCommand
 };
 function json(root, exitCode, body, stderr = "") {
   return { stdout: JSON.stringify({ root, ...body }) + "\n", stderr, exitCode };
@@ -15562,7 +15844,7 @@ function usageError(root, message) {
   return json(root, 2, { ok: false, errors: [{ code: "usage", message: `${message}. Usage: ${USAGE}` }] });
 }
 function run(argv, cwd, table = handlers) {
-  let root = resolve(cwd);
+  let root = resolve2(cwd);
   try {
     let parsed;
     try {
@@ -15572,6 +15854,9 @@ function run(argv, cwd, table = handlers) {
         options: {
           root: { type: "string" },
           overwrite: { type: "string", multiple: true },
+          file: { type: "string" },
+          key: { type: "string" },
+          approve: { type: "boolean" },
           help: { type: "boolean" }
         }
       });
@@ -15580,7 +15865,7 @@ function run(argv, cwd, table = handlers) {
     }
     const { values, positionals } = parsed;
     if (values.help) return { stdout: JSON.stringify({ usage: USAGE }) + "\n", stderr: "", exitCode: 0 };
-    root = resolve(cwd, values.root ?? ".");
+    root = resolve2(cwd, values.root ?? ".");
     const [command, ...extra] = positionals;
     if (!command || extra.length > 0 || !Object.hasOwn(table, command)) {
       return usageError(root, command ? `Unknown command or extra arguments: ${positionals.join(" ")}` : "Missing command");
@@ -15590,11 +15875,11 @@ function run(argv, cwd, table = handlers) {
     }
     let isDir = false;
     try {
-      isDir = statSync2(root).isDirectory();
+      isDir = statSync3(root).isDirectory();
     } catch {
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
-    const outcome = table[command]({ root, overwrite: values.overwrite ?? [] });
+    const outcome = table[command]({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
