@@ -50,6 +50,22 @@ describe.skipIf(major < 24)("the bundle under `node --permission`", () => {
     expect(JSON.parse(check.stdout)).toMatchObject({ status: "ok" });
   });
 
+  it("the brain commands work too: init, source, index and check read and write only inside the repo", () => {
+    const dir = repo();
+    writeFileSync(join(dir, "liftoff.yaml"), 'liftoff: 1\nplugin:\n  version: "0.4"\nproject:\n  name: acme\n  kind: new\nagents:\n  targets: [claude-code]\nbrain: {}\n');
+    writeFileSync(join(dir, "notes.md"), "The reset link expires after 30 minutes.\n");
+    const grant = { read: [bundle, dir], write: [dir] };
+    const run = (...args: string[]) => {
+      const r = sandboxed([...args, "--root", dir], grant);
+      expect([args[0], r.status, r.stderr]).toEqual([args[0], 0, ""]);
+      return JSON.parse(r.stdout);
+    };
+    expect(run("brain-init", "--write")).toMatchObject({ ok: true, written: true });
+    expect(run("brain-source", "--kind", "doc", "--file", "notes.md", "--write")).toMatchObject({ ok: true, action: "created" });
+    expect(run("brain-index", "--write")).toMatchObject({ ok: true });
+    expect(run("brain-check")).toMatchObject({ ok: true, errors: [] });
+  });
+
   it("negative control: without write access the same render fails (so the grant above really is what allows it)", () => {
     const dir = repo();
     const denied = sandboxed(["render", "--root", dir], { read: [bundle, dir], write: [] });
