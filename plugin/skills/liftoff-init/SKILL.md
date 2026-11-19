@@ -166,14 +166,17 @@ about the brain and never writes the `brain` section: the lead adds it with the 
    overwritten, and sit inside `<dir>` and `.liftoff/brain`.
 2. In interview mode the recap yes covers them (add them to the recap table); in apply mode show the list first and ask
    once. Then run `brain-init --write`.
-3. Show each entry of `proposals` as a diff and apply it only on its own yes, with a backup (the rule of step 6).
-   **Parse each existing file first; if it does not parse, stop and show the problem.**
-   - `agentsMd`: append the block to the root `AGENTS.md`. **Skip it if a `## Project brain` heading is already there.**
-   - `claudeSettings` (target `claude-code`): merge into `.claude/settings.json` by the rules of step 9: add the deny
-     rule only if absent, keep every other key and the file's indentation, show the result before writing.
-   - `vscodeSettings` (target `copilot`): merge into `.vscode/settings.json` by the same rules. Say that VS Code asks
-     for approval on edits to `raw/` and cannot block them; `brain-check` is the real guard.
-   - `gitattributes`: append the line to `.gitattributes` if it is not there.
+3. **The `proposals` are the lead's, not yours.** They change files the whole team shares (the pointer block in the root
+   `AGENTS.md`, the Claude and VS Code settings, the `.gitattributes` line), and the lead decided them in the Brain
+   skill's Setup, including which to decline. Init **never edits them**, so a teammate is never asked a team question.
+   For each entry, look at the repo: if it is already there, say nothing; if it is missing, do not add it and put one
+   line in the summary: "tell the lead: <what is missing, and what that means>". What it means:
+   - `agentsMd` missing: the agents are not told the wiki exists.
+   - `claudeSettings` missing (target `claude-code`): nothing stops an edit of a raw source; `brain-check` catches one
+     afterwards (`source-changed`).
+   - `vscodeSettings` missing (target `copilot`): the same; VS Code only asks for approval on `raw/` edits and cannot block them.
+   - `gitattributes` missing: two branches that append to the same log file can conflict.
+   A lead who wants them now runs the Brain skill (Setup, step 3).
 
 ## 7. CONSTRAINTS.md
 
@@ -238,8 +241,8 @@ prompted to install the plugin and must install it by hand. Only `.claude/settin
   `.claude/settings.json` parse; the files to commit are **not gitignored** (`git check-ignore`).
 - **Only when `brain` is set:** `git check-ignore` must say the brain folder (`brain.dir`, the `dir` in `brain-init`'s
   `paths`) is **not** ignored and `.liftoff/brain/hot.md` **is**. Run `brain-check` once and report it (a fresh clone
-  of a team's brain is `ok`). The summary also lists the brain files to commit (`<dir>/**`, `.gitattributes`, the
-  settings files) and says the personal layer under `.liftoff/brain` is never committed.
+  of a team's brain is `ok`). The summary lists every "tell the lead" line from step 6b and says the personal layer
+  under `.liftoff/brain` is never committed; the shared brain files came with the clone, so there is nothing of the brain to commit.
 - Summary: files created, changed and skipped; conflicts left; the CLI's `notices`; unverified commands; the next step
   (commit `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, the generated `CLAUDE.md` and
   `.github/copilot-instructions.md`, and `.claude/settings.json`; `.liftoff/` ignores itself). Offer `git init` if there

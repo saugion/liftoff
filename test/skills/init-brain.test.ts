@@ -18,24 +18,22 @@ describe("Init and the brain", () => {
     expect(sixFlat).toContain("skip this whole step");
     expect(sixFlat).toContain("Init never asks about the brain and never writes the `brain` section");
   });
-  it("names brain-init, --write, every proposals key and the AGENTS.md skip rule", () => {
+  it("names brain-init and --write, and every proposals key", () => {
     expect(sixFlat).toContain("`brain-init` without `--write`");
     expect(sixFlat).toContain("`brain-init --write`");
     const keys = Object.keys(proposals(["claude-code", "copilot"], brainPaths("brain")));
     expect(keys.sort()).toEqual(["agentsMd", "claudeSettings", "gitattributes", "vscodeSettings"]);
     for (const k of keys) expect(six, k).toContain(`\`${k}\``);
-    const block = proposals(["claude-code"], brainPaths("brain")).agentsMd;
-    expect(block.split("\n")[0]).toBe("## Project brain");
-    expect(sixFlat).toContain("Skip it if a `## Project brain` heading is already there");
+    expect(proposals(["claude-code"], brainPaths("brain")).agentsMd.split("\n")[0]).toBe("## Project brain");
   });
-  it("each proposal needs its own yes and a parse of the existing file first", () => {
-    expect(sixFlat).toContain("only on its own yes, with a backup");
-    expect(sixFlat).toContain("Parse each existing file first; if it does not parse, stop");
-    expect(sixFlat).toContain("VS Code asks for approval on edits to `raw/` and cannot block them");
+  it("the proposals are the lead's: Init never edits a shared brain file, it says what to tell the lead", () => {
+    for (const s of ["The `proposals` are the lead's, not yours", "Init **never edits them**, so a teammate is never asked a team question", "if it is already there, say nothing", "do not add it and put one line in the summary: \"tell the lead:", "A lead who wants them now runs the Brain skill (Setup, step 3)"]) expect(sixFlat, s).toContain(s);
+    for (const s of ["the agents are not told the wiki exists", "nothing stops an edit of a raw source", "VS Code only asks for approval on `raw/` edits and cannot block them", "can conflict"]) expect(sixFlat, s).toContain(s);
+    expect(sixFlat).not.toMatch(/apply it only on its own yes/);
   });
   it("step 10 checks the git-ignore state and runs brain-check, only when brain is set", () => {
     const ten = step("## 10.", "## Apply mode").replace(/\s+/g, " ");
-    for (const s of ["Only when `brain` is set", "`git check-ignore`", "is **not** ignored", "`.liftoff/brain/hot.md` **is**", "`brain-check`", "never committed"]) expect(ten, s).toContain(s);
+    for (const s of ["Only when `brain` is set", "`git check-ignore`", "is **not** ignored", "`.liftoff/brain/hot.md` **is**", "`brain-check`", "never committed", "every \"tell the lead\" line from step 6b"]) expect(ten, s).toContain(s);
   });
   it("apply mode creates the brain structure, still without questions", () => {
     expect(flat).toContain("create the brain structure when `brain` is set (step 6b)");
