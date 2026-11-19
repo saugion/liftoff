@@ -44,7 +44,8 @@ pick and the wording in one message and stop there.
 ## 4. Dry run, then yes 1
 
 Write the selection file only once the engineer has picked (step 2). Write `.liftoff/tmp/lessons-selection.json`: `{add: [{key, rule?}], retire: [{file, key}], confirmTainted: [keys],
-confirmConstraints: bool}`. Run `lesson-promote --file .liftoff/tmp/lessons-selection.json` and show **every diff** and
+confirmConstraints: bool}` (`rule` only to reword; `retire`, `confirmTainted` and
+`confirmConstraints` may be left out when unused). Run `lesson-promote --file .liftoff/tmp/lessons-selection.json` and show **every diff** and
 every `lead` message (say so when there is none). `action: create` means the block is new in a file that already
 exists; `before` is then empty. On **yes 1** run it again with `--write`, then `brain-check`. Fix your own errors (at most 3
 rounds); a warning that was there before (an `orphan` page, say) is reported, not fixed. A `lesson-weakens` is never "fixed" by rewording around the guard: drop the rule and tell the engineer.
@@ -66,7 +67,8 @@ Read `build.git` from `liftoff.yaml` (`assisted` when the key is absent; `parse-
 
 - `assisted`: show `git switch -c <branch>`, `git add <gitAdd, one path at a time>` and `git commit -m "<commitMessage>"`;
   run them only on **yes 2**.
-- `manual`: do not run any git command that writes. Hand the same commands over.
+- `manual`: there is no yes 2: do not run any git command that writes, and hand the same commands over, saying the
+  branch name is a suggestion.
 
 **Never push and never open a merge request.** Hand over `git push -u origin <branch>` and say the team reviews the rules
 in a merge request that the engineer opens. A decline of yes 2 leaves the files written and uncommitted: say so.
