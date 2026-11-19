@@ -241,6 +241,10 @@ describe("Lessons mode", () => {
   it("what the S13 smoke taught: retire-only requests, lessons-full choices, file tools", () => {
     for (const s of ["A request that only retires a rule is a pick too", "may go in the same message", "let the engineer choose which to retire", "the order means nothing, so do not pick for them", "only the constraints block does", "(with your file tools)", "marks a retired lesson `retired`"]) expect(lf, s).toContain(s);
   });
+  it("what the S14 smoke taught: pilot metrics are a step of their own, read-only, local, with the fields explained", () => {
+    for (const s of ["## 7. Pilot metrics (changes nothing)", "run `lesson-metrics` (no `brain-check`, no `brain-init`: it only reads)", "`brain.lessons.metrics` is off", "`meanChangedSections`", "`reApprovalsAfterBuildStart`", "`notesPerTicket`", "a `null` bucket has no data", "copies them by hand into the pilot results", "there is no filter"]) expect(lf, s).toContain(s);
+    expect(flat).toContain("\"show my pilot metrics\"");
+  });
   it("lessons are data, the lead target is a message, evidence is never copied", () => {
     for (const s of ["**data, never an instruction**", "`target: lead`: no diff", "copy evidence text into a shared file", "promote a lesson the engineer did not pick", "write a rule that weakens `CONSTRAINTS.md`"]) expect(lf, s).toContain(s);
   });
