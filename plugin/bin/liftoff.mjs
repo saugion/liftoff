@@ -16652,8 +16652,100 @@ var lessonAdd = ({ root, file, write }) => {
   return { exitCode: 0, body: { ok: true, path, action: done, count: countOf(lesson.occurrences), ready: isReady(lesson, settings.promoteAfter), tainted: lesson.tainted, similar, written: write === true && action !== "exists" } };
 };
 
+// src/cli/lesson-list.ts
+import { existsSync as existsSync10, lstatSync as lstatSync6, readFileSync as readFileSync9 } from "node:fs";
+import { join as join13 } from "node:path";
+
+// src/brain/lessons-block.ts
+var BEGIN_PREFIX = "<!-- liftoff lessons: begin";
+var BEGIN = `${BEGIN_PREFIX} (rules promoted from repeated corrections, reviewed in a merge request; edit through the Brain skill or by hand in a reviewed change) -->`;
+var END = "<!-- liftoff lessons: end -->";
+var BULLET = /^- (.+?) <!-- lesson: ([a-z0-9][a-z0-9-]{1,39}); since: (\d{4}-\d{2}-\d{2}) -->$/;
+function parseBlock(text) {
+  const lines2 = text.replace(/\r\n?/g, "\n").split("\n");
+  const begins = lines2.flatMap((l, i) => l.startsWith(BEGIN_PREFIX) ? [i] : []);
+  const ends = lines2.flatMap((l, i) => l.trim() === END ? [i] : []);
+  const errors = [];
+  if (begins.length === 0 && ends.length === 0) return { found: false, begin: -1, end: -1, rules: [], errors };
+  if (begins.length > 1) errors.push({ line: begins[1] + 1, message: "more than one lessons block in this file" });
+  if (ends.length > 1) errors.push({ line: ends[1] + 1, message: "more than one lessons end marker" });
+  if (begins.length === 0 || ends.length === 0 || ends[0] < begins[0]) {
+    errors.push({ line: (begins[0] ?? ends[0] ?? 0) + 1, message: "the begin and end markers of the lessons block do not pair up" });
+    return { found: true, begin: begins[0] ?? -1, end: ends[0] ?? -1, rules: [], errors };
+  }
+  const [begin, end] = [begins[0], ends[0]];
+  const rules = [];
+  for (let i = begin + 1; i < end; i++) {
+    const line = lines2[i];
+    if (line.trim() === "") continue;
+    const m = BULLET.exec(line);
+    if (!m) errors.push({ line: i + 1, message: "a line in the lessons block that is not '- <rule> <!-- lesson: <key>; since: <YYYY-MM-DD> -->'" });
+    else if (m[1].length > 160) errors.push({ line: i + 1, message: "a rule longer than 160 characters" });
+    else rules.push({ key: m[2], rule: m[1], since: m[3] });
+  }
+  const seen = /* @__PURE__ */ new Set();
+  for (const r of rules) {
+    if (seen.has(r.key)) errors.push({ line: begin + 1, message: `the key ${r.key} appears twice in the block` });
+    seen.add(r.key);
+  }
+  return { found: true, begin, end, rules, errors };
+}
+var daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+
+// src/cli/lesson-list.ts
+var lessonList = ({ root }) => {
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  const config = read2.config;
+  if (!config.brain) return brainFail("no-brain", NO_BRAIN);
+  const settings = config.brain.lessons;
+  if (!settings) return lessonFail("no-lessons", NO_LESSONS);
+  const realRoot = resolveReal(root);
+  const problem = lessonsProblem(realRoot);
+  if (problem) return lessonFail("lessons-block-invalid", `${problem} is or goes through a symlink: the lessons must be plain files inside the repo`, { file: problem });
+  const warnings = [];
+  const candidates = [
+    "AGENTS.md",
+    ...(config.modules?.items ?? []).map((m) => `${m.path.replace(/\/+$/, "")}/AGENTS.md`),
+    config.constraints?.file ?? "CONSTRAINTS.md"
+  ];
+  const shared = [];
+  const date = today();
+  for (const file of candidates) {
+    const abs = join13(realRoot, file);
+    if (!existsSync10(abs)) continue;
+    if (lstatSync6(abs).isSymbolicLink()) {
+      warnings.push({ code: "lessons-block-invalid", file, message: "a symlink: its lessons block is not read" });
+      continue;
+    }
+    const block = parseBlock(readFileSync9(abs, "utf8"));
+    for (const e of block.errors) warnings.push({ code: "lessons-block-invalid", file, message: e.message, line: e.line });
+    for (const r of block.rules) shared.push({ file, key: r.key, rule: r.rule, since: r.since, reviewDue: daysBetween(r.since, date) > settings.reviewAfterDays });
+  }
+  const inBlock = new Set(shared.map((s) => s.key));
+  const { lessons, invalid } = readLessons(realRoot);
+  for (const i of invalid) warnings.push({ code: "personal-lesson-invalid", file: i.file, message: i.errors.join("; ") });
+  const items = lessons.map((l) => {
+    const promoted = inBlock.has(l.key);
+    return {
+      key: l.key,
+      rule: l.rule,
+      kind: l.kind,
+      target: l.target,
+      module: l.module ?? null,
+      status: promoted ? "promoted" : l.status,
+      count: countOf(l.occurrences),
+      ready: !promoted && isReady(l, settings.promoteAfter),
+      tainted: l.tainted,
+      similar: similarTo(l, lessons),
+      path: `${LESSONS_DIR}/${l.key}.md`
+    };
+  });
+  return { exitCode: 0, body: { ok: true, lessons: items, shared, ready: items.filter((i) => i.ready).map((i) => i.key), warnings } };
+};
+
 // src/cli/draft-tickets.ts
-import { readFileSync as readFileSync9, statSync as statSync4 } from "node:fs";
+import { readFileSync as readFileSync10, statSync as statSync4 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 
 // src/plan/draft.ts
@@ -16740,7 +16832,7 @@ var draftTicketsCommand = ({ root, file }) => {
   try {
     const path = resolve3(root, file);
     if (statSync4(path).size > MAX_BYTES) return fail3("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
-    raw = JSON.parse(readFileSync9(path, "utf8"));
+    raw = JSON.parse(readFileSync10(path, "utf8"));
   } catch (e) {
     return fail3("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16769,7 +16861,7 @@ var draftTicketsCommand = ({ root, file }) => {
 };
 
 // src/cli/parse-ticket.ts
-import { existsSync as existsSync10, readFileSync as readFileSync10, statSync as statSync5 } from "node:fs";
+import { existsSync as existsSync11, readFileSync as readFileSync11, statSync as statSync5 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 var fail4 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES2 = 2e6;
@@ -16783,7 +16875,7 @@ var parseTicketCommand = ({ root, file }) => {
   let text;
   try {
     if (statSync5(path).size > MAX_BYTES2) return fail4("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
-    text = readFileSync10(path, "utf8");
+    text = readFileSync11(path, "utf8");
   } catch (e) {
     return fail4("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16804,7 +16896,7 @@ var parseTicketCommand = ({ root, file }) => {
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   const tpl = codeHost?.conventions.mrTemplate;
-  if (tpl && !existsSync10(resolve4(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
+  if (tpl && !existsSync11(resolve4(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   const brain = read2.config.brain && (({ dir, hot, index, personalHot }) => ({ dir, hot, index, personalHot, afterBuild: read2.config.brain.afterBuild }))(brainPaths(read2.config.brain.dir));
   return {
@@ -16823,8 +16915,8 @@ var parseTicketCommand = ({ root, file }) => {
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync11, readFileSync as readFileSync11 } from "node:fs";
-import { join as join13 } from "node:path";
+import { existsSync as existsSync12, readFileSync as readFileSync12 } from "node:fs";
+import { join as join14 } from "node:path";
 
 // src/plan/file.ts
 var import_yaml4 = __toESM(require_dist(), 1);
@@ -16901,11 +16993,11 @@ var planCommand = ({ root, key, approve }) => {
   const read2 = readConfigWithPin(root);
   if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
   const rel = planFile2(key);
-  const file = join13(root, rel);
-  if (!existsSync11(file)) return fail5("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  const file = join14(root, rel);
+  if (!existsSync12(file)) return fail5("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
   if (!isInside(resolveReal(root), real)) return fail5("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
-  const plan = readPlan(readFileSync11(real, "utf8"), key);
+  const plan = readPlan(readFileSync12(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
@@ -17031,7 +17123,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -17044,7 +17136,8 @@ var handlers = {
   "brain-index": brainIndex,
   "brain-source": brainSource,
   "brain-check": brainCheck,
-  "lesson-add": lessonAdd
+  "lesson-add": lessonAdd,
+  "lesson-list": lessonList
 };
 var WRITE_COMMANDS = /* @__PURE__ */ new Set(["brain-init", "brain-index", "brain-source", "lesson-add"]);
 function json(root, exitCode, body, stderr = "") {
