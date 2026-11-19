@@ -3775,7 +3775,7 @@ ${pointer}
 var require_resolve_props = __commonJS({
   "node_modules/yaml/dist/compose/resolve-props.js"(exports) {
     "use strict";
-    function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
+    function resolveProps(tokens2, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
       let spaceBefore = false;
       let atNewline = startOnNewline;
       let hasSpace = startOnNewline;
@@ -3790,7 +3790,7 @@ var require_resolve_props = __commonJS({
       let comma = null;
       let found = null;
       let start = null;
-      for (const token of tokens) {
+      for (const token of tokens2) {
         if (reqSpace) {
           if (token.type !== "space" && token.type !== "newline" && token.type !== "comma")
             onError(token.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
@@ -3881,7 +3881,7 @@ var require_resolve_props = __commonJS({
             hasSpace = false;
         }
       }
-      const last = tokens[tokens.length - 1];
+      const last = tokens2[tokens2.length - 1];
       const end = last ? last.offset + last.source.length : offset;
       if (reqSpace && next && next.type !== "space" && next.type !== "newline" && next.type !== "comma" && (next.type !== "scalar" || next.source !== "")) {
         onError(next.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
@@ -5221,8 +5221,8 @@ ${cb}` : comment;
        * @param forceDoc - If the stream contains no document, still emit a final document including any comments and directives that would be applied to a subsequent document.
        * @param endOffset - Should be set if `forceDoc` is also set, to set the document range end and to indicate errors correctly.
        */
-      *compose(tokens, forceDoc = false, endOffset = -1) {
-        for (const token of tokens)
+      *compose(tokens2, forceDoc = false, endOffset = -1) {
+        for (const token of tokens2)
           yield* this.next(token);
         yield* this.end(forceDoc, endOffset);
       }
@@ -7248,7 +7248,7 @@ var require_public_api = __commonJS({
         return docs;
       return Object.assign([], { empty: true }, composer$1.streamInfo());
     }
-    function parseDocument3(source, options = {}) {
+    function parseDocument4(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -7274,7 +7274,7 @@ var require_public_api = __commonJS({
       } else if (options === void 0 && reviver && typeof reviver === "object") {
         options = reviver;
       }
-      const doc = parseDocument3(src, options);
+      const doc = parseDocument4(src, options);
       if (!doc)
         return null;
       doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
@@ -7310,7 +7310,7 @@ var require_public_api = __commonJS({
     }
     exports.parse = parse2;
     exports.parseAllDocuments = parseAllDocuments;
-    exports.parseDocument = parseDocument3;
+    exports.parseDocument = parseDocument4;
     exports.stringify = stringify2;
   }
 });
@@ -10318,7 +10318,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve5.call(this, root, ref);
+      let _sch = resolve6.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -10345,7 +10345,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve5(root, ref) {
+    function resolve6(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -11209,7 +11209,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve5(baseURI, relativeURI, options) {
+    function resolve6(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -11600,7 +11600,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize: normalize3,
-      resolve: resolve5,
+      resolve: resolve6,
       resolveComponent,
       equal,
       serialize,
@@ -14273,8 +14273,8 @@ var require_ajv = __commonJS({
 });
 
 // src/cli/main.ts
-import { statSync as statSync5 } from "node:fs";
-import { resolve as resolve4 } from "node:path";
+import { statSync as statSync6 } from "node:fs";
+import { resolve as resolve5 } from "node:path";
 import { parseArgs } from "node:util";
 
 // src/cli/apply.ts
@@ -15824,6 +15824,16 @@ var WEAKEN = [
   /\b(?:lower|reduce|relax|decrease|abbassa(?:re)?|riduci(?:re)?)\b[^.;\n]{0,30}\b(?:coverage|threshold|bar|soglia|copertura)\b/i,
   /\b(?:don'?t|do not|stop)\b[^.;\n]{0,15}\b(?:run(?:ning)?|write|writing|add(?:ing)?)\b[^.;\n]{0,20}\b(?:tests?|checks?|lint)\b/i
 ];
+var NEGATED = /\b(?:never|always|must not|should not|do not ever|mai|non devi|non si deve)\s+(?:ever\s+)?$/i;
+function weakensBar(rule) {
+  for (const re of WEAKEN) {
+    const m = re.exec(rule);
+    if (!m) continue;
+    if (NEGATED.test(rule.slice(0, m.index))) continue;
+    return true;
+  }
+  return false;
+}
 
 // src/brain/source.ts
 import { createHash as createHash2 } from "node:crypto";
@@ -15958,13 +15968,13 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
   const bySource = {};
   for (const p of pages) {
     for (const s of p.sources) {
-      const norm = posix.normalize(s);
-      if (!norm.startsWith("raw/") || norm.startsWith("..") || !existsSync5(join8(dirAbs, norm)) || !lstatSync3(join8(dirAbs, norm)).isFile()) {
+      const norm2 = posix.normalize(s);
+      if (!norm2.startsWith("raw/") || norm2.startsWith("..") || !existsSync5(join8(dirAbs, norm2)) || !lstatSync3(join8(dirAbs, norm2)).isFile()) {
         err("source-missing", p.path, `source '${s}' is not an existing file under raw/`, 1);
         continue;
       }
-      cited.add(norm);
-      const citing = bySource[inDir(norm)] ??= [];
+      cited.add(norm2);
+      const citing = bySource[inDir(norm2)] ??= [];
       if (!citing.includes(p.path)) citing.push(p.path);
     }
     if (p.module !== void 0 && !moduleIds.includes(p.module)) warn("module-unknown", p.path, `module '${p.module}' is not in liftoff.yaml modules`, 1);
@@ -16413,9 +16423,238 @@ var brainSource = ({ root, file, key, kind, write }) => {
   return { exitCode: 0, body: { ok: true, path, action, sha256: out.sha, bytes: Buffer.byteLength(out.content), header, preview: lines2.slice(0, PREVIEW_LINES).join("\n"), previewTruncated: lines2.length > PREVIEW_LINES, written: action === "created" } };
 };
 
+// src/cli/lesson-add.ts
+import { existsSync as existsSync9, lstatSync as lstatSync5, readFileSync as readFileSync8, readdirSync as readdirSync5, statSync as statSync3 } from "node:fs";
+import { join as join12, resolve as resolve2 } from "node:path";
+
+// src/brain/lesson.ts
+var import_yaml3 = __toESM(require_dist(), 1);
+import { createHash as createHash3 } from "node:crypto";
+var KINDS2 = ["command", "convention", "test", "style", "process"];
+var TARGETS = ["agents-md", "constraints", "wiki", "lead"];
+var SKILLS = ["plan", "build", "brain"];
+var STATUSES = ["open", "dismissed", "retired"];
+var KEY_RE2 = /^[a-z0-9][a-z0-9-]{1,39}$/;
+var MAX_RULE = 160;
+var norm = (s) => s.normalize("NFC").replace(/\r\n?/g, "\n").trim();
+var evidenceHash = (text) => createHash3("sha256").update(norm(text)).digest("hex").slice(0, 8);
+var oneLine2 = (v, max) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\r\n]/.test(v);
+var inList = (list, v) => typeof v === "string" && list.includes(v);
+var TICKET_RE = /^[A-Z][A-Z0-9_]*-[0-9]+$/;
+function draftErrors(d) {
+  if (d === null || typeof d !== "object" || Array.isArray(d)) return ["the draft must be a JSON object"];
+  const x = d;
+  const errors = [];
+  if (typeof x.key !== "string" || !KEY_RE2.test(x.key)) errors.push("key must be lowercase letters, digits and dashes, 2-40 characters, starting with a letter or digit");
+  if (!oneLine2(x.rule, MAX_RULE)) errors.push(`rule must be one line of 1-${MAX_RULE} characters`);
+  if (!inList(KINDS2, x.kind)) errors.push(`kind must be one of ${KINDS2.join(", ")}`);
+  if (!inList(TARGETS, x.target)) errors.push(`target must be one of ${TARGETS.join(", ")}`);
+  if (!inList(SKILLS, x.skill)) errors.push(`skill must be one of ${SKILLS.join(", ")}`);
+  if (typeof x.evidence !== "string" || x.evidence.trim() === "") errors.push("evidence must be the engineer's words, verbatim");
+  if (x.module !== void 0 && !oneLine2(x.module, 120)) errors.push("module must be a module id");
+  if (x.ticket !== void 0 && (typeof x.ticket !== "string" || !TICKET_RE.test(x.ticket))) errors.push("ticket must look like PROJ-123");
+  const unknown = Object.keys(x).filter((k) => !["key", "rule", "kind", "target", "module", "ticket", "skill", "evidence"].includes(k));
+  for (const k of unknown) errors.push(`unknown key '${k}'`);
+  return errors;
+}
+function serializeLesson(l) {
+  const occ = l.occurrences.map((o) => `  - { date: ${o.date}, ${o.ticket ? `ticket: ${o.ticket}, ` : ""}skill: ${o.skill}, evidence: ${o.evidence} }`).join("\n");
+  const front = [
+    "---",
+    `key: ${l.key}`,
+    `rule: ${JSON.stringify(l.rule)}`,
+    `kind: ${l.kind}`,
+    `target: ${l.target}`,
+    ...l.module ? [`module: ${l.module}`] : [],
+    `status: ${l.status}`,
+    `tainted: ${l.tainted}`,
+    "occurrences:",
+    occ,
+    "---"
+  ].join("\n");
+  const body = l.occurrences.map((o) => `## ${o.date} ${o.ticket ?? "(no ticket)"} (${o.skill})
+${o.text.split("\n").map((t) => `> ${t}`).join("\n")}`).join("\n\n");
+  return `${front}
+${body}
+`;
+}
+function parseLesson(text) {
+  const lf = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
+  const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(lf);
+  if (!m) return { ok: false, errors: ["a lesson file starts with a --- front matter block"] };
+  const doc = (0, import_yaml3.parseDocument)(m[1]);
+  if (doc.errors.length > 0) return { ok: false, errors: doc.errors.map((e) => `front matter YAML: ${e.message.split("\n")[0]}`) };
+  const f = doc.toJS();
+  if (f === null || typeof f !== "object" || Array.isArray(f)) return { ok: false, errors: ["front matter must be a YAML mapping"] };
+  const errors = [];
+  if (typeof f.key !== "string" || !KEY_RE2.test(f.key)) errors.push("key is missing or not valid");
+  if (!oneLine2(f.rule, MAX_RULE)) errors.push(`rule must be one line of 1-${MAX_RULE} characters`);
+  if (!inList(KINDS2, f.kind)) errors.push("kind is missing or not valid");
+  if (!inList(TARGETS, f.target)) errors.push("target is missing or not valid");
+  if (!inList(STATUSES, f.status)) errors.push("status must be open, dismissed or retired");
+  if (typeof f.tainted !== "boolean") errors.push("tainted must be true or false");
+  if (!Array.isArray(f.occurrences) || f.occurrences.length === 0) errors.push("occurrences must be a non-empty list");
+  if (errors.length > 0) return { ok: false, errors };
+  const blocks = [...m[2].matchAll(/^## .*\n((?:>.*\n?)+)/gm)].map((b) => b[1].split("\n").filter((l) => l.startsWith(">")).map((l) => l.replace(/^> ?/, "")).join("\n"));
+  const occurrences = [];
+  for (const [i, raw] of f.occurrences.entries()) {
+    const o = raw;
+    if (o === null || typeof o !== "object" || typeof o.date !== "string" || !inList(SKILLS, o.skill) || typeof o.evidence !== "string" || !/^[0-9a-f]{8}$/.test(o.evidence) || o.ticket !== void 0 && typeof o.ticket !== "string") {
+      return { ok: false, errors: [`occurrence ${i + 1} needs date, skill and an 8-hex evidence`] };
+    }
+    occurrences.push({ date: o.date, ...o.ticket !== void 0 && { ticket: o.ticket }, skill: o.skill, evidence: o.evidence, text: blocks[i] ?? "" });
+  }
+  return {
+    ok: true,
+    lesson: {
+      key: f.key,
+      rule: f.rule,
+      kind: f.kind,
+      target: f.target,
+      ...typeof f.module === "string" && { module: f.module },
+      status: f.status,
+      tainted: f.tainted,
+      occurrences
+    }
+  };
+}
+function countOf(occurrences) {
+  return new Set(occurrences.map((o) => o.ticket ? `t:${o.ticket}` : `d:${o.date}`)).size;
+}
+var STOP = new Set(
+  "a an and are as at be but by do does for from has have how i if in into is it its of on or so that the their then there these this to use used using was we what when which with you your il lo la le gli un uno una di da del della dei delle dal dalla in con su per tra fra e ed o ma se che non come si sono \xE8 sia essere quando dove cosa questo questa quello".split(" ")
+);
+var spansOf = (rule) => [...rule.normalize("NFC").matchAll(/`([^`]+)`/g)].map((m) => m[1].trim().toLowerCase());
+function tokens(rule) {
+  const spans = spansOf(rule);
+  const rest = rule.normalize("NFC").toLowerCase().replace(/`[^`]+`/g, " ").replace(/[^\p{L}\p{N}]+/gu, " ");
+  return /* @__PURE__ */ new Set([...rest.split(" ").filter((w) => w !== "" && !STOP.has(w)), ...spans.map((s) => `\`${s}\``)]);
+}
+function jaccard(a, b) {
+  if (a.size === 0 && b.size === 0) return 0;
+  let both = 0;
+  for (const t of a) if (b.has(t)) both++;
+  return both / (a.size + b.size - both);
+}
+function similarity(a, b) {
+  const score = jaccard(tokens(a.rule), tokens(b.rule));
+  const sharedSpan = a.kind === b.kind && a.module === b.module && spansOf(a.rule).some((s) => spansOf(b.rule).includes(s));
+  return score >= 0.5 ? score : sharedSpan ? Math.max(score, 0.5) : void 0;
+}
+
+// src/cli/lesson-add.ts
+var LESSONS_DIR = `${PERSONAL_DIR}/lessons`;
+var NO_LESSONS = "liftoff.yaml has no brain.lessons section: the lead enables lessons in liftoff.yaml";
+var lessonFail = (code, message, extra = {}) => ({ exitCode: 1, body: { ok: false, errors: [{ code, message, ...extra }] } });
+var usage = (message) => ({ exitCode: 2, body: { ok: false, errors: [{ code: "usage", message }] } });
+var MAX_DRAFT = 64 * 1024;
+var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+var flat = (s) => s.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+function ticketText(root, config, ticket) {
+  const file = join12(root, ".liftoff", "tmp", `${ticket}.json`);
+  if (!existsSync9(file)) return void 0;
+  try {
+    if (statSync3(file).size > 2e6) return void 0;
+    const t = readTicket(readFileSync8(file, "utf8"));
+    if ("error" in t) return void 0;
+    const project = projectsOf(config).find((p) => ticket.startsWith(`${p.project}-`));
+    const type = project?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+    return flat([t.summary, t.description, readWithMap(t, type).acceptanceCriteria.text].join(" "));
+  } catch {
+    return void 0;
+  }
+}
+function isTainted(rule, evidence, text) {
+  if (!text) return false;
+  const r = flat(rule);
+  if (r.length >= 12 && text.includes(r)) return true;
+  const e = flat(evidence);
+  for (let i = 0; i + 24 <= e.length; i++) if (text.includes(e.slice(i, i + 24))) return true;
+  return false;
+}
+function lessonsProblem(realRoot) {
+  const abs = join12(realRoot, LESSONS_DIR);
+  const real = resolveReal(abs);
+  if (!isInside(realRoot, real) || real !== abs) return LESSONS_DIR;
+  if (!existsSync9(abs)) return void 0;
+  for (const n of readdirSync5(abs)) if (lstatSync5(join12(abs, n)).isSymbolicLink()) return `${LESSONS_DIR}/${n}`;
+  return void 0;
+}
+function readLessons(realRoot) {
+  const abs = join12(realRoot, LESSONS_DIR);
+  const out = { lessons: [], invalid: [] };
+  if (!existsSync9(abs)) return out;
+  for (const n of readdirSync5(abs).sort()) {
+    if (!n.endsWith(".md")) continue;
+    const r = parseLesson(readFileSync8(join12(abs, n), "utf8"));
+    if (r.ok) out.lessons.push(r.lesson);
+    else out.invalid.push({ file: `${LESSONS_DIR}/${n}`, errors: r.errors });
+  }
+  return out;
+}
+var similarTo = (l, others) => others.filter((o) => o.key !== l.key).flatMap((o) => {
+  const score = similarity(l, o);
+  return score === void 0 ? [] : [{ key: o.key, score: Math.round(score * 100) / 100 }];
+}).sort((a, b) => b.score - a.score || (a.key < b.key ? -1 : 1));
+var isReady = (l, promoteAfter) => l.status === "open" && l.target !== "lead" && countOf(l.occurrences) >= promoteAfter;
+var lessonAdd = ({ root, file, write }) => {
+  if (!file) return usage("lesson-add needs --file <draft.json>");
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  const config = read2.config;
+  if (!config.brain) return brainFail("no-brain", NO_BRAIN);
+  const settings = config.brain.lessons;
+  if (!settings) return lessonFail("no-lessons", NO_LESSONS);
+  const realRoot = resolveReal(root);
+  const problem = lessonsProblem(realRoot);
+  if (problem) return lessonFail("lessons-block-invalid", `${problem} is or goes through a symlink: the lessons must be plain files inside the repo`, { file: problem });
+  let draft;
+  try {
+    const abs2 = resolve2(root, file);
+    if (statSync3(abs2).size > MAX_DRAFT) return lessonFail("lesson-invalid", `${file} is larger than ${MAX_DRAFT} bytes`);
+    draft = JSON.parse(readFileSync8(abs2, "utf8"));
+  } catch (e) {
+    return lessonFail("lesson-invalid", `cannot read the draft ${file}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const errors = draftErrors(draft);
+  if (typeof draft?.evidence === "string" && draft.evidence.length > 1e3) errors.push("evidence is longer than 1000 characters");
+  const modules = (config.modules?.items ?? []).map((m) => m.id);
+  if (draft?.module !== void 0 && !modules.includes(draft.module)) errors.push(`module '${draft.module}' is not in liftoff.yaml modules`);
+  if (errors.length > 0) return lessonFail("lesson-invalid", errors.join("; "), { errors });
+  if (secretGuard({ rule: draft.rule, evidence: draft.evidence }).length > 0) return lessonFail("lesson-secret", "the rule or the engineer's words look like a credential (an accident guard, not a guarantee): nothing was written");
+  if (instructionLike(draft.rule)) return lessonFail("lesson-invalid", "the rule reads like an instruction aimed at an agent; state the behaviour the team wants instead");
+  if (weakensBar(draft.rule)) return lessonFail("lesson-weakens", "the rule would lower the quality bar (skip, disable, relax, or lower a check). This is an accident guard, not a guarantee: a team that wants a lower bar changes CONSTRAINTS.md by hand, never through a lesson");
+  const path = `${LESSONS_DIR}/${draft.key}.md`;
+  const abs = join12(realRoot, path);
+  const date = today();
+  const text = draft.evidence.replace(/\r\n?/g, "\n").trim();
+  const hash = evidenceHash(text);
+  const occurrence = { date, ...draft.ticket && { ticket: draft.ticket }, skill: draft.skill, evidence: hash, text };
+  const taint = isTainted(draft.rule, draft.evidence, draft.ticket ? ticketText(realRoot, config, draft.ticket) : void 0);
+  let lesson;
+  let action;
+  if (existsSync9(abs)) {
+    const r = parseLesson(readFileSync8(abs, "utf8"));
+    if (!r.ok) return lessonFail("lesson-invalid", `${path} does not parse (${r.errors.join("; ")}): fix or remove it`, { file: path });
+    const dup = r.lesson.occurrences.some((o) => o.evidence === hash && (draft.ticket ? o.ticket === draft.ticket : !o.ticket && o.date === date));
+    lesson = { ...r.lesson, tainted: r.lesson.tainted || taint, occurrences: dup ? r.lesson.occurrences : [...r.lesson.occurrences, occurrence] };
+    action = dup ? "exists" : "append";
+  } else {
+    lesson = { key: draft.key, rule: draft.rule, kind: draft.kind, target: draft.target, ...draft.module && { module: draft.module }, status: "open", tainted: taint, occurrences: [occurrence] };
+    action = "create";
+  }
+  const similar = similarTo(lesson, readLessons(realRoot).lessons);
+  if (write && action !== "exists") {
+    ensureSelfIgnore(realRoot);
+    atomicWrite(abs, serializeLesson(lesson));
+  }
+  const done = write && action !== "exists" ? action === "create" ? "created" : "appended" : action;
+  return { exitCode: 0, body: { ok: true, path, action: done, count: countOf(lesson.occurrences), ready: isReady(lesson, settings.promoteAfter), tainted: lesson.tainted, similar, written: write === true && action !== "exists" } };
+};
+
 // src/cli/draft-tickets.ts
-import { readFileSync as readFileSync8, statSync as statSync3 } from "node:fs";
-import { resolve as resolve2 } from "node:path";
+import { readFileSync as readFileSync9, statSync as statSync4 } from "node:fs";
+import { resolve as resolve3 } from "node:path";
 
 // src/plan/draft.ts
 var isObj2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -16499,9 +16738,9 @@ var draftTicketsCommand = ({ root, file }) => {
   if (tracker.server.readOnly) return fail3("tracker-read-only", "tracker.server.readOnly is true: the Jira server exposes no write tool");
   let raw;
   try {
-    const path = resolve2(root, file);
-    if (statSync3(path).size > MAX_BYTES) return fail3("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
-    raw = JSON.parse(readFileSync8(path, "utf8"));
+    const path = resolve3(root, file);
+    if (statSync4(path).size > MAX_BYTES) return fail3("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
+    raw = JSON.parse(readFileSync9(path, "utf8"));
   } catch (e) {
     return fail3("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16530,8 +16769,8 @@ var draftTicketsCommand = ({ root, file }) => {
 };
 
 // src/cli/parse-ticket.ts
-import { existsSync as existsSync9, readFileSync as readFileSync9, statSync as statSync4 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { existsSync as existsSync10, readFileSync as readFileSync10, statSync as statSync5 } from "node:fs";
+import { resolve as resolve4 } from "node:path";
 var fail4 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES2 = 2e6;
 var parseTicketCommand = ({ root, file }) => {
@@ -16540,11 +16779,11 @@ var parseTicketCommand = ({ root, file }) => {
   if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
   const { tracker, codeHost } = connectors(read2.config);
   if (!tracker) return fail4("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
-  const path = resolve3(root, file);
+  const path = resolve4(root, file);
   let text;
   try {
-    if (statSync4(path).size > MAX_BYTES2) return fail4("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
-    text = readFileSync9(path, "utf8");
+    if (statSync5(path).size > MAX_BYTES2) return fail4("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
+    text = readFileSync10(path, "utf8");
   } catch (e) {
     return fail4("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16565,7 +16804,7 @@ var parseTicketCommand = ({ root, file }) => {
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   const tpl = codeHost?.conventions.mrTemplate;
-  if (tpl && !existsSync9(resolve3(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
+  if (tpl && !existsSync10(resolve4(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   const brain = read2.config.brain && (({ dir, hot, index, personalHot }) => ({ dir, hot, index, personalHot, afterBuild: read2.config.brain.afterBuild }))(brainPaths(read2.config.brain.dir));
   return {
@@ -16584,11 +16823,11 @@ var parseTicketCommand = ({ root, file }) => {
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync10, readFileSync as readFileSync10 } from "node:fs";
-import { join as join12 } from "node:path";
+import { existsSync as existsSync11, readFileSync as readFileSync11 } from "node:fs";
+import { join as join13 } from "node:path";
 
 // src/plan/file.ts
-var import_yaml3 = __toESM(require_dist(), 1);
+var import_yaml4 = __toESM(require_dist(), 1);
 function bodyHash2(body) {
   const content = body.replace(/\r\n/g, "\n").split("\n").filter((l) => !/^\s*Note:/.test(l)).join("\n");
   return sha256(content.replace(/\[[xX]\]/g, "[ ]").replace(/\n{3,}/g, "\n\n").trim());
@@ -16600,7 +16839,7 @@ function readPlan(text, key) {
   if (!m) return { ok: false, errors: ["the plan must start with a front matter block (---)"] };
   let fm;
   try {
-    fm = (0, import_yaml3.parse)(m[1]);
+    fm = (0, import_yaml4.parse)(m[1]);
   } catch {
     return { ok: false, errors: ["the front matter is not valid YAML"] };
   }
@@ -16644,7 +16883,7 @@ function readPlan(text, key) {
   };
 }
 function approvedText(p) {
-  const fm = (0, import_yaml3.stringify)({ ...p.frontMatter, status: "approved", approvedHash: p.hash }).trimEnd();
+  const fm = (0, import_yaml4.stringify)({ ...p.frontMatter, status: "approved", approvedHash: p.hash }).trimEnd();
   const text = `---
 ${fm}
 ---
@@ -16662,11 +16901,11 @@ var planCommand = ({ root, key, approve }) => {
   const read2 = readConfigWithPin(root);
   if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
   const rel = planFile2(key);
-  const file = join12(root, rel);
-  if (!existsSync10(file)) return fail5("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  const file = join13(root, rel);
+  if (!existsSync11(file)) return fail5("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
   if (!isInside(resolveReal(root), real)) return fail5("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
-  const plan = readPlan(readFileSync10(real, "utf8"), key);
+  const plan = readPlan(readFileSync11(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
@@ -16792,7 +17031,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -16804,9 +17043,10 @@ var handlers = {
   "brain-init": brainInit,
   "brain-index": brainIndex,
   "brain-source": brainSource,
-  "brain-check": brainCheck
+  "brain-check": brainCheck,
+  "lesson-add": lessonAdd
 };
-var WRITE_COMMANDS = /* @__PURE__ */ new Set(["brain-init", "brain-index", "brain-source"]);
+var WRITE_COMMANDS = /* @__PURE__ */ new Set(["brain-init", "brain-index", "brain-source", "lesson-add"]);
 function json(root, exitCode, body, stderr = "") {
   return { stdout: JSON.stringify({ root, ...body }) + "\n", stderr, exitCode };
 }
@@ -16814,7 +17054,7 @@ function usageError(root, message) {
   return json(root, 2, { ok: false, errors: [{ code: "usage", message: `${message}. Usage: ${USAGE}` }] });
 }
 function run(argv, cwd, table = handlers) {
-  let root = resolve4(cwd);
+  let root = resolve5(cwd);
   try {
     let parsed;
     try {
@@ -16837,7 +17077,7 @@ function run(argv, cwd, table = handlers) {
     }
     const { values, positionals } = parsed;
     if (values.help) return { stdout: JSON.stringify({ usage: USAGE }) + "\n", stderr: "", exitCode: 0 };
-    root = resolve4(cwd, values.root ?? ".");
+    root = resolve5(cwd, values.root ?? ".");
     const [command, ...extra] = positionals;
     if (!command || extra.length > 0 || !Object.hasOwn(table, command)) {
       return usageError(root, command ? `Unknown command or extra arguments: ${positionals.join(" ")}` : "Missing command");
@@ -16846,11 +17086,11 @@ function run(argv, cwd, table = handlers) {
       return usageError(root, "--overwrite is only valid for render");
     }
     if (values.write && !WRITE_COMMANDS.has(command)) {
-      return usageError(root, "--write is only valid for brain-init, brain-index and brain-source");
+      return usageError(root, "--write is only valid for brain-init, brain-index, brain-source and lesson-add");
     }
     let isDir = false;
     try {
-      isDir = statSync5(root).isDirectory();
+      isDir = statSync6(root).isDirectory();
     } catch {
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");

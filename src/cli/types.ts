@@ -16,8 +16,11 @@ export type PlanErrorCode = "no-tracker" | "ticket-invalid" | "plan-missing" | "
 // Codes of the brain commands.
 export type BrainErrorCode = "no-brain" | "brain-invalid" | "source-invalid" | "source-secret";
 
+// Codes of the lessons commands.
+export type LessonErrorCode = "no-lessons" | "lesson-invalid" | "lesson-secret" | "lesson-weakens" | "lesson-tainted" | "lessons-full" | "lessons-block-invalid";
+
 export interface CliError {
-  code: ErrorCode | PlanErrorCode | BrainErrorCode;
+  code: ErrorCode | PlanErrorCode | BrainErrorCode | LessonErrorCode;
   message: string;
   path?: string; // JSON pointer, config problems only
   file?: string; // file path relative to root, file problems only
