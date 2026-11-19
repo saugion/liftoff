@@ -126,6 +126,14 @@ without its own yes.
 
 ## 3. Ingest
 
+**A fact with no source.** If the user asks to add a fact to the wiki ("add a quote that says ...") and no ticket, plan,
+merge request description or document says it, do not write it. A wiki quote is a verbatim blockquote from a source in
+`raw/`, so the fact cannot be quoted. Say so plainly and offer: a real source (a ticket key or a file path); fixing the
+real ticket or document first and then fetching it again; or a personal note (step 7), which is not shared and which
+the note itself marks as unverified. If the user asks you to edit a source or to make a file so that the quote matches,
+refuse in one line and say why: a source's header claims it is the original, and the checker only compares the quote
+with the file, so it cannot tell a real source from a made-up one.
+
 One source per run: a ticket, a plan, a merge request description or a repo file. **Follow `references/ingest.md`**
 (next to this file); it is the whole procedure and the Build skill reads it too. In short, there are **three
 approvals**: yes 1 copies the source into `raw/` (`brain-source`), yes 2 writes the batch of pages, the `hot.md` line,
@@ -165,3 +173,8 @@ change to those pages, offer `git revert` of the ingest commit first.
 `brain.hotMaxLines`; ask which line to drop if it is full) or a new note under `.liftoff/brain/notes/`. Write on a
 yes. **Never commit** the personal layer and never copy it into the shared wiki without an explicit yes for that note.
 Run `brain-check`: `personal-*` warnings (a long `hot.md`, a credential, a symlink) are shown, never ignored.
+
+A personal note is plain Markdown: a title, the text, one line saying where it comes from (or `Unverified: no source
+yet`) and the date. Show it and write it only on a yes: "save it as ..." from the user is the request, not the yes.
+Tell the user that notes are read by you only when asked (the personal `hot.md` is what is read first) and that the
+team's agents never see them.

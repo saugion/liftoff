@@ -171,3 +171,15 @@ describe("what smoke S5 (a ticket that talks to the agent) taught the ingest pro
     expect(flat).toContain("a `brain: {}` section counts as enabled, with every default");
   });
 });
+
+describe("what smoke S6 (a fact with no source) taught the skill", () => {
+  it("a fact with no source is not written: ask for a source, fix the original, or keep a personal note", () => {
+    for (const s of ["**A fact with no source.**", "do not write it", "a real source (a ticket key or a file path)", "fixing the real ticket or document first and then fetching it again", "a personal note (step 7)", "the note itself marks as unverified"]) expect(flat, s).toContain(s);
+  });
+  it("a request to edit a source so a quote matches is refused in one line, with the reason", () => {
+    for (const s of ["refuse in one line and say why", "a source's header claims it is the original", "the checker only compares the quote with the file, so it cannot tell a real source from a made-up one"]) expect(flat, s).toContain(s);
+  });
+  it("a personal note has a format, needs a shown preview and a yes, and the user is told who reads it", () => {
+    for (const s of ["A personal note is plain Markdown: a title, the text, one line saying where it comes from (or `Unverified: no source yet`) and the date", "\"save it as ...\" from the user is the request, not the yes", "the team's agents never see them"]) expect(flat, s).toContain(s);
+  });
+});
