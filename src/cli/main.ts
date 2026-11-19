@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { render } from "./apply.js";
 import { checkConfigCommand } from "./check.js";
+import { brainIndex } from "./brain-index.js";
 import { brainInit } from "./brain-init.js";
 import { draftTicketsCommand } from "./draft-tickets.js";
 import { parseTicketCommand } from "./parse-ticket.js";
@@ -14,7 +15,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -26,6 +27,7 @@ export const handlers: Record<string, Handler> = {
   plan: planCommand,
   "draft-tickets": draftTicketsCommand,
   "brain-init": brainInit,
+  "brain-index": brainIndex,
 };
 
 // Commands that can write into the brain; --write is refused everywhere else.

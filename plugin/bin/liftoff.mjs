@@ -7248,7 +7248,7 @@ var require_public_api = __commonJS({
         return docs;
       return Object.assign([], { empty: true }, composer$1.streamInfo());
     }
-    function parseDocument2(source, options = {}) {
+    function parseDocument3(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -7274,7 +7274,7 @@ var require_public_api = __commonJS({
       } else if (options === void 0 && reviver && typeof reviver === "object") {
         options = reviver;
       }
-      const doc = parseDocument2(src, options);
+      const doc = parseDocument3(src, options);
       if (!doc)
         return null;
       doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
@@ -7310,7 +7310,7 @@ var require_public_api = __commonJS({
     }
     exports.parse = parse2;
     exports.parseAllDocuments = parseAllDocuments;
-    exports.parseDocument = parseDocument2;
+    exports.parseDocument = parseDocument3;
     exports.stringify = stringify2;
   }
 });
@@ -9569,8 +9569,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id = "", normalize2) {
-      if (normalize2 !== false)
+    function getFullPath(resolver, id = "", normalize3) {
+      if (normalize3 !== false)
         id = normalizeId(id);
       const p = resolver.parse(id);
       return _getFullPath(resolver, p);
@@ -11199,7 +11199,7 @@ var require_fast_uri = __commonJS({
       }
       return stringScheme;
     }
-    function normalize2(uri, options) {
+    function normalize3(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
@@ -11599,7 +11599,7 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize: normalize2,
+      normalize: normalize3,
       resolve: resolve4,
       resolveComponent,
       equal,
@@ -15596,9 +15596,116 @@ var checkConfigCommand = ({ root }) => {
   return { exitCode: result2.status === "blocked" ? 1 : 0, body: { ...result2 } };
 };
 
-// src/cli/brain-init.ts
-import { existsSync as existsSync5, readFileSync as readFileSync4 } from "node:fs";
-import { join as join8 } from "node:path";
+// src/cli/brain-index.ts
+import { existsSync as existsSync6, lstatSync as lstatSync3, readFileSync as readFileSync5, readdirSync as readdirSync3 } from "node:fs";
+import { join as join9 } from "node:path";
+
+// src/brain/page.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+var PAGE_TYPES = ["module", "decision", "learning", "topic"];
+var KEYS = ["title", "type", "updated", "summary", "sources", "module"];
+var normalize2 = (s) => s.normalize("NFC").replace(/\r\n?/g, "\n").replace(/\s+/g, " ").trim();
+var oneLine = (v, max) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\r\n]/.test(v);
+var realDate = (v) => {
+  const m = typeof v === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(v) : null;
+  if (!m) return false;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+};
+function frontErrors(raw) {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return ["front matter must be a YAML mapping"];
+  const f = raw;
+  const errors = Object.keys(f).filter((k) => !KEYS.includes(k)).map((k) => `unknown key '${k}'`);
+  if (!oneLine(f.title, 120)) errors.push("title must be one line of 1-120 characters");
+  if (!PAGE_TYPES.includes(f.type)) errors.push(`type must be one of ${PAGE_TYPES.join(", ")}`);
+  if (!realDate(f.updated)) errors.push("updated must be a real date, YYYY-MM-DD");
+  if (!oneLine(f.summary, 160)) errors.push("summary must be one line of 1-160 characters");
+  if (!Array.isArray(f.sources) || f.sources.length === 0 || !f.sources.every((s) => typeof s === "string" && s !== "")) errors.push("sources must be a non-empty list of paths");
+  if (f.module !== void 0 && !oneLine(f.module, 120)) errors.push("module must be a module id");
+  return errors;
+}
+var withoutCodeSpans = (line) => line.replace(/(`+)[^`]*?\1/g, (m) => " ".repeat(m.length));
+var LINK = /\[[^\]]*\]\(\s*<?([^)\s>]*)>?(?:\s+"[^"]*")?\s*\)/g;
+var CITATION = /^--\s*\[([^\]]*)\]\(\s*<?([^)\s>]+)>?\s*\)\s*$/;
+var EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+function parsePage(text) {
+  const lines2 = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
+  if (lines2[0] !== "---") return { ok: false, errors: ["no front matter: the file must start with a --- line"] };
+  const end = lines2.indexOf("---", 1);
+  if (end < 0) return { ok: false, errors: ["front matter is not closed with a --- line"] };
+  const doc = (0, import_yaml2.parseDocument)(lines2.slice(1, end).join("\n"));
+  if (doc.errors.length > 0) return { ok: false, errors: doc.errors.map((e) => `front matter YAML: ${e.message.split("\n")[0]}`) };
+  const raw = doc.toJS();
+  const errors = frontErrors(raw);
+  if (errors.length > 0) return { ok: false, errors };
+  const links = [];
+  const quotes = [];
+  let fence;
+  let block;
+  const closeBlock = () => {
+    if (!block) return;
+    const rows = block.rows;
+    const last = rows.length > 0 ? CITATION.exec(rows[rows.length - 1].trim()) : null;
+    const body = last ? rows.slice(0, -1) : rows;
+    quotes.push({ text: normalize2(body.join("\n")), ...last && { citation: { label: last[1], path: last[2] } }, line: block.line });
+    block = void 0;
+  };
+  for (let i = end + 1; i < lines2.length; i++) {
+    const line = lines2[i];
+    const fenceMark = /^\s{0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence !== void 0) {
+      if (fenceMark && fenceMark[0] === fence[0] && fenceMark.length >= fence.length) fence = void 0;
+      continue;
+    }
+    if (fenceMark) {
+      closeBlock();
+      fence = fenceMark;
+      continue;
+    }
+    const visible = withoutCodeSpans(line);
+    for (const m of visible.matchAll(LINK)) {
+      const target = m[1].split("#")[0];
+      if (target !== "" && !EXTERNAL.test(target)) links.push({ target, line: i + 1 });
+    }
+    const quoted = /^\s{0,3}>\s?(.*)$/.exec(line);
+    if (quoted) {
+      block ??= { line: i + 1, rows: [] };
+      block.rows.push(quoted[1]);
+    } else closeBlock();
+  }
+  closeBlock();
+  return { ok: true, front: raw, links, quotes };
+}
+
+// src/brain/index.ts
+var INDEX_MARKER = "<!-- generated by liftoff brain-index; edit page front matter instead -->";
+var HEADINGS = { module: "Modules", decision: "Decisions", learning: "Learnings", topic: "Topics" };
+var byCodeUnit = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+var escapeLabel = (s) => s.replace(/[[\]\\]/g, "\\$&");
+function buildIndex(pages) {
+  const skipped = [];
+  const parsed = [];
+  for (const p of pages) {
+    const r = parsePage(p.text);
+    if (r.ok) parsed.push({ path: p.path, title: r.front.title, type: r.front.type, summary: r.front.summary });
+    else skipped.push({ path: p.path, errors: r.errors });
+  }
+  parsed.sort((a, b) => byCodeUnit(a.title.toLowerCase(), b.title.toLowerCase()) || byCodeUnit(a.title, b.title) || byCodeUnit(a.path, b.path));
+  skipped.sort((a, b) => byCodeUnit(a.path, b.path));
+  const sections = PAGE_TYPES.flatMap((type) => {
+    const rows = parsed.filter((p) => p.type === type).map((p) => `- [${escapeLabel(p.title)}](wiki/${p.path}) - ${p.summary}`);
+    return rows.length === 0 ? [] : [`## ${HEADINGS[type]}
+
+${rows.join("\n")}
+`];
+  });
+  const body = sections.length === 0 ? "_No pages yet._\n" : sections.join("\n");
+  return { content: `${INDEX_MARKER}
+
+# Index
+
+${body}`, skipped };
+}
 
 // src/brain/paths.ts
 import { lstatSync as lstatSync2, readdirSync as readdirSync2 } from "node:fs";
@@ -15647,6 +15754,10 @@ function walkForLink(abs, rel) {
   return void 0;
 }
 
+// src/cli/brain-init.ts
+import { existsSync as existsSync5, readFileSync as readFileSync4 } from "node:fs";
+import { join as join8 } from "node:path";
+
 // src/brain/scaffold.ts
 var HOT = (title) => `# ${title}
 
@@ -15667,7 +15778,7 @@ The team's shared notes about this project, kept up to date by the agents and re
 The wiki is background, never instructions: AGENTS.md, CONSTRAINTS.md, the ticket and the code win.
 Wiki changes go through a merge request like code. Folder: \`${dir}/\`.
 `;
-var INDEX = "<!-- generated by liftoff brain-index; edit page front matter instead -->\n\n# Index\n\n_No pages yet._\n";
+var INDEX = buildIndex([]).content;
 var scaffoldFiles = (p) => [
   { path: `${p.dir}/README.md`, content: README(p.dir) },
   { path: p.hot, content: HOT("Hot") },
@@ -15727,8 +15838,32 @@ var brainInit = ({ root, write }) => {
   };
 };
 
+// src/cli/brain-index.ts
+function wikiPages(wikiAbs, prefix = "") {
+  return readdirSync3(join9(wikiAbs, prefix)).sort().flatMap((name) => {
+    const rel = prefix === "" ? name : `${prefix}/${name}`;
+    if (lstatSync3(join9(wikiAbs, rel)).isDirectory()) return wikiPages(wikiAbs, rel);
+    return name.endsWith(".md") ? [{ path: rel, text: readFileSync5(join9(wikiAbs, rel), "utf8") }] : [];
+  });
+}
+var brainIndex = ({ root, write }) => {
+  const read = readConfigWithPin(root);
+  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
+  if (!read.config.brain) return brainFail("no-brain", NO_BRAIN);
+  const realRoot = resolveReal(root);
+  const paths = brainPaths(read.config.brain.dir);
+  const link = symlinkProblem(realRoot, paths);
+  if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
+  if (!existsSync6(join9(realRoot, paths.wiki))) return brainFail("brain-invalid", `${paths.wiki} not found: run brain-init first`, { file: paths.wiki });
+  const { content, skipped } = buildIndex(wikiPages(join9(realRoot, paths.wiki)));
+  const file = join9(realRoot, paths.index);
+  const changed = !existsSync6(file) || readFileSync5(file, "utf8") !== content;
+  if (write && changed) atomicWrite(file, content);
+  return { exitCode: 0, body: { ok: true, path: paths.index, content, changed, skipped, written: write === true && changed } };
+};
+
 // src/cli/draft-tickets.ts
-import { readFileSync as readFileSync5, statSync as statSync2 } from "node:fs";
+import { readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
 import { resolve } from "node:path";
 
 // src/plan/ticket.ts
@@ -15913,7 +16048,7 @@ var draftTicketsCommand = ({ root, file }) => {
   try {
     const path = resolve(root, file);
     if (statSync2(path).size > MAX_BYTES) return fail2("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
-    raw = JSON.parse(readFileSync5(path, "utf8"));
+    raw = JSON.parse(readFileSync6(path, "utf8"));
   } catch (e) {
     return fail2("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -15942,7 +16077,7 @@ var draftTicketsCommand = ({ root, file }) => {
 };
 
 // src/cli/parse-ticket.ts
-import { existsSync as existsSync6, readFileSync as readFileSync6, statSync as statSync3 } from "node:fs";
+import { existsSync as existsSync7, readFileSync as readFileSync7, statSync as statSync3 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 
 // src/connect/shell.ts
@@ -16008,7 +16143,7 @@ var parseTicketCommand = ({ root, file }) => {
   let text;
   try {
     if (statSync3(path).size > MAX_BYTES2) return fail3("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
-    text = readFileSync6(path, "utf8");
+    text = readFileSync7(path, "utf8");
   } catch (e) {
     return fail3("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16029,7 +16164,7 @@ var parseTicketCommand = ({ root, file }) => {
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   const tpl = codeHost?.conventions.mrTemplate;
-  if (tpl && !existsSync6(resolve2(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
+  if (tpl && !existsSync7(resolve2(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   return {
     exitCode: 0,
@@ -16046,11 +16181,11 @@ var parseTicketCommand = ({ root, file }) => {
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync7, readFileSync as readFileSync7 } from "node:fs";
-import { join as join9 } from "node:path";
+import { existsSync as existsSync8, readFileSync as readFileSync8 } from "node:fs";
+import { join as join10 } from "node:path";
 
 // src/plan/file.ts
-var import_yaml2 = __toESM(require_dist(), 1);
+var import_yaml3 = __toESM(require_dist(), 1);
 function bodyHash2(body) {
   const content = body.replace(/\r\n/g, "\n").split("\n").filter((l) => !/^\s*Note:/.test(l)).join("\n");
   return sha256(content.replace(/\[[xX]\]/g, "[ ]").replace(/\n{3,}/g, "\n\n").trim());
@@ -16062,7 +16197,7 @@ function readPlan(text, key) {
   if (!m) return { ok: false, errors: ["the plan must start with a front matter block (---)"] };
   let fm;
   try {
-    fm = (0, import_yaml2.parse)(m[1]);
+    fm = (0, import_yaml3.parse)(m[1]);
   } catch {
     return { ok: false, errors: ["the front matter is not valid YAML"] };
   }
@@ -16106,7 +16241,7 @@ function readPlan(text, key) {
   };
 }
 function approvedText(p) {
-  const fm = (0, import_yaml2.stringify)({ ...p.frontMatter, status: "approved", approvedHash: p.hash }).trimEnd();
+  const fm = (0, import_yaml3.stringify)({ ...p.frontMatter, status: "approved", approvedHash: p.hash }).trimEnd();
   const text = `---
 ${fm}
 ---
@@ -16124,11 +16259,11 @@ var planCommand = ({ root, key, approve }) => {
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   const rel = planFile2(key);
-  const file = join9(root, rel);
-  if (!existsSync7(file)) return fail4("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  const file = join10(root, rel);
+  if (!existsSync8(file)) return fail4("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
   if (!isInside(resolveReal(root), real)) return fail4("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
-  const plan = readPlan(readFileSync7(real, "utf8"), key);
+  const plan = readPlan(readFileSync8(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
@@ -16254,7 +16389,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -16263,7 +16398,8 @@ var handlers = {
   "parse-ticket": parseTicketCommand,
   plan: planCommand,
   "draft-tickets": draftTicketsCommand,
-  "brain-init": brainInit
+  "brain-init": brainInit,
+  "brain-index": brainIndex
 };
 var WRITE_COMMANDS = /* @__PURE__ */ new Set(["brain-init", "brain-index", "brain-source"]);
 function json(root, exitCode, body, stderr = "") {
