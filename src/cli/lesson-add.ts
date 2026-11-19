@@ -1,6 +1,7 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { instructionLike, weakensBar } from "../brain/guards.js";
+import { appendEvent, brainSize, metricsOn } from "../brain/metrics.js";
 import { type Draft, type Lesson, countOf, draftErrors, evidenceHash, parseLesson, serializeLesson, similarity } from "../brain/lesson.js";
 import { PERSONAL_DIR } from "../brain/paths.js";
 import { type Config, projectsOf } from "../config/index.js";
@@ -135,6 +136,8 @@ export const lessonAdd: Handler = ({ root, file, write }) => {
   if (write && action !== "exists") {
     ensureSelfIgnore(realRoot);
     atomicWrite(abs, serializeLesson(lesson));
+    // pilot metrics: that a correction happened, never what it said
+    if (metricsOn(config)) appendEvent(realRoot, { e: "correction", t: date, key: draft.key, skill: draft.skill, kind: lesson.kind, ...brainSize(realRoot, config) });
   }
   const done = write && action !== "exists" ? (action === "create" ? "created" : "appended") : action;
   return { exitCode: 0, body: { ok: true, path, action: done, count: countOf(lesson.occurrences), ready: isReady(lesson, settings.promoteAfter), tainted: lesson.tainted, similar, written: write === true && action !== "exists" } };

@@ -16399,8 +16399,90 @@ var brainInit = ({ root, write }) => {
 };
 
 // src/cli/lesson-add.ts
-import { existsSync as existsSync8, lstatSync as lstatSync5, readFileSync as readFileSync7, readdirSync as readdirSync5, statSync as statSync2 } from "node:fs";
-import { join as join11, resolve } from "node:path";
+import { existsSync as existsSync9, lstatSync as lstatSync5, readFileSync as readFileSync8, readdirSync as readdirSync6, statSync as statSync2 } from "node:fs";
+import { join as join12, resolve } from "node:path";
+
+// src/brain/metrics.ts
+import { appendFileSync, existsSync as existsSync8, mkdirSync as mkdirSync2, readFileSync as readFileSync7, readdirSync as readdirSync5 } from "node:fs";
+import { dirname as dirname4, join as join11 } from "node:path";
+import { createHash as createHash4 } from "node:crypto";
+var METRICS_DIR = ".liftoff/metrics";
+var metricsOn = (config) => config.brain?.lessons?.metrics === true;
+var h8 = (s) => createHash4("sha256").update(s).digest("hex").slice(0, 8);
+function sectionHashes2(body) {
+  const out = [];
+  for (const line of body.replace(/\r\n?/g, "\n").split("\n")) {
+    const hd = /^##\s+\d+\.\s+(.+?)\s*$/.exec(line);
+    if (hd) out.push({ title: hd[1], lines: [] });
+    else if (out.length > 0 && !/^\s*Note:/.test(line)) out[out.length - 1].lines.push(line.replace(/\[[xX]\]/g, "[ ]").trimEnd());
+  }
+  return out.map((s) => ({ title: h8(s.title), body: h8(s.lines.join("\n").trim()) }));
+}
+function compareSections(before, after) {
+  const common = Math.min(before.length, after.length);
+  let changed = 0;
+  for (let i = 0; i < common; i++) if (before[i].title !== after[i].title || before[i].body !== after[i].body) changed++;
+  return { sections: after.length, changed, added: Math.max(0, after.length - before.length), removed: Math.max(0, before.length - after.length) };
+}
+var draftFile = (key) => `${METRICS_DIR}/drafts/${key}.json`;
+var eventFile = (date) => `${METRICS_DIR}/${date.slice(0, 7)}.jsonl`;
+function appendEvent(realRoot, event) {
+  const file = join11(realRoot, eventFile(event.t));
+  mkdirSync2(dirname4(file), { recursive: true });
+  appendFileSync(file, JSON.stringify(event) + "\n");
+}
+function readEvents(realRoot) {
+  const dir = join11(realRoot, METRICS_DIR);
+  if (!existsSync8(dir)) return [];
+  const events = [];
+  for (const n of readdirSync5(dir).filter((f) => f.endsWith(".jsonl")).sort()) {
+    for (const line of readFileSync7(join11(dir, n), "utf8").split("\n")) {
+      if (line.trim() === "") continue;
+      try {
+        const e = JSON.parse(line);
+        if (e && (e.e === "plan-approved" || e.e === "correction") && typeof e.t === "string") events.push(e);
+      } catch {
+      }
+    }
+  }
+  return events;
+}
+function brainSize(realRoot, config) {
+  const wiki = join11(realRoot, (config.brain?.dir ?? "brain").replace(/\/+$/, ""), "wiki");
+  const pages = (d) => existsSync8(d) ? readdirSync5(d, { withFileTypes: true }).reduce((n, e) => n + (e.isDirectory() ? pages(join11(d, e.name)) : e.name.endsWith(".md") ? 1 : 0), 0) : 0;
+  const files = ["AGENTS.md", ...(config.modules?.items ?? []).map((m) => `${m.path.replace(/\/+$/, "")}/AGENTS.md`), config.constraints?.file ?? "CONSTRAINTS.md"];
+  let lessonRules = 0;
+  for (const f of files) if (existsSync8(join11(realRoot, f))) lessonRules += parseBlock(readFileSync7(join11(realRoot, f), "utf8")).rules.length;
+  return { brainPages: pages(wiki), lessonRules };
+}
+var bucketOf = (e) => e.brainPages === 0 && e.lessonRules === 0 ? "empty" : "brain";
+var round2 = (n) => Math.round(n * 100) / 100;
+function summarize(events, notesOf) {
+  const months = [...new Set(events.map((e) => e.t.slice(0, 7)))].sort();
+  return months.map((month) => {
+    const summaryOf = (bucket) => {
+      const inB = events.filter((e) => e.t.startsWith(month) && bucketOf(e) === bucket);
+      const plans = inB.filter((e) => e.e === "plan-approved");
+      const corr = inB.filter((e) => e.e === "correction");
+      if (inB.length === 0) return null;
+      const tickets = new Set(plans.map((p) => p.key));
+      const count = (xs) => xs.reduce((m, x) => (m[x] = (m[x] ?? 0) + 1, m), {});
+      const notes = [...tickets].reduce((n, k) => n + notesOf(k), 0);
+      return {
+        tickets: tickets.size,
+        approvals: plans.length,
+        meanChangedSections: plans.length === 0 ? 0 : round2(plans.reduce((n, p) => n + p.changed, 0) / plans.length),
+        reApprovalsAfterBuildStart: plans.filter((p) => p.approval > 1 && p.afterBuildStart).length,
+        corrections: corr.length,
+        correctionsPerTicket: tickets.size === 0 ? 0 : round2(corr.length / tickets.size),
+        correctionsBySkill: count(corr.map((c) => c.skill)),
+        correctionsByKind: count(corr.map((c) => c.kind)),
+        notesPerTicket: tickets.size === 0 ? 0 : round2(notes / tickets.size)
+      };
+    };
+    return { month, empty: summaryOf("empty"), brain: summaryOf("brain") };
+  });
+}
 
 // src/plan/ticket.ts
 var isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -16509,11 +16591,11 @@ var MAX_DRAFT = 64 * 1024;
 var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 var flat2 = (s) => s.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 function ticketText(root, config, ticket) {
-  const file = join11(root, ".liftoff", "tmp", `${ticket}.json`);
-  if (!existsSync8(file)) return void 0;
+  const file = join12(root, ".liftoff", "tmp", `${ticket}.json`);
+  if (!existsSync9(file)) return void 0;
   try {
     if (statSync2(file).size > 2e6) return void 0;
-    const t = readTicket(readFileSync7(file, "utf8"));
+    const t = readTicket(readFileSync8(file, "utf8"));
     if ("error" in t) return void 0;
     const project = projectsOf(config).find((p) => ticket.startsWith(`${p.project}-`));
     const type = project?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
@@ -16531,20 +16613,20 @@ function isTainted(rule, evidence, text) {
   return false;
 }
 function lessonsProblem(realRoot) {
-  const abs = join11(realRoot, LESSONS_DIR);
+  const abs = join12(realRoot, LESSONS_DIR);
   const real = resolveReal(abs);
   if (!isInside(realRoot, real) || real !== abs) return LESSONS_DIR;
-  if (!existsSync8(abs)) return void 0;
-  for (const n of readdirSync5(abs)) if (lstatSync5(join11(abs, n)).isSymbolicLink()) return `${LESSONS_DIR}/${n}`;
+  if (!existsSync9(abs)) return void 0;
+  for (const n of readdirSync6(abs)) if (lstatSync5(join12(abs, n)).isSymbolicLink()) return `${LESSONS_DIR}/${n}`;
   return void 0;
 }
 function readLessons(realRoot) {
-  const abs = join11(realRoot, LESSONS_DIR);
+  const abs = join12(realRoot, LESSONS_DIR);
   const out = { lessons: [], invalid: [] };
-  if (!existsSync8(abs)) return out;
-  for (const n of readdirSync5(abs).sort()) {
+  if (!existsSync9(abs)) return out;
+  for (const n of readdirSync6(abs).sort()) {
     if (!n.endsWith(".md")) continue;
-    const r = parseLesson(readFileSync7(join11(abs, n), "utf8"));
+    const r = parseLesson(readFileSync8(join12(abs, n), "utf8"));
     if (r.ok) out.lessons.push(r.lesson);
     else out.invalid.push({ file: `${LESSONS_DIR}/${n}`, errors: r.errors });
   }
@@ -16570,7 +16652,7 @@ var lessonAdd = ({ root, file, write }) => {
   try {
     const abs2 = resolve(root, file);
     if (statSync2(abs2).size > MAX_DRAFT) return lessonFail("lesson-invalid", `${file} is larger than ${MAX_DRAFT} bytes`);
-    draft = JSON.parse(readFileSync7(abs2, "utf8"));
+    draft = JSON.parse(readFileSync8(abs2, "utf8"));
   } catch (e) {
     return lessonFail("lesson-invalid", `cannot read the draft ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16583,7 +16665,7 @@ var lessonAdd = ({ root, file, write }) => {
   if (instructionLike(draft.rule)) return lessonFail("lesson-invalid", "the rule reads like an instruction aimed at an agent; state the behaviour the team wants instead");
   if (weakensBar(draft.rule)) return lessonFail("lesson-weakens", "the rule would lower the quality bar (skip, disable, relax, or lower a check). This is an accident guard, not a guarantee: a team that wants a lower bar changes CONSTRAINTS.md by hand, never through a lesson");
   const path = `${LESSONS_DIR}/${draft.key}.md`;
-  const abs = join11(realRoot, path);
+  const abs = join12(realRoot, path);
   const date = today();
   const text = draft.evidence.replace(/\r\n?/g, "\n").trim();
   const hash = evidenceHash(text);
@@ -16591,8 +16673,8 @@ var lessonAdd = ({ root, file, write }) => {
   const taint = isTainted(draft.rule, draft.evidence, draft.ticket ? ticketText(realRoot, config, draft.ticket) : void 0);
   let lesson;
   let action;
-  if (existsSync8(abs)) {
-    const r = parseLesson(readFileSync7(abs, "utf8"));
+  if (existsSync9(abs)) {
+    const r = parseLesson(readFileSync8(abs, "utf8"));
     if (!r.ok) return lessonFail("lesson-invalid", `${path} does not parse (${r.errors.join("; ")}): fix or remove it`, { file: path });
     const dup = r.lesson.occurrences.some((o) => o.evidence === hash && (draft.ticket ? o.ticket === draft.ticket : !o.ticket && o.date === date));
     lesson = { ...r.lesson, tainted: r.lesson.tainted || taint, occurrences: dup ? r.lesson.occurrences : [...r.lesson.occurrences, occurrence] };
@@ -16605,6 +16687,7 @@ var lessonAdd = ({ root, file, write }) => {
   if (write && action !== "exists") {
     ensureSelfIgnore(realRoot);
     atomicWrite(abs, serializeLesson(lesson));
+    if (metricsOn(config)) appendEvent(realRoot, { e: "correction", t: date, key: draft.key, skill: draft.skill, kind: lesson.kind, ...brainSize(realRoot, config) });
   }
   const done = write && action !== "exists" ? action === "create" ? "created" : "appended" : action;
   return { exitCode: 0, body: { ok: true, path, action: done, count: countOf(lesson.occurrences), ready: isReady(lesson, settings.promoteAfter), tainted: lesson.tainted, similar, written: write === true && action !== "exists" } };
@@ -16639,13 +16722,13 @@ var brainCheck = ({ root }) => {
 };
 
 // src/cli/brain-index.ts
-import { existsSync as existsSync9, lstatSync as lstatSync6, readFileSync as readFileSync8, readdirSync as readdirSync6 } from "node:fs";
-import { join as join12 } from "node:path";
+import { existsSync as existsSync10, lstatSync as lstatSync6, readFileSync as readFileSync9, readdirSync as readdirSync7 } from "node:fs";
+import { join as join13 } from "node:path";
 function wikiPages(wikiAbs, prefix = "") {
-  return readdirSync6(join12(wikiAbs, prefix)).sort().flatMap((name) => {
+  return readdirSync7(join13(wikiAbs, prefix)).sort().flatMap((name) => {
     const rel = prefix === "" ? name : `${prefix}/${name}`;
-    if (lstatSync6(join12(wikiAbs, rel)).isDirectory()) return wikiPages(wikiAbs, rel);
-    return name.endsWith(".md") ? [{ path: rel, text: readFileSync8(join12(wikiAbs, rel), "utf8") }] : [];
+    if (lstatSync6(join13(wikiAbs, rel)).isDirectory()) return wikiPages(wikiAbs, rel);
+    return name.endsWith(".md") ? [{ path: rel, text: readFileSync9(join13(wikiAbs, rel), "utf8") }] : [];
   });
 }
 var brainIndex = ({ root, write }) => {
@@ -16656,17 +16739,17 @@ var brainIndex = ({ root, write }) => {
   const paths = brainPaths(read2.config.brain.dir);
   const link = symlinkProblem(realRoot, paths);
   if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
-  if (!existsSync9(join12(realRoot, paths.wiki))) return brainFail("brain-invalid", `${paths.wiki} not found: run brain-init first`, { file: paths.wiki });
-  const { content, skipped } = buildIndex(wikiPages(join12(realRoot, paths.wiki)));
-  const file = join12(realRoot, paths.index);
-  const changed = !existsSync9(file) || readFileSync8(file, "utf8") !== content;
+  if (!existsSync10(join13(realRoot, paths.wiki))) return brainFail("brain-invalid", `${paths.wiki} not found: run brain-init first`, { file: paths.wiki });
+  const { content, skipped } = buildIndex(wikiPages(join13(realRoot, paths.wiki)));
+  const file = join13(realRoot, paths.index);
+  const changed = !existsSync10(file) || readFileSync9(file, "utf8") !== content;
   if (write && changed) atomicWrite(file, content);
   return { exitCode: 0, body: { ok: true, path: paths.index, content, changed, skipped, written: write === true && changed } };
 };
 
 // src/cli/brain-source.ts
-import { existsSync as existsSync10, readFileSync as readFileSync9, statSync as statSync3 } from "node:fs";
-import { basename as basename3, join as join13, relative as relative3, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync11, readFileSync as readFileSync10, statSync as statSync3 } from "node:fs";
+import { basename as basename3, join as join14, relative as relative3, resolve as resolve2 } from "node:path";
 
 // src/connect/shell.ts
 var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
@@ -16738,7 +16821,7 @@ var brainSource = ({ root, file, key, kind, write }) => {
   const paths = brainPaths(config.brain.dir);
   const link = symlinkProblem(realRoot, paths);
   if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
-  if (!existsSync10(join13(realRoot, paths.raw))) return brainFail("brain-invalid", `${paths.raw} not found: run brain-init first`, { file: paths.raw });
+  if (!existsSync11(join14(realRoot, paths.raw))) return brainFail("brain-invalid", `${paths.raw} not found: run brain-init first`, { file: paths.raw });
   const abs = resolve2(root, file);
   let real;
   try {
@@ -16749,7 +16832,7 @@ var brainSource = ({ root, file, key, kind, write }) => {
   if (k !== "ticket") {
     if (!isInside(realRoot, real)) return fail2("source-invalid", `${file} is outside the repository`);
     const rel = relative3(realRoot, real).split("\\").join("/");
-    if (isInside(join13(realRoot, paths.dir), real)) return fail2("source-invalid", `${file} is inside the brain: sources come from outside it`);
+    if (isInside(join14(realRoot, paths.dir), real)) return fail2("source-invalid", `${file} is inside the brain: sources come from outside it`);
     if (k === "doc" && (rel === ".liftoff" || rel.startsWith(".liftoff/"))) return fail2("source-invalid", `${file} is in .liftoff (personal files): only a plan, an MR description or a lesson may come from there`);
     if (k === "lesson") {
       if (!config.brain.lessons) return fail2("no-lessons", "liftoff.yaml has no brain.lessons section: the lead enables lessons in liftoff.yaml");
@@ -16760,7 +16843,7 @@ var brainSource = ({ root, file, key, kind, write }) => {
   try {
     if (!statSync3(real).isFile()) return fail2("source-invalid", `${file} is not a regular file`);
     if (statSync3(real).size > (k === "ticket" ? MAX_TICKET_JSON : 1e6)) return fail2("source-invalid", `${file} is too large`);
-    buf = readFileSync9(real);
+    buf = readFileSync10(real);
   } catch {
     return fail2("source-invalid", `cannot read ${file}`);
   }
@@ -16802,10 +16885,10 @@ var brainSource = ({ root, file, key, kind, write }) => {
   if (secretGuard({ text: body }).length > 0) return fail2("source-secret", `the text looks like a credential, so nothing was written ${NOT_A_GUARANTEE}. Remove it from the source and run this again`);
   const out = sourceFile(k, id, from, body);
   const path = `${paths.dir}/${out.rel}`;
-  const target = join13(realRoot, path);
+  const target = join14(realRoot, path);
   let action = write ? "created" : "create";
-  if (existsSync10(target)) {
-    if (readFileSync9(target, "utf8") !== out.content) return fail2("source-invalid", `${path} exists with different content: raw files are never overwritten`, { file: path });
+  if (existsSync11(target)) {
+    if (readFileSync10(target, "utf8") !== out.content) return fail2("source-invalid", `${path} exists with different content: raw files are never overwritten`, { file: path });
     action = "exists";
   } else if (write) atomicWrite(target, out.content);
   const lines2 = body.split("\n");
@@ -16814,8 +16897,8 @@ var brainSource = ({ root, file, key, kind, write }) => {
 };
 
 // src/cli/lesson-list.ts
-import { existsSync as existsSync11, lstatSync as lstatSync7, readFileSync as readFileSync10 } from "node:fs";
-import { join as join14 } from "node:path";
+import { existsSync as existsSync12, lstatSync as lstatSync7, readFileSync as readFileSync11 } from "node:fs";
+import { join as join15 } from "node:path";
 var lessonList = ({ root }) => {
   const read2 = readConfigWithPin(root);
   if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
@@ -16835,13 +16918,13 @@ var lessonList = ({ root }) => {
   const shared = [];
   const date = today();
   for (const file of candidates) {
-    const abs = join14(realRoot, file);
-    if (!existsSync11(abs)) continue;
+    const abs = join15(realRoot, file);
+    if (!existsSync12(abs)) continue;
     if (lstatSync7(abs).isSymbolicLink()) {
       warnings.push({ code: "lessons-block-invalid", file, message: "a symlink: its lessons block is not read" });
       continue;
     }
-    const block = parseBlock(readFileSync10(abs, "utf8"));
+    const block = parseBlock(readFileSync11(abs, "utf8"));
     for (const e of block.errors) warnings.push({ code: "lessons-block-invalid", file, message: e.message, line: e.line });
     for (const r of block.rules) shared.push({ file, key: r.key, rule: r.rule, since: r.since, reviewDue: daysBetween(r.since, date) > settings.reviewAfterDays });
   }
@@ -16867,9 +16950,27 @@ var lessonList = ({ root }) => {
   return { exitCode: 0, body: { ok: true, lessons: items, shared, ready: items.filter((i) => i.ready).map((i) => i.key), warnings } };
 };
 
+// src/cli/lesson-metrics.ts
+import { existsSync as existsSync13, readFileSync as readFileSync12 } from "node:fs";
+import { join as join16 } from "node:path";
+var lessonMetrics = ({ root }) => {
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  if (!read2.config.brain) return brainFail("no-brain", NO_BRAIN);
+  const settings = read2.config.brain.lessons;
+  if (!settings) return lessonFail("no-lessons", NO_LESSONS);
+  if (!settings.metrics) return { exitCode: 0, body: { ok: true, enabled: false, months: [], note: "metrics are off (brain.lessons.metrics: false): nothing is recorded" } };
+  const realRoot = resolveReal(root);
+  const notesOf = (key) => {
+    const file = join16(realRoot, ".liftoff", "plans", `${key}.md`);
+    return existsSync13(file) ? readFileSync12(file, "utf8").split(/\r?\n/).filter((l) => /^\s*Note:/.test(l)).length : 0;
+  };
+  return { exitCode: 0, body: { ok: true, enabled: true, months: summarize(readEvents(realRoot), notesOf), note: "local only: copy it by hand into the pilot results; it holds no ticket key, rule, path or name" } };
+};
+
 // src/cli/lesson-promote.ts
-import { existsSync as existsSync12, lstatSync as lstatSync8, readFileSync as readFileSync11, statSync as statSync4 } from "node:fs";
-import { join as join15, resolve as resolve3 } from "node:path";
+import { existsSync as existsSync14, lstatSync as lstatSync8, readFileSync as readFileSync13, statSync as statSync4 } from "node:fs";
+import { join as join17, resolve as resolve3 } from "node:path";
 
 // src/brain/promote.ts
 function selectionErrors(x) {
@@ -16982,9 +17083,9 @@ function planPromotion(input) {
 
 // src/cli/lesson-promote.ts
 function backupPath(realRoot, rel) {
-  const base = join15(realRoot, ".liftoff", "backup", rel);
-  if (!existsSync12(base)) return base;
-  for (let n = 1; ; n++) if (!existsSync12(`${base}.${n}`)) return `${base}.${n}`;
+  const base = join17(realRoot, ".liftoff", "backup", rel);
+  if (!existsSync14(base)) return base;
+  for (let n = 1; ; n++) if (!existsSync14(`${base}.${n}`)) return `${base}.${n}`;
 }
 var lessonPromote = ({ root, file, write }) => {
   if (!file) return { exitCode: 2, body: { ok: false, errors: [{ code: "usage", message: "lesson-promote needs --file <selection.json>" }] } };
@@ -17001,7 +17102,7 @@ var lessonPromote = ({ root, file, write }) => {
   try {
     const abs = resolve3(root, file);
     if (statSync4(abs).size > 64 * 1024) return lessonFail("lesson-invalid", `${file} is larger than 64 KB`);
-    raw = JSON.parse(readFileSync11(abs, "utf8"));
+    raw = JSON.parse(readFileSync13(abs, "utf8"));
   } catch (e) {
     return lessonFail("lesson-invalid", `cannot read the selection ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -17018,10 +17119,10 @@ var lessonPromote = ({ root, file, write }) => {
   const inBlocks = /* @__PURE__ */ new Set();
   const candidates = [{ path: "AGENTS.md", kind: "agents" }, ...(config.modules?.items ?? []).map((m) => ({ path: `${m.path.replace(/\/+$/, "")}/AGENTS.md`, kind: "agents" })), { path: constraintsFile, kind: "constraints" }];
   for (const c of candidates) {
-    const abs = join15(realRoot, c.path);
-    if (!existsSync12(abs)) continue;
+    const abs = join17(realRoot, c.path);
+    if (!existsSync14(abs)) continue;
     if (lstatSync8(abs).isSymbolicLink()) return lessonFail("lessons-block-invalid", `${c.path} is a symlink: the lessons block is never written through one`, { file: c.path });
-    const text = readFileSync11(abs, "utf8");
+    const text = readFileSync13(abs, "utf8");
     files[c.path] = { path: c.path, kind: c.kind, text };
     for (const r of parseBlock(text).rules) inBlocks.add(r.key);
   }
@@ -17032,14 +17133,14 @@ var lessonPromote = ({ root, file, write }) => {
   if (write) {
     ensureSelfIgnore(realRoot);
     for (const f of plan.files) {
-      const abs = join15(realRoot, f.path);
+      const abs = join17(realRoot, f.path);
       atomicWrite(backupPath(realRoot, f.path), files[f.path].text);
       atomicWrite(abs, f.text);
     }
     const byKey = new Map(lessons.map((l) => [l.key, l]));
     for (const key of plan.retired) {
       const l = byKey.get(key);
-      if (l && l.status === "open") atomicWrite(join15(realRoot, LESSONS_DIR, `${key}.md`), serializeLesson({ ...l, status: "retired" }));
+      if (l && l.status === "open") atomicWrite(join17(realRoot, LESSONS_DIR, `${key}.md`), serializeLesson({ ...l, status: "retired" }));
     }
   }
   return {
@@ -17059,7 +17160,7 @@ var lessonPromote = ({ root, file, write }) => {
 };
 
 // src/cli/draft-tickets.ts
-import { readFileSync as readFileSync12, statSync as statSync5 } from "node:fs";
+import { readFileSync as readFileSync14, statSync as statSync5 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 
 // src/plan/draft.ts
@@ -17146,7 +17247,7 @@ var draftTicketsCommand = ({ root, file }) => {
   try {
     const path = resolve4(root, file);
     if (statSync5(path).size > MAX_BYTES) return fail4("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
-    raw = JSON.parse(readFileSync12(path, "utf8"));
+    raw = JSON.parse(readFileSync14(path, "utf8"));
   } catch (e) {
     return fail4("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -17175,7 +17276,7 @@ var draftTicketsCommand = ({ root, file }) => {
 };
 
 // src/cli/parse-ticket.ts
-import { existsSync as existsSync13, readFileSync as readFileSync13, statSync as statSync6 } from "node:fs";
+import { existsSync as existsSync15, readFileSync as readFileSync15, statSync as statSync6 } from "node:fs";
 import { resolve as resolve5 } from "node:path";
 var fail5 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES2 = 2e6;
@@ -17189,7 +17290,7 @@ var parseTicketCommand = ({ root, file }) => {
   let text;
   try {
     if (statSync6(path).size > MAX_BYTES2) return fail5("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
-    text = readFileSync13(path, "utf8");
+    text = readFileSync15(path, "utf8");
   } catch (e) {
     return fail5("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -17210,7 +17311,7 @@ var parseTicketCommand = ({ root, file }) => {
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   const tpl = codeHost?.conventions.mrTemplate;
-  if (tpl && !existsSync13(resolve5(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
+  if (tpl && !existsSync15(resolve5(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   const brain = read2.config.brain && (({ dir, hot, index, personalHot }) => ({ dir, hot, index, personalHot, afterBuild: read2.config.brain.afterBuild }))(brainPaths(read2.config.brain.dir));
   return {
@@ -17229,8 +17330,8 @@ var parseTicketCommand = ({ root, file }) => {
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync14, readFileSync as readFileSync14 } from "node:fs";
-import { join as join16 } from "node:path";
+import { existsSync as existsSync16, readFileSync as readFileSync16 } from "node:fs";
+import { join as join18 } from "node:path";
 
 // src/plan/file.ts
 var import_yaml4 = __toESM(require_dist(), 1);
@@ -17307,16 +17408,47 @@ var planCommand = ({ root, key, approve }) => {
   const read2 = readConfigWithPin(root);
   if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
   const rel = planFile2(key);
-  const file = join16(root, rel);
-  if (!existsSync14(file)) return fail6("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  const file = join18(root, rel);
+  if (!existsSync16(file)) return fail6("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
   if (!isInside(resolveReal(root), real)) return fail6("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
-  const plan = readPlan(readFileSync14(real, "utf8"), key);
+  const plan = readPlan(readFileSync16(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
+  const realRoot = resolveReal(root);
+  const metrics = metricsOn(read2.config);
+  const snapshotFile = join18(realRoot, draftFile(key));
+  const now = sectionHashes2(plan.body);
+  const readSnapshot = () => {
+    try {
+      return JSON.parse(readFileSync16(snapshotFile, "utf8"));
+    } catch {
+      return void 0;
+    }
+  };
+  if (metrics && plan.status === "draft" && !approve && !existsSync16(snapshotFile)) {
+    ensureSelfIgnore(realRoot);
+    atomicWrite(snapshotFile, JSON.stringify(now));
+  }
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
   if (approve) {
     ensureSelfIgnore(resolveReal(root));
+    if (metrics) {
+      const before = readSnapshot() ?? now;
+      const date = today();
+      const earlier = readEvents(realRoot).filter((e) => e.e === "plan-approved" && e.key === key).length;
+      const event = {
+        e: "plan-approved",
+        t: date,
+        key,
+        ...compareSections(before, now),
+        approval: earlier + 1,
+        afterBuildStart: plan.sections.some((sec) => sec.done > 0),
+        ...brainSize(realRoot, read2.config)
+      };
+      appendEvent(realRoot, event);
+      atomicWrite(snapshotFile, JSON.stringify(now));
+    }
     atomicWrite(real, approvedText(plan));
     status = "approved";
     approvedValid = true;
@@ -17437,7 +17569,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -17452,7 +17584,8 @@ var handlers = {
   "brain-check": brainCheck,
   "lesson-add": lessonAdd,
   "lesson-list": lessonList,
-  "lesson-promote": lessonPromote
+  "lesson-promote": lessonPromote,
+  "lesson-metrics": lessonMetrics
 };
 var WRITE_COMMANDS = /* @__PURE__ */ new Set(["brain-init", "brain-index", "brain-source", "lesson-add", "lesson-promote"]);
 function json(root, exitCode, body, stderr = "") {

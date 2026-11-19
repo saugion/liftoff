@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { KEY_RE, planFile } from "../plan/build.js";
+import { type MetricEvent, appendEvent, brainSize, compareSections, draftFile, metricsOn, readEvents, sectionHashes } from "../brain/metrics.js";
 import { approvedText, readPlan } from "../plan/file.js";
 import { atomicWrite, isInside, resolveReal } from "./fsutil.js";
+import { today } from "./lesson-add.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
 import { ensureSelfIgnore } from "./state.js";
 import type { Handler, Outcome } from "./types.js";
@@ -27,10 +29,39 @@ export const planCommand: Handler = ({ root, key, approve }) => {
   const plan = readPlan(readFileSync(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
 
+  // Pilot metrics (only with brain.lessons.metrics): what the engineer changed in the plan between the draft and the
+  // approval. Local files only; a failure here never changes the answer.
+  const realRoot = resolveReal(root);
+  const metrics = metricsOn(read.config);
+  const snapshotFile = join(realRoot, draftFile(key));
+  const now = sectionHashes(plan.body);
+  const readSnapshot = () => {
+    try {
+      return JSON.parse(readFileSync(snapshotFile, "utf8")) as ReturnType<typeof sectionHashes>;
+    } catch {
+      return undefined;
+    }
+  };
+  if (metrics && plan.status === "draft" && !approve && !existsSync(snapshotFile)) {
+    ensureSelfIgnore(realRoot);
+    atomicWrite(snapshotFile, JSON.stringify(now));
+  }
+
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
   if (approve) {
     ensureSelfIgnore(resolveReal(root));
+    if (metrics) {
+      const before = readSnapshot() ?? now;
+      const date = today();
+      const earlier = readEvents(realRoot).filter((e) => e.e === "plan-approved" && e.key === key).length;
+      const event: MetricEvent = {
+        e: "plan-approved", t: date, key, ...compareSections(before, now), approval: earlier + 1,
+        afterBuildStart: plan.sections.some((sec) => sec.done > 0), ...brainSize(realRoot, read.config),
+      };
+      appendEvent(realRoot, event);
+      atomicWrite(snapshotFile, JSON.stringify(now));
+    }
     atomicWrite(real, approvedText(plan));
     status = "approved";
     approvedValid = true;
