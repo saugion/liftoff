@@ -149,6 +149,8 @@ describe("plugin/ is small and clean", () => {
       "LICENSE",
       "THIRD_PARTY_NOTICES",
       "bin/liftoff.mjs",
+      "skills/liftoff-brain/SKILL.md",
+      "skills/liftoff-brain/assets/page-template.md",
       "skills/liftoff-build/SKILL.md",
       "skills/liftoff-connect/SKILL.md",
       "skills/liftoff-connect/assets/defaults.json",
@@ -193,7 +195,7 @@ describe("the skill is loadable", () => {
     expect(front.name).toBe("liftoff-init");
     expect(front.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
     expect(front.name).toBe("liftoff-init");
-    expect(readdirSync(join(PLUGIN, "skills")).sort()).toEqual(["liftoff-build", "liftoff-connect", "liftoff-init", "liftoff-plan", "liftoff-ticket"]);
+    expect(readdirSync(join(PLUGIN, "skills")).sort()).toEqual(["liftoff-brain", "liftoff-build", "liftoff-connect", "liftoff-init", "liftoff-plan", "liftoff-ticket"]);
   });
 
   it("has a description that says when to use it, and the license", () => {
