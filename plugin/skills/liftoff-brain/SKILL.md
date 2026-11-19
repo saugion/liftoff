@@ -109,6 +109,15 @@ Only when `no-brain` came back **and** the user says they are the lead.
    files and `AGENTS.md`) and say the personal layer is never committed. Do not commit for the user.
 5. Remind the lead that teammates run the Init skill to get the structure on their machine.
 
+## 3. Ingest
+
+One source per run: a ticket, a plan, a merge request description or a repo file. **Follow `references/ingest.md`**
+(next to this file); it is the whole procedure and the Build skill reads it too. In short, there are **three
+approvals**: yes 1 copies the source into `raw/` (`brain-source`), yes 2 writes the batch of pages, the `hot.md` line,
+the log line and the index, yes 3 commits (`build.git: assisted`: run on the yes; `manual`: hand the commands over).
+Every key fact enters the wiki as a quote from the source, and a quote that does not match is fixed by quoting the
+source exactly, **never by editing the source**. This skill never pushes.
+
 ## 4. Query
 
 1. Read in order: `paths.personalHot` (if it exists), `paths.hot`, `paths.index`. Open only the pages the question
@@ -119,6 +128,21 @@ Only when `no-brain` came back **and** the user says they are the lead.
    - **A personal note:** `.liftoff/brain/notes/<slug>.md`. Show it, write on a yes, no commit.
    - **A shared page:** only when raw sources back it. That goes through Ingest, which needs its own approvals. An
      answer with no raw source behind it cannot become a shared page.
+
+## 5. Health check
+
+Run `brain-check` and report `errors`, `warnings` and `stats`; `references/ingest.md` says what each code means. Then
+the reading pass, which is a report only: contradictions between pages, facts a newer source replaced (compare
+`updated` and the order of the sources), ideas that keep coming up and have no page, a stale `hot.md`, pages that
+lean on one source (`bySource`). **A health check changes nothing.** A fix you propose goes through the same three
+approvals as an ingest (step 3, log op `fix`).
+
+## 6. Retract a source
+
+When a source turns out wrong (from a health check or on request): list `bySource` for it, and for each page that
+cites it propose removing or re-sourcing the fact, as a diff, with a yes. Log op `retract`. The raw file stays (it is
+history) unless the user asks to delete it; then show the deletion in the commit preview. If the ingest is the last
+change to those pages, offer `git revert` of the ingest commit first.
 
 ## 7. Personal
 
