@@ -66,6 +66,29 @@ describe.skipIf(major < 24)("the bundle under `node --permission`", () => {
     expect(run("brain-check")).toMatchObject({ ok: true, errors: [] });
   });
 
+  it("the lesson commands work too: add, list, promote and metrics read and write only inside the repo", () => {
+    const dir = repo();
+    writeFileSync(join(dir, "liftoff.yaml"), 'liftoff: 1\nplugin:\n  version: "0.4"\nproject:\n  name: acme\n  kind: new\nagents:\n  targets: [claude-code]\nbrain:\n  lessons: {}\n');
+    writeFileSync(join(dir, "AGENTS.md"), "# rules\n\n## Rules that always apply\n\n- Never commit secrets.\n");
+    mkdirSync(join(dir, ".liftoff/tmp"), { recursive: true });
+    const draft = (ticket: string, evidence: string) => JSON.stringify({ key: "api-test-command", rule: "Run the API tests with `make test-api`.", kind: "command", target: "agents-md", skill: "build", ticket, evidence });
+    const grant = { read: [bundle, dir], write: [dir] };
+    const run = (...args: string[]) => {
+      const r = sandboxed([...args, "--root", dir], grant);
+      expect([args[0], r.status, r.stderr]).toEqual([args[0], 0, ""]);
+      return JSON.parse(r.stdout);
+    };
+    writeFileSync(join(dir, ".liftoff/tmp/d1.json"), draft("PROJ-1", "no, make test-api"));
+    writeFileSync(join(dir, ".liftoff/tmp/d2.json"), draft("PROJ-2", "again, make test-api"));
+    expect(run("lesson-add", "--file", ".liftoff/tmp/d1.json", "--write")).toMatchObject({ ok: true, action: "created" });
+    expect(run("lesson-add", "--file", ".liftoff/tmp/d2.json", "--write")).toMatchObject({ ok: true, action: "appended", ready: true });
+    expect(run("lesson-list")).toMatchObject({ ok: true, ready: ["api-test-command"] });
+    writeFileSync(join(dir, ".liftoff/tmp/sel.json"), JSON.stringify({ add: [{ key: "api-test-command" }] }));
+    expect(run("lesson-promote", "--file", ".liftoff/tmp/sel.json", "--write")).toMatchObject({ ok: true, written: true, gitAdd: ["AGENTS.md"] });
+    expect(readFileSync(join(dir, "AGENTS.md"), "utf8")).toContain("## Team lessons");
+    expect(run("lesson-metrics")).toMatchObject({ ok: true, enabled: true });
+  });
+
   it("negative control: without write access the same render fails (so the grant above really is what allows it)", () => {
     const dir = repo();
     const denied = sandboxed(["render", "--root", dir], { read: [bundle, dir], write: [] });
