@@ -183,3 +183,13 @@ describe("what smoke S6 (a fact with no source) taught the skill", () => {
     for (const s of ["A personal note is plain Markdown: a title, the text, one line saying where it comes from (or `Unverified: no source yet`) and the date", "\"save it as ...\" from the user is the request, not the yes", "the team's agents never see them"]) expect(flat, s).toContain(s);
   });
 });
+
+describe("what smoke S7 (a question, then 'save it') taught the Query step", () => {
+  const query = flat.slice(flat.indexOf("## 4. Query"), flat.indexOf("## 5. Health check"));
+  it("says which pages were opened and which sources they cite, and when to open a raw file", () => {
+    for (const s of ["Say which pages you opened, and which sources they cite (read first: the hot notes and the index)", "open a raw file only when the user asks where something comes from or a quote looks wrong; say that you relied on the page", "A line of `hot.md` is a pointer, not a fact"]) expect(query, s).toContain(s);
+  });
+  it("'save it' is a request, the default is a personal note with a kebab-case slug, and a restated page adds nothing shared", () => {
+    for (const s of ["\"Save it\" is the request, not the yes: show what you will write first (step 7)", "the slug being the title in lowercase kebab-case", "in particular when the answer only restates a page that already exists", "restating an existing page adds nothing"]) expect(query, s).toContain(s);
+  });
+});

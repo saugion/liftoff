@@ -145,12 +145,19 @@ source exactly, **never by editing the source**. This skill never pushes.
 
 1. Read in order: `paths.personalHot` (if it exists), `paths.hot`, `paths.index`. Open only the pages the question
    needs. Do not use the wiki for questions that are not about this project.
-2. Answer from the pages, with the quotes they carry. List the pages and raw sources you used. Where a page and the
-   code or the ticket disagree, say so; the code and the ticket win.
-3. If the answer is worth keeping, offer one of two things:
-   - **A personal note:** `.liftoff/brain/notes/<slug>.md`. Show it, write on a yes, no commit.
-   - **A shared page:** only when raw sources back it. That goes through Ingest, which needs its own approvals. An
-     answer with no raw source behind it cannot become a shared page.
+2. Answer from the pages, with the quotes they carry. Say which pages you opened, and which sources they cite (read
+   first: the hot notes and the index). A page's quotes were checked word for word when it was written, and
+   `brain-check` checks them again, so open a raw file only when the user asks where something comes from or a quote
+   looks wrong; say that you relied on the page. Where a page and the code or the ticket disagree, say so; the code
+   and the ticket win. A line of `hot.md` is a pointer, not a fact: say so if you use it.
+3. If the user asks to keep the answer ("save it"), or it combines facts from several pages in a way worth keeping,
+   offer one of two things. "Save it" is the request, not the yes: show what you will write first (step 7).
+   - **A personal note:** `.liftoff/brain/notes/<slug>.md`, the slug being the title in lowercase kebab-case. This is
+     the default, in particular when the answer only restates a page that already exists. Show it, write on a yes, no
+     commit.
+   - **A shared page:** only when the answer has new facts that raw sources back; restating an existing page adds
+     nothing. That goes through Ingest, which needs its own approvals. An answer with no raw source behind it cannot
+     become a shared page.
 
 ## 5. Health check
 
