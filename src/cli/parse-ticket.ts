@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { brainPaths } from "../brain/paths.js";
 import { connectors, projectsOf } from "../config/index.js";
 import { KEY_RE, buildInfo } from "../plan/build.js";
 import { readTicket, readWithMap } from "../plan/ticket.js";
@@ -47,10 +48,14 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
   if (tpl && !existsSync(resolve(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
 
+  // Where Plan and Build read the project's brain: null unless the lead turned it on.
+  const brain = read.config.brain && (({ dir, hot, index, personalHot }) => ({ dir, hot, index, personalHot, afterBuild: read.config.brain!.afterBuild }))(brainPaths(read.config.brain.dir));
+
   return {
     exitCode: 0,
     body: {
       ok: true,
+      brain: brain ?? null,
       ticket: { key: ticket.key, url: `${tracker.url}/browse/${ticket.key}`, summary: ticket.summary, issueType: ticket.issueType, ...(ticket.status && { status: ticket.status }), description: ticket.description },
       known: type !== undefined,
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,

@@ -10,6 +10,20 @@ const parse = (ticket: unknown, config = CONFIG) => {
   return cli(["parse-ticket", "--root", dir, "--file", "t.json"]);
 };
 
+describe("parse-ticket: brain", () => {
+  it("is null when liftoff.yaml has no brain section", () => {
+    expect(parse(story()).body.brain).toBeNull();
+  });
+  it("names the brain files, relative to the root, and what Build does after a build", () => {
+    const cfg = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain:\n  dir: docs/brain/\n  afterBuild: \"off\"\n";
+    expect(parse(story(), cfg).body.brain).toEqual({ dir: "docs/brain", hot: "docs/brain/hot.md", index: "docs/brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "off" });
+  });
+  it("uses the defaults for `brain: {}`", () => {
+    const cfg = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain: {}\n";
+    expect(parse(story(), cfg).body.brain).toEqual({ dir: "brain", hot: "brain/hot.md", index: "brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "propose" });
+  });
+});
+
 describe("parse-ticket: reading", () => {
   it("applies the reading map: heading criteria, configured fields, ticket url", () => {
     const { exitCode, body } = parse(story({ customfield_10016: 5 }));

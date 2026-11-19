@@ -16491,10 +16491,12 @@ var parseTicketCommand = ({ root, file }) => {
   const tpl = codeHost?.conventions.mrTemplate;
   if (tpl && !existsSync9(resolve3(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
+  const brain = read2.config.brain && (({ dir, hot, index, personalHot }) => ({ dir, hot, index, personalHot, afterBuild: read2.config.brain.afterBuild }))(brainPaths(read2.config.brain.dir));
   return {
     exitCode: 0,
     body: {
       ok: true,
+      brain: brain ?? null,
       ticket: { key: ticket.key, url: `${tracker.url}/browse/${ticket.key}`, summary: ticket.summary, issueType: ticket.issueType, ...ticket.status && { status: ticket.status }, description: ticket.description },
       known: type !== void 0,
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
