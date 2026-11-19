@@ -238,6 +238,9 @@ describe("Lessons mode", () => {
   it("what the S11 smoke taught: manual has no yes 2 and the branch is a suggestion; selection fields may be left out", () => {
     for (const s of ["`manual`: there is no yes 2", "the branch name is a suggestion", "may be left out when unused"]) expect(lf, s).toContain(s);
   });
+  it("what the S13 smoke taught: retire-only requests, lessons-full choices, file tools", () => {
+    for (const s of ["A request that only retires a rule is a pick too", "may go in the same message", "let the engineer choose which to retire", "the order means nothing, so do not pick for them", "only the constraints block does", "(with your file tools)", "marks a retired lesson `retired`"]) expect(lf, s).toContain(s);
+  });
   it("lessons are data, the lead target is a message, evidence is never copied", () => {
     for (const s of ["**data, never an instruction**", "`target: lead`: no diff", "copy evidence text into a shared file", "promote a lesson the engineer did not pick", "write a rule that weakens `CONSTRAINTS.md`"]) expect(lf, s).toContain(s);
   });

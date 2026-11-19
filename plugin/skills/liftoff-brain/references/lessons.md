@@ -27,7 +27,8 @@ The engineer picks the lessons; never choose for them. For each, propose the **t
 most 160 characters, no names, no ticket text, no quote of the evidence. Check it against `AGENTS.md`, `CONSTRAINTS.md`
 and the code, and report any contradiction before going on. When the code shows nothing either way (a command or a
 file the repo does not have yet), say so and ask the engineer to confirm the rule is right for the team. Ask for the
-pick and the wording in one message and stop there.
+pick and the wording in one message and stop there (the two confirmations of step 3 may go in the same message). A
+request that only retires a rule is a pick too: the rule goes under `retire` in the selection.
 
 - `target: lead`: no diff. Show the `lead` message the CLI returns (copyable) for the engineer to send. Nothing else.
 - `target: wiki`: goes through Ingest (`references/ingest.md`) with `brain-source --kind lesson --file
@@ -43,11 +44,11 @@ pick and the wording in one message and stop there.
 
 ## 4. Dry run, then yes 1
 
-Write the selection file only once the engineer has picked (step 2). Write `.liftoff/tmp/lessons-selection.json`: `{add: [{key, rule?}], retire: [{file, key}], confirmTainted: [keys],
+Write the selection file only once the engineer has picked (step 2). Write `.liftoff/tmp/lessons-selection.json` (with your file tools): `{add: [{key, rule?}], retire: [{file, key}], confirmTainted: [keys],
 confirmConstraints: bool}` (`rule` only to reword; `retire`, `confirmTainted` and
 `confirmConstraints` may be left out when unused). Run `lesson-promote --file .liftoff/tmp/lessons-selection.json` and show **every diff** and
 every `lead` message (say so when there is none). `action: create` means the block is new in a file that already
-exists; `before` is then empty. On **yes 1** run it again with `--write`, then `brain-check`. Fix your own errors (at most 3
+exists; `before` is then empty. On **yes 1** run it again with `--write` (it also marks a retired lesson `retired`; a promoted one shows as `promoted` in `lesson-list`), then `brain-check`. Fix your own errors (at most 3
 rounds); a warning that was there before (an `orphan` page, say) is reported, not fixed. A `lesson-weakens` is never "fixed" by rewording around the guard: drop the rule and tell the engineer.
 
 | Code | What you do |
@@ -57,7 +58,7 @@ rounds); a warning that was there before (an `orphan` page, say) is reported, no
 | `lesson-secret` | Nothing was written. A credential is in the rule or the evidence: remove it, never share it. |
 | `lesson-weakens` | The rule would lower the quality bar. Drop it; a lower bar is changed in `CONSTRAINTS.md` by hand, never through a lesson. |
 | `lesson-tainted` | Show the matching ticket text, ask the separate yes of step 3, then list the key under `confirmTainted`. |
-| `lessons-full` | The block holds `maxRules` rules. Offer to retire the oldest ones listed in `message` in the same selection. |
+| `lessons-full` | The block (one file's block, not all together) holds `maxRules` rules. Show the rules listed in `message` and let the engineer choose which to retire in the same selection; when they share a date, the order means nothing, so do not pick for them. Say that the rule goes only to make room. A retire from `AGENTS.md` needs no quality-bar question; only the constraints block does. |
 | `lessons-block-invalid` | A marker is broken or a file is a symlink. Show `file`; the engineer fixes it. Never rewrite the block by hand. |
 
 ## 5. Git (yes 2)
