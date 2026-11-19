@@ -117,8 +117,9 @@ describe("lesson-metrics", () => {
     put(dir, "brain/wiki/topics/p.md", "x");
     approved(dir, "PROJ-2");
     const body = metrics(dir);
-    const text = JSON.stringify(body);
-    for (const leak of ["PROJ-", "private-rule", "secret-target", "Alice", "/", "AGENTS", ".md"]) expect(text, leak).not.toContain(leak === "/" ? "/tmp" : leak);
+    const { root: _root, ...rest } = body as Record<string, unknown>; // root echoes the input dir; the payload is what must stay clean
+    const text = JSON.stringify(rest);
+    for (const leak of ["PROJ-", "private-rule", "secret-target", "Alice", "/", "AGENTS", ".md"]) expect(text, leak).not.toContain(leak);
     expect(body.months).toHaveLength(1);
     const [m] = body.months;
     expect(m.empty).toMatchObject({ tickets: 1, approvals: 1, corrections: 1, correctionsPerTicket: 1, correctionsBySkill: { build: 1 }, correctionsByKind: { command: 1 }, notesPerTicket: 1 });
