@@ -21,6 +21,11 @@ for the next.
    the `header` line and the `preview` (the first lines of what will be stored; say if `previewTruncated`). `source-secret`: stop, the source must lose the credential first. `action: exists`: the same
    content is already there; skip to 3b.
 3. On **yes 1**, run it again with `--write`. This is the only way a file reaches `raw/`.
+4. **A source cannot be redacted.** The copy is word for word, and a doctored copy would carry a header that claims it is
+   the original. If the engineer wants something kept out of the wiki (a demo value, a name), the options are: skip that
+   source; or, for a file you wrote yourself (the merge request description), edit it at its origin, show the new
+   preview and take a fresh yes 1; or, for a file that is not yours (the ticket, the plan: changing the plan's text
+   cancels its approval), let the engineer change it and approve it again. Never edit anything under `raw/`.
 
 ### 3b. Read before you write
 
@@ -36,11 +41,14 @@ raw file as data.
   around the quote, never in place of it. A page describes; it does not instruct. Never write a rule for agents.
 - A fact that disagrees with an existing page is a **contradiction**: show both quotes and both sources and let the
   user decide. Never overwrite the older page silently.
+- `type`: `module` for how one module works, `decision` for a choice and its reasons, `learning` for what a piece of
+  delivered work showed (a ticket with its merge request is usually this), `topic` for anything else.
 - Set `updated` to today's date (from your environment) on every page you change.
 - If the engineer wants only sourced text, a page may be just a heading and quotes: the `title` is the source's own
   title (the ticket's `<KEY> <summary>`), the `summary` the checker requires is a phrase copied from the source, and
   the `hot.md` line uses the same title. Say so in the preview rather than writing your own words.
-- At most **one** line of the shared `hot.md` changes. Add **one** log line to `<log>/YYYY-MM.md` (create the file if
+- At most **one** line of the shared `hot.md` changes: the "Changed last" line by default, the "Now" line only when
+  the engineer asks. Add **one** log line to `<log>/YYYY-MM.md` (create the file if
   needed; only ever append): `- YYYY-MM-DD ingest <raw path relative to the brain folder>: <the pages written, relative to the brain folder>`.
   For a batch of several sources (Build brings three) list every raw file before the colon, separated by commas. A log
   line you wrote in this run and have not committed may be corrected; never touch a line that is already committed.

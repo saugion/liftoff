@@ -215,6 +215,10 @@ describe("Build and the brain", () => {
     expect(build).toContain("rewrite history (squash, rebase, amend)");
     expect(build).toContain("**If the engineer asks you to squash, rebase or amend commits**, decline in one line: rewriting history is theirs (in every git mode)");
   });
+  it("a section commit whose repo check needs a later section is not a surprise", () => {
+    expect(build).toContain("when a repo check can only pass after a later section (it needs a file that section creates)");
+    expect(build).toContain("say so in the push dry-run or the hand-over");
+  });
   it("the brain commands it names exist", () => {
     for (const c of ["brain-source", "brain-index", "brain-check"]) expect(Object.keys(handlers)).toContain(c);
     expect(build).toContain("`brain-source`, `brain-index` and `brain-check`");

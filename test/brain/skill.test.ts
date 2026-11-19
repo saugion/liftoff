@@ -144,3 +144,14 @@ describe("what the smoke runs taught the ingest procedure", () => {
     for (const s of ["a page may be just a heading and quotes", "the `summary` the checker requires is a phrase copied from the source", "take a **fresh yes 2** before writing anything", "When a request conflicts with the checker", "offer the closest option", "the index entry each new page will get"]) expect(ingest, s).toContain(s);
   });
 });
+
+describe("what smoke S4 taught the ingest procedure", () => {
+  const ingest = readFileSync(join(SKILL_DIR, "references", "ingest.md"), "utf8").replace(/\s+/g, " ");
+  it("a source cannot be redacted: skip it, fix it at its origin when it is yours, or let the engineer change it", () => {
+    for (const s of ["**A source cannot be redacted.**", "a doctored copy would carry a header that claims it is the original", "skip that source", "edit it at its origin, show the new preview and take a fresh yes 1", "changing the plan's text cancels its approval", "Never edit anything under `raw/`."]) expect(ingest, s).toContain(s);
+  });
+  it("says which type a ticket with its merge request is, and which hot.md line changes", () => {
+    expect(ingest).toContain("`learning` for what a piece of delivered work showed (a ticket with its merge request is usually this)");
+    expect(ingest).toContain('the "Changed last" line by default, the "Now" line only when the engineer asks');
+  });
+});
