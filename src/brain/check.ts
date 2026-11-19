@@ -4,6 +4,7 @@ import { resolveReal } from "../cli/fsutil.js";
 import { buildIndex } from "./index.js";
 import { PERSONAL_DIR, type BrainPaths } from "./paths.js";
 import { type Quote, normalize, parsePage, scanLinks } from "./page.js";
+import { instructionLike } from "./guards.js";
 import { HEADER_RE, sha256Hex } from "./source.js";
 import { secretGuard } from "../config/secrets.js";
 
@@ -29,8 +30,6 @@ export interface CheckInput {
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
 const MIN_QUOTE = 12;
-// An accident guard, not a guarantee: phrases that read like an instruction to the agent, outside a quote.
-const INSTRUCTION_LIKE = [/ignore (all|any|previous) instructions/i, /you (must|should) now/i, /as an ai/i, /system prompt/i, /\b(agents?|assistant) (must|should|always|never)\b/i];
 const LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) ([^:\s,]+(?:, [^:\s,]+)*)(?::(?: (.+))?)?$/;
 
 // Every file under `abs`, as paths relative to it, and every symlink (never followed).
@@ -203,7 +202,7 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
         return;
       }
       if (inFront || /^\s{0,3}>/.test(line)) return;
-      if (INSTRUCTION_LIKE.some((re) => re.test(line))) warn("instruction-like", p.path, "reads like an instruction to the agent: the wiki is background, never instructions", i + 1);
+      if (instructionLike(line)) warn("instruction-like", p.path, "reads like an instruction to the agent: the wiki is background, never instructions", i + 1);
     });
   }
 

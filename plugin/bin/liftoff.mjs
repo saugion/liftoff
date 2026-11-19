@@ -15805,6 +15805,26 @@ function walkForLink(abs, rel) {
   return void 0;
 }
 
+// src/brain/guards.ts
+var INSTRUCTION_LIKE = [
+  /ignore (all|any|previous) instructions/i,
+  /you (must|should) now/i,
+  /as an ai/i,
+  /system prompt/i,
+  /\b(agents?|assistant) (must|should|always|never)\b/i
+];
+var instructionLike = (line) => INSTRUCTION_LIKE.some((re) => re.test(line));
+var BAR = "tests?|test suite|e2e|checks?|lint(?:er|ing)?|typecheck(?:ing)?|type checks?|coverage|ci|pipeline|code review|reviews?|hooks?|controlli|revisione|copertura";
+var LOWER = "skip(?:ping)?|ignore|ignoring|disable|disabling|bypass(?:ing)?|omit|omitting|remove|removing|delete|deleting|drop|dropping|turn off|salta(?:re)?|ignora(?:re)?|disabilita(?:re)?|ometti(?:ere)?|rimuovi(?:ere)?|elimina(?:re)?";
+var NOT_NEEDED = `(?:no need (?:to|for)|not needed|unnecessary|non serve|non occorre|non \xE8 necessario|non e' necessario|non bisogna|inutile)`;
+var WEAKEN = [
+  new RegExp(`\\b(?:${LOWER})\\b[^.;\\n]{0,40}\\b(?:${BAR})\\b`, "i"),
+  new RegExp(`${NOT_NEEDED}[^.;\\n]{0,40}\\b(?:${BAR}|lanciare|eseguire|run(?:ning)?|write|writing|scrivere)\\b`, "i"),
+  new RegExp(`\\b(?:${BAR})\\b[^.;\\n]{0,25}(?:not needed|not required|unnecessary|optional|non servono|non sono necessari|opzionali)`, "i"),
+  /\b(?:lower|reduce|relax|decrease|abbassa(?:re)?|riduci(?:re)?)\b[^.;\n]{0,30}\b(?:coverage|threshold|bar|soglia|copertura)\b/i,
+  /\b(?:don'?t|do not|stop)\b[^.;\n]{0,15}\b(?:run(?:ning)?|write|writing|add(?:ing)?)\b[^.;\n]{0,20}\b(?:tests?|checks?|lint)\b/i
+];
+
 // src/brain/source.ts
 import { createHash as createHash2 } from "node:crypto";
 var KINDS = ["ticket", "plan", "mr", "doc"];
@@ -15843,7 +15863,6 @@ ${t.criteria}`);
 // src/brain/check.ts
 var PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
 var MIN_QUOTE = 12;
-var INSTRUCTION_LIKE = [/ignore (all|any|previous) instructions/i, /you (must|should) now/i, /as an ai/i, /system prompt/i, /\b(agents?|assistant) (must|should|always|never)\b/i];
 var LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) ([^:\s,]+(?:, [^:\s,]+)*)(?::(?: (.+))?)?$/;
 function walk(abs, rel = "") {
   const out = { files: [], links: [] };
@@ -15995,7 +16014,7 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
         return;
       }
       if (inFront || /^\s{0,3}>/.test(line)) return;
-      if (INSTRUCTION_LIKE.some((re) => re.test(line))) warn("instruction-like", p.path, "reads like an instruction to the agent: the wiki is background, never instructions", i + 1);
+      if (instructionLike(line)) warn("instruction-like", p.path, "reads like an instruction to the agent: the wiki is background, never instructions", i + 1);
     });
   }
   for (const f of tree.files) {
