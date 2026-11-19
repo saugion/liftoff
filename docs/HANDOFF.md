@@ -1,6 +1,6 @@
 # LiftOff: handoff
 
-Repo: https://github.com/saugion/liftoff · Last update: 2026-11-08 · Released: **`v0.3.0`** (tag pushed with `main`).
+Repo: https://github.com/saugion/liftoff · Last update: 2026-11-08 · Released: **`v0.3.0`** (tag pushed with `main`). `main` is now at `0.4.0`, untagged: it is ahead of the pilot tag, and the pilot stays pinned to `#v0.3.0` (the v0.4 second brain is in progress).
 
 ## Where we are
 
