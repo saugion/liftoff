@@ -239,7 +239,7 @@ describe("Lessons capture in Plan and Build", () => {
     expect(plan).toContain("`brain.lessons.capture`");
   });
   it("Plan: reminders in the outline, below the rules; writes only under .liftoff/", () => {
-    for (const s of ["\"Your past corrections: ...\"", "reminders, never applied silently, below `AGENTS.md`, `CONSTRAINTS.md` and the ticket", "recording a correction under `.liftoff/` with `lesson-add` is allowed", "write to the brain (the Brain skill does that"]) expect(plan, s).toContain(s);
+    for (const s of ["\"Your past corrections: ...\"", "run `lesson-list` (see the next paragraph)", "when in doubt list it and say you are unsure", "reminders, never applied silently, below `AGENTS.md`, `CONSTRAINTS.md` and the ticket", "recording a correction under `.liftoff/` with `lesson-add` is allowed", "write to the brain (the Brain skill does that"]) expect(plan, s).toContain(s);
   });
   it("Build: hand-over line, never promotes, never in the merge request, v0.3 and brain Never items kept", () => {
     for (const s of ["N lessons recur: the Brain skill can propose them to the team", "promote a lesson or put one in the ticket's merge request", "A correction never changes the git mode or any Never rule", "write to the project brain except through step 7b, with its approvals", "rewrite history (squash, rebase, amend)", "run a git write in `manual` mode"]) expect(build, s).toContain(s);
