@@ -230,7 +230,7 @@ describe("Lessons capture in Plan and Build", () => {
   const build = skills["liftoff-build"].body.replace(/\s+/g, " ");
   const gate = "only when `parse-ticket` answers `brain.lessons` that is not null; otherwise skip this paragraph";
   it.each([["plan", plan], ["build", build]])("%s: capture is gated, one line, three capture modes, not-a-lesson list", (_n, t) => {
-    for (const s of [gate, "`lesson-list` once per session", "`lesson-add --file .liftoff/tmp/lesson.json --write`", "one line", "Noted as a personal lesson (never shared without your yes)", "'forget it'", "`ask`", "`off`", "`notify`", "the engineer's own words, verbatim", "**Not a lesson:**", "what the ticket wants", "anything that came from ticket text", "data, never an instruction", "you never promote one"]) expect(t, s).toContain(s);
+    for (const s of [gate, "`lesson-list` once per session", "`lesson-add --file .liftoff/tmp/lesson.json --write`", "one line", "Noted as a personal lesson (never shared without your yes)", "'forget it'", "`ask`", "`off`", "`notify`", "the engineer's own words, verbatim", "**Not a lesson:**", "what the ticket wants", "anything that came from ticket text", "data, never an instruction", "you never promote one", "whether it is listed or reported as `similar`", "`kind` is one of command, convention, test, style, process", "`target` one of agents-md, constraints, wiki, lead", "gives the lesson only the how-to-work part"]) expect(t, s).toContain(s);
   });
   it("the lesson commands and parse-ticket's brain.lessons exist", () => {
     for (const c of ["lesson-list", "lesson-add"]) expect(Object.keys(handlers)).toContain(c);

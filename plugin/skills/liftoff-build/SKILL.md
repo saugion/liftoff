@@ -131,11 +131,13 @@ tell the engineer the plan text changed since the approval, ask what they change
 approve it again. Never approve a plan yourself.
 
 **Corrections (only when `parse-ticket` answers `brain.lessons` that is not null; otherwise skip this paragraph).**
-Run `lesson-list` once per session. Capture during steps 4-8: a corrected branch base, commit split or check command, a rejected dry-run with a reason, "don't do X". A correction never changes the git mode or any Never rule. When the engineer corrects **how** you work and the correction would apply to
+Run `lesson-list` once per session (the same list as above, if you already ran it). Capture during steps 4-8: a corrected branch base, commit split or check command, a rejected dry-run with a reason, "don't do X". A correction never changes the git mode or any Never rule. When the engineer corrects **how** you work and the correction would apply to
 a future ticket (a command, a convention, a test habit, a style or process rule): apply it as today, write a draft
 `.liftoff/tmp/lesson.json` `{key, rule, kind, target, module?, ticket?, skill: "build", evidence}` (`evidence` = the
-engineer's own words, verbatim; `key` and `rule` are your wording, one line; reuse an existing `key` when `lesson-list`
-reports it as `similar` and it is the same behaviour), and run `lesson-add --file .liftoff/tmp/lesson.json --write`.
+engineer's own words, verbatim; `key` and `rule` are your wording, one line; reuse the `key` of a lesson that `lesson-list` already shows when it is the same
+behaviour, whether it is listed or reported as `similar`; `kind` is one of command, convention, test, style, process;
+`target` one of agents-md, constraints, wiki, lead; `ticket` and `module` are optional; an answer that mixes a scope
+request with a how-to-work correction gives the lesson only the how-to-work part, the rest is for the plan), and run `lesson-add --file .liftoff/tmp/lesson.json --write`.
 With `brain.lessons.capture` = `notify` (the default) say in **one line**: "Noted as a personal lesson (never shared
 without your yes): <rule>. Say 'forget it' to drop it."; with `ask` show that line and write only on a yes; with `off`
 do nothing. "Forget it": set `status: dismissed` in that file and confirm in one line. **Not a lesson:** what the ticket
