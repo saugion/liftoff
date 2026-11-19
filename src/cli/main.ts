@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { render } from "./apply.js";
 import { checkConfigCommand } from "./check.js";
+import { brainInit } from "./brain-init.js";
 import { draftTicketsCommand } from "./draft-tickets.js";
 import { parseTicketCommand } from "./parse-ticket.js";
 import { planCommand } from "./plan.js";
@@ -13,7 +14,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -24,7 +25,11 @@ export const handlers: Record<string, Handler> = {
   "parse-ticket": parseTicketCommand,
   plan: planCommand,
   "draft-tickets": draftTicketsCommand,
+  "brain-init": brainInit,
 };
+
+// Commands that can write into the brain; --write is refused everywhere else.
+const WRITE_COMMANDS = new Set(["brain-init", "brain-index", "brain-source"]);
 
 function json(root: string, exitCode: RunResult["exitCode"], body: Record<string, unknown>, stderr = ""): RunResult {
   return { stdout: JSON.stringify({ root, ...body }) + "\n", stderr, exitCode };
@@ -48,6 +53,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
           file: { type: "string" },
           key: { type: "string" },
           approve: { type: "boolean" },
+          write: { type: "boolean" },
           help: { type: "boolean" },
         },
       });
@@ -65,6 +71,9 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
     if (values.overwrite && command !== "render") {
       return usageError(root, "--overwrite is only valid for render");
     }
+    if (values.write && !WRITE_COMMANDS.has(command)) {
+      return usageError(root, "--write is only valid for brain-init, brain-index and brain-source");
+    }
     let isDir = false;
     try {
       isDir = statSync(root).isDirectory();
@@ -73,7 +82,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
 
-    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve });
+    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve, write: values.write });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

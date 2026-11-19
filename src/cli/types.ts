@@ -13,8 +13,11 @@ export type ErrorCode =
 // Codes of the Plan and Build commands. Kept apart from ErrorCode (v1) on purpose.
 export type PlanErrorCode = "no-tracker" | "ticket-invalid" | "plan-missing" | "plan-invalid" | "ticket-draft-invalid" | "tracker-read-only";
 
+// Codes of the brain commands.
+export type BrainErrorCode = "no-brain" | "brain-invalid" | "source-invalid" | "source-secret";
+
 export interface CliError {
-  code: ErrorCode | PlanErrorCode;
+  code: ErrorCode | PlanErrorCode | BrainErrorCode;
   message: string;
   path?: string; // JSON pointer, config problems only
   file?: string; // file path relative to root, file problems only
@@ -34,6 +37,7 @@ export interface Context {
   file?: string; // parse-ticket
   key?: string; // plan
   approve?: boolean; // plan
+  write?: boolean; // brain-init, brain-index, brain-source
 }
 
 // What a command handler returns; `run` adds `root` and serializes it.
