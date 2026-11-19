@@ -58,6 +58,14 @@ describe("the rules are written", () => {
   it("Setup says teammates get a warning or a block, the lead decides, and nothing is committed for the user", () => {
     for (const s of ["Only when `no-brain` came back **and** the user says they are the lead", "teammates get a warning until they run Init", "Do not commit for the user", "VS Code asks for approval on `raw/` edits and cannot block them", "never overwrite an existing backup"]) expect(flat, s).toContain(s);
   });
+  it("Setup summarises every proposal before the first one, marks the optional ones, and says what declining means", () => {
+    const setup = flat.slice(flat.indexOf("## 2. Setup"), flat.indexOf("## 3. Ingest"));
+    for (const s of ["**Before showing the first proposal**", "one short summary of all of them", "the first is recommended and the other three are optional extras", "never apply an extra without its own yes", "**recommended.**", "**optional.**", "Without it the agents are not told the wiki exists", "Without it nothing stops an edit of a raw source", "can conflict, and the lead resolves it by hand", "committed and applies to every teammate's Claude Code"]) expect(setup, s).toContain(s);
+  });
+  it("Setup says how to show the yaml diff, that the pin raise is one approval, and what to do with a missing file", () => {
+    const setup = flat.slice(flat.indexOf("## 2. Setup"), flat.indexOf("## 3. Ingest"));
+    for (const s of ["real hunk line numbers from the file, or no numbers", "are **one approval**", "a tracked file needs no backup", "A file that does not exist yet is created (JSON with 2-space indent", "This yes is separate from the next ones", "only files that exist now"]) expect(setup, s).toContain(s);
+  });
   it("Personal never commits and never copies without a yes", () => {
     expect(flat).toContain("**Never commit** the personal layer");
   });

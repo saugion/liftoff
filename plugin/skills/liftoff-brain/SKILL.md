@@ -80,9 +80,12 @@ it (`brain-init --write`, after showing the list; the files are only added, neve
 
 ## 2. Setup (the lead, only when `brain` is absent)
 
-Only when `no-brain` came back **and** the user says they are the lead.
+Only when `no-brain` came back **and** the user says they are the lead. The lead asked for the brain with its defaults and
+nothing else: say up front which steps are required and which are optional extras, and never apply an extra
+without its own yes.
 
-1. Show the section to append to `liftoff.yaml`, with the defaults written out so they can be changed:
+1. Show the section to append to `liftoff.yaml` as a diff, with the defaults written out so they can be changed
+   (use real hunk line numbers from the file, or no numbers):
 
    ```yaml
    brain:
@@ -92,21 +95,33 @@ Only when `no-brain` came back **and** the user says they are the lead.
      required: false
    ```
 
-   If `plugin.version` is below `0.4`, the same diff raises it to `0.4`; say so explicitly. `required: false` means
-   teammates get a warning until they run Init; `true` blocks them until they do. Recommend `false`. On a yes, write
-   it, then run `validate`; fix what `errors` says (at most 3 rounds), never by deleting a key.
-2. Run `brain-init`, show the `files` list, and on a yes run `brain-init --write`.
-3. Show each entry of `proposals` as a diff and apply it only on its own yes. **Parse each existing file first; if it
-   does not parse, stop and show the problem.** Back up a changed file under `.liftoff/backup/<path>` (never
-   overwrite an existing backup; make sure `.liftoff/.gitignore` holds `*`).
-   - `agentsMd`: append the block to the root `AGENTS.md`; skip it if a `## Project brain` heading is already there.
-   - `claudeSettings` (only with the `claude-code` target): merge into `.claude/settings.json`, adding the deny rule
-     only if absent and keeping the file's indentation.
-   - `vscodeSettings` (only with the `copilot` target): merge into `.vscode/settings.json` by the same rules. Say that
+   If `plugin.version` is below `0.4`, the same diff raises it to `0.4`; say so explicitly. The raise and the section are
+   **one approval**. `required: false` means teammates get a warning until they run Init; `true` blocks them until they
+   do. Recommend `false`. On a yes, write it (a tracked file needs no backup: git has the old version), then run `validate`;
+   fix what `errors` says (at most 3 rounds), never by deleting a key.
+2. Run `brain-init`, show the `files` list, and on a yes run `brain-init --write`. This yes is separate from the next ones.
+3. **Before showing the first proposal**, give the lead one short summary of all of them, so none is a surprise: what each
+   one does, whether it is committed and shared with teammates, and what happens without it. Say that the first is
+   recommended and the other three are optional extras that the lead may decline one by one. Then show each entry of
+   `proposals` as a diff and apply it only on its own yes. A file that does not exist yet is created (JSON with 2-space
+   indent, a text file with the line); a changed existing file is parsed first (JSON), and if it does not parse, stop and
+   show the problem. Back up an existing file you change under `.liftoff/backup/<path>` (never overwrite an existing
+   backup; make sure `.liftoff/.gitignore` holds `*`).
+   - `agentsMd`: **recommended.** Appends the block to the root `AGENTS.md`, so every agent of the team reads the
+     brain in the right order and treats it as background. Committed, shared. Skip it if a `## Project brain` heading is
+     already there. Without it the agents are not told the wiki exists.
+   - `claudeSettings` (only with the `claude-code` target): **optional.** Merges a deny rule for edits under `raw/` into
+     `.claude/settings.json`, which is committed and applies to every teammate's Claude Code, for that path only. Add the
+     rule only if absent and keep the file's indentation. Without it nothing stops an edit of a raw source; `brain-check`
+     catches one afterwards (`source-changed`).
+   - `vscodeSettings` (only with the `copilot` target): **optional.** The same for `.vscode/settings.json`. Say that
      VS Code asks for approval on `raw/` edits and cannot block them; `brain-check` is the real guard.
-   - `gitattributes`: append the line to `.gitattributes` if absent.
-4. Run `brain-check`; it must be `ok`. List what to commit (`<dir>/**`, `liftoff.yaml`, `.gitattributes`, the settings
-   files and `AGENTS.md`) and say the personal layer is never committed. Do not commit for the user.
+   - `gitattributes`: **optional.** Appends one line to `.gitattributes` (created if missing) so the brain's log files from
+     two branches merge without a conflict. Without it two branches that append to the same log file can conflict, and
+     the lead resolves it by hand.
+4. Run `brain-check`; it must be `ok`. List what to commit: only files that exist now (`<dir>/**`, `liftoff.yaml`, and each of
+   `AGENTS.md`, `.gitattributes` and the settings files that were changed or created), and say the personal layer is never
+   committed. Do not commit for the user.
 5. Remind the lead that teammates run the Init skill to get the structure on their machine.
 
 ## 3. Ingest
