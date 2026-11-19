@@ -63,3 +63,21 @@ terminal. The accepted environment-variable route exposes the token to the agent
   state removed, so ticking boxes keeps it valid and editing the content makes it stale.
 - Jira DC renders wiki markup and the MCP server converts Markdown on write and back on read; the quirks are in
   `plugin/skills/liftoff-connect/assets/jira-dc-formatting.md`.
+
+## Lessons (0.4)
+
+- **The count is per engineer.** Syncing personal files between people would need a server, and one engineer's habit is
+  not the team's rule. The team meets a lesson only when someone promotes it, in a merge request that others review.
+- **Status is derived.** `promoted` is "the key is in a block of the working tree", never a flag in the personal file. If a
+  merge request is rejected and the branch dropped, the key disappears and the lesson is ready again, with nothing to undo.
+- **The CLI writes only inside the marked block**, after a preview, with a backup, and runs no git. The rest of
+  `AGENTS.md` is byte-identical (a CRLF file stays CRLF), so a rule change is a small, reviewable diff and a hand edit
+  elsewhere in the file is never touched.
+- **The weakening guard is an accident guard.** A list of verbs and bar words (English and Italian) stops "skip the e2e
+  tests"; it does not catch a rewording ("tests can be skipped"). The real guard is the merge request, and `CONSTRAINTS.md`
+  edits that lower the bar stay manual.
+- **Evidence never leaves the personal layer.** A rule is one line; the engineer's words are kept only in the personal
+  file (and in the wiki only after the Ingest preview, `brain-source --kind lesson`).
+- **An evidence hash is quoted in the file.** An all-digit hash read back as a number (found by the end-to-end run).
+- **Metrics are local counters.** They record that a correction happened, never what it said, and the summary carries no
+  key, rule, path or name, so it can be pasted into results.

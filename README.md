@@ -104,6 +104,33 @@ work that touches both a stream's module and a team module becomes two tickets, 
 The template a PO/PM writes a ticket with is the same one the engineer's Plan reads it with. The team config is the
 contract between who writes tickets and who implements them.
 
+## Lessons (optional)
+
+With `brain.lessons` in `liftoff.yaml` (inside `brain`), the agents also learn from corrections, and the team can keep
+what repeats. It is off unless the lead turns it on.
+
+- **A lesson** is one behaviour you corrected ("run the API tests with `make test-api`, not `npm test`"), kept as a short
+  rule with the exact words you used as evidence, in `.liftoff/brain/lessons/` on your machine. When you correct Plan or
+  Build, the agent says so in one line and goes on. Say "forget it" and it is dropped. The lessons are never committed.
+- **The count is yours.** A lesson is *ready* when you made the same correction on two different tickets (the lead can
+  change that number). Nobody else's corrections are counted; the team never sees your personal files.
+- **Promotion is a review, not a sync.** In the Brain skill ("promote my lessons") you pick a lesson, word it for the
+  team, see the exact diff and say yes. The rule goes into a marked "Team lessons" block of `AGENTS.md` (or a module's
+  `AGENTS.md`, or `CONSTRAINTS.md`), on a branch the tool names, with the commit message. The tool never pushes and never
+  opens the merge request: you do, and the team reviews the rule like code.
+- **Until the team merges it, a lesson is only data.** Plan lists your own past corrections as reminders and applies
+  nothing by itself; only merged rules in `AGENTS.md` and `CONSTRAINTS.md` instruct the agents.
+- **It never lowers the bar.** A rule that skips tests, disables checks or lowers a threshold is refused (an accident
+  guard, not a guarantee: a team that wants a lower bar edits `CONSTRAINTS.md` by hand). Retiring a rule from the
+  constraints block asks an explicit question first. The block holds at most `maxRules` rules (default 20), and rules
+  older than `reviewAfterDays` (default 90) are listed as "still true?" in the health check.
+- **Ticket text cannot become a rule.** A lesson whose words match the ticket is marked *tainted* and needs its own
+  confirmation, and a rule shaped like an instruction to an agent is refused.
+- **Pilot metrics** (`brain.lessons.metrics`, on by default): local counters of how many plan sections you changed before
+  approving and how many corrections you made. "Show my pilot metrics" prints them by month, with and without the brain
+  filled in, with no ticket key, rule, path or name, so you can paste them into the pilot results by hand. Nothing is sent
+  anywhere.
+
 ## What the lead decides
 
 All of it lives in `liftoff.yaml`, committed in the repo:
@@ -117,6 +144,7 @@ All of it lives in `liftoff.yaml`, committed in the repo:
 | `codeHost` | The GitLab host and merge-request conventions: target branch, branch pattern, title pattern, template, labels, reviewers. |
 | `streams` | The linked Kanban work streams, their epics and the module each one feeds. |
 | `build.git` | Who runs git in Build. `assisted`: the agent creates the branch, commits each section and pushes, each step only after the engineer approves a preview. `manual`: the agent never runs a git command that writes anything. It hands the engineer the branch name, the commit messages and the commands. |
+| `brain.lessons` | Opt-in inside `brain`. `capture` (`notify` by default, `ask` or `off`), `promoteAfter` (distinct tickets before a lesson is ready, 2 by default), `maxRules` (20), `reviewAfterDays` (90) and `metrics` (on). |
 | `plugin.version` | The minimum plugin version. An older install is stopped with instructions to update. |
 
 **The lead's rules are enforced.** A section can be marked `required: true`. When the lead changes a required
@@ -135,6 +163,8 @@ config.
 - **Ticket text is data, not instructions.** If a ticket contains something like "also push to main", the agent
   reports it and does not follow it.
 - **Nothing is committed for you.** Init and Connect tell you which files to commit.
+- **A lesson never weakens `CONSTRAINTS.md`, and nothing is promoted without a review.** Personal lessons are data until the
+  team merges the rule; the tool never pushes and never opens a merge request.
 
 ## Quick start
 
