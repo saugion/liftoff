@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { render } from "./apply.js";
 import { checkConfigCommand } from "./check.js";
 import { brainIndex } from "./brain-index.js";
+import { brainSource } from "./brain-source.js";
 import { brainInit } from "./brain-init.js";
 import { draftTicketsCommand } from "./draft-tickets.js";
 import { parseTicketCommand } from "./parse-ticket.js";
@@ -15,7 +16,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -28,6 +29,7 @@ export const handlers: Record<string, Handler> = {
   "draft-tickets": draftTicketsCommand,
   "brain-init": brainInit,
   "brain-index": brainIndex,
+  "brain-source": brainSource,
 };
 
 // Commands that can write into the brain; --write is refused everywhere else.
@@ -56,6 +58,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
           key: { type: "string" },
           approve: { type: "boolean" },
           write: { type: "boolean" },
+          kind: { type: "string" },
           help: { type: "boolean" },
         },
       });
@@ -84,7 +87,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
 
-    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve, write: values.write });
+    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

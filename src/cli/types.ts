@@ -37,6 +37,7 @@ export interface Context {
   file?: string; // parse-ticket
   key?: string; // plan
   approve?: boolean; // plan
+  kind?: string; // brain-source
   write?: boolean; // brain-init, brain-index, brain-source
 }
 

@@ -10318,7 +10318,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve4.call(this, root, ref);
+      let _sch = resolve5.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -10345,7 +10345,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve4(root, ref) {
+    function resolve5(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -11209,7 +11209,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve4(baseURI, relativeURI, options) {
+    function resolve5(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -11245,50 +11245,50 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative3, options, skipNormalization) {
+    function resolveComponent(base, relative4, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse2(serialize(base, options), options);
-        relative3 = parse2(serialize(relative3, options), options);
+        relative4 = parse2(serialize(relative4, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative3.scheme) {
-        target.scheme = relative3.scheme;
-        target.userinfo = relative3.userinfo;
-        target.host = relative3.host;
-        target.port = relative3.port;
-        target.path = removeDotSegments(relative3.path || "");
-        target.query = relative3.query;
+      if (!options.tolerant && relative4.scheme) {
+        target.scheme = relative4.scheme;
+        target.userinfo = relative4.userinfo;
+        target.host = relative4.host;
+        target.port = relative4.port;
+        target.path = removeDotSegments(relative4.path || "");
+        target.query = relative4.query;
       } else {
-        if (relative3.userinfo !== void 0 || relative3.host !== void 0 || relative3.port !== void 0) {
-          target.userinfo = relative3.userinfo;
-          target.host = relative3.host;
-          target.port = relative3.port;
-          target.path = removeDotSegments(relative3.path || "");
-          target.query = relative3.query;
+        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
+          target.userinfo = relative4.userinfo;
+          target.host = relative4.host;
+          target.port = relative4.port;
+          target.path = removeDotSegments(relative4.path || "");
+          target.query = relative4.query;
         } else {
-          if (!relative3.path) {
+          if (!relative4.path) {
             target.path = base.path;
-            if (relative3.query !== void 0) {
-              target.query = relative3.query;
+            if (relative4.query !== void 0) {
+              target.query = relative4.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative3.path[0] === "/") {
-              target.path = removeDotSegments(relative3.path);
+            if (relative4.path[0] === "/") {
+              target.path = removeDotSegments(relative4.path);
             } else {
               const baseHasAuthority = base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0;
               if (baseHasAuthority && !base.path) {
-                target.path = "/" + relative3.path;
+                target.path = "/" + relative4.path;
               } else if (!base.path) {
-                target.path = relative3.path;
+                target.path = relative4.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative3.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
               }
               target.path = base.scheme === void 0 && !baseHasAuthority && target.path[0] !== "/" ? removeDotSegmentsRelative(target.path) : removeDotSegments(target.path);
             }
-            target.query = relative3.query;
+            target.query = relative4.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -11296,7 +11296,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative3.fragment;
+      target.fragment = relative4.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -11600,7 +11600,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize: normalize3,
-      resolve: resolve4,
+      resolve: resolve5,
       resolveComponent,
       equal,
       serialize,
@@ -14273,8 +14273,8 @@ var require_ajv = __commonJS({
 });
 
 // src/cli/main.ts
-import { statSync as statSync4 } from "node:fs";
-import { resolve as resolve3 } from "node:path";
+import { statSync as statSync5 } from "node:fs";
+import { resolve as resolve4 } from "node:path";
 import { parseArgs } from "node:util";
 
 // src/cli/apply.ts
@@ -15862,9 +15862,93 @@ var brainIndex = ({ root, write }) => {
   return { exitCode: 0, body: { ok: true, path: paths.index, content, changed, skipped, written: write === true && changed } };
 };
 
-// src/cli/draft-tickets.ts
-import { readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
-import { resolve } from "node:path";
+// src/cli/brain-source.ts
+import { existsSync as existsSync7, readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
+import { basename as basename3, join as join10, relative as relative3, resolve } from "node:path";
+
+// src/brain/source.ts
+import { createHash as createHash2 } from "node:crypto";
+var KINDS = ["ticket", "plan", "mr", "doc"];
+var MAX_SOURCE_BYTES = 256 * 1024;
+var sha256Hex = (s) => createHash2("sha256").update(s).digest("hex");
+var headerLine = (kind, id, from, bodySha) => `<!-- liftoff brain source; kind: ${kind}; id: ${id}; from: ${from.replace(/-->/g, "--").replace(/\s+/g, " ").trim()}; body-sha256:${bodySha} -->`;
+function cleanText(buf) {
+  if (buf.length > MAX_SOURCE_BYTES) return { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` };
+  if (buf.includes(0)) return { error: "not a text file (it has a NUL byte)" };
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return { error: "not valid UTF-8" };
+  }
+  const body = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+  return Buffer.byteLength(body) > MAX_SOURCE_BYTES ? { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` } : { body };
+}
+function sourceFile(kind, id, from, body) {
+  const sha = sha256Hex(body);
+  return { rel: `raw/${kind}s/${id}-${sha.slice(0, 8)}.md`, sha, content: `${headerLine(kind, id, from, sha)}
+${body}` };
+}
+function ticketBody(t) {
+  const parts = [`# ${t.key} ${t.summary}`.trim(), `Type: ${t.issueType}`];
+  if (t.description) parts.push(`## Description
+
+${t.description}`);
+  if (t.criteria) parts.push(`## Acceptance criteria
+
+${t.criteria}`);
+  return parts.join("\n\n").replace(/\r\n?/g, "\n") + "\n";
+}
+
+// src/connect/shell.ts
+var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
+
+// src/plan/build.ts
+var KEY_RE = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
+var planFile2 = (key) => `.liftoff/plans/${key}.md`;
+var mrDescriptionFile = (key) => `.liftoff/plans/${key}.mr.md`;
+function slugify(s, max = 40) {
+  const slug = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/g, "");
+  return slug || "work";
+}
+var fill = (pattern, values) => pattern.replace(/\{(key|slug|type|summary)\}/g, (_m, k) => values[k] ?? "");
+function safeBranch(name) {
+  const b = name.replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/\.{2,}/g, ".").replace(/\/{2,}/g, "/").replace(/^[-/.]+|[/.-]+$/g, "").replace(/\.lock$/, "");
+  return b || "work";
+}
+function buildInfo(t, tracker, type, codeHost) {
+  const conv = codeHost?.conventions;
+  const typeWord = type?.branchType ?? slugify(t.issueType || "task");
+  const branch = safeBranch(fill(conv?.branchPattern ?? "{key}-{slug}", { key: t.key, slug: slugify(t.summary), type: typeWord }));
+  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType });
+  const labels = conv?.labels ?? [];
+  const reviewers = conv?.reviewers ?? [];
+  const descFile = mrDescriptionFile(t.key);
+  const mrCreate = codeHost ? [
+    "glab mr create",
+    `--source-branch ${shQuote(branch)}`,
+    ...conv?.targetBranch ? [`--target-branch ${shQuote(conv.targetBranch)}`] : [],
+    `--title ${shQuote(title)}`,
+    `--description-file ${shQuote(descFile)}`,
+    ...labels.map((l) => `--label ${shQuote(l)}`),
+    ...reviewers.map((r) => `--reviewer ${shQuote(r)}`),
+    "--yes"
+  ].join(" ") : null;
+  const readOnly = tracker.server.readOnly;
+  return {
+    branch,
+    title,
+    targetBranch: conv?.targetBranch ?? null,
+    labels,
+    reviewers,
+    mrTemplate: conv?.mrTemplate ?? null,
+    transitions: { start: readOnly ? null : type?.transitions.start ?? null, review: readOnly ? null : type?.transitions.review ?? null },
+    readOnly,
+    planFile: planFile2(t.key),
+    mrDescriptionFile: descFile,
+    mrCreate
+  };
+}
 
 // src/plan/ticket.ts
 var isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
@@ -15964,6 +16048,90 @@ function readWithMap(t, type) {
   return { acceptanceCriteria, fields: fields.filter((f) => f.value), missing: fields.filter((f) => !f.value).map((f) => f.id) };
 }
 
+// src/cli/brain-source.ts
+var fail2 = (code, message, extra = {}, exitCode = 1) => ({
+  exitCode,
+  body: { ok: false, errors: [{ code, message, ...extra }] }
+});
+var NOT_A_GUARANTEE = "(an accident guard, not a guarantee)";
+var MAX_TICKET_JSON = 2e6;
+var brainSource = ({ root, file, key, kind, write }) => {
+  if (!kind || !KINDS.includes(kind)) return fail2("usage", `brain-source needs --kind ${KINDS.join("|")}`, {}, 2);
+  if (!file) return fail2("usage", "brain-source needs --file <path>", {}, 2);
+  const k = kind;
+  const read = readConfigWithPin(root);
+  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
+  const config = read.config;
+  if (!config.brain) return brainFail("no-brain", NO_BRAIN);
+  const realRoot = resolveReal(root);
+  const paths = brainPaths(config.brain.dir);
+  const link = symlinkProblem(realRoot, paths);
+  if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
+  if (!existsSync7(join10(realRoot, paths.raw))) return brainFail("brain-invalid", `${paths.raw} not found: run brain-init first`, { file: paths.raw });
+  const abs = resolve(root, file);
+  let real;
+  try {
+    real = resolveReal(abs);
+  } catch {
+    return fail2("source-invalid", `cannot read ${file}`);
+  }
+  if (k !== "ticket") {
+    if (!isInside(realRoot, real)) return fail2("source-invalid", `${file} is outside the repository`);
+    const rel = relative3(realRoot, real).split("\\").join("/");
+    if (isInside(join10(realRoot, paths.dir), real)) return fail2("source-invalid", `${file} is inside the brain: sources come from outside it`);
+    if (k === "doc" && (rel === ".liftoff" || rel.startsWith(".liftoff/"))) return fail2("source-invalid", `${file} is in .liftoff (personal files): only a plan or an MR description may come from there`);
+  }
+  let buf;
+  try {
+    if (!statSync2(real).isFile()) return fail2("source-invalid", `${file} is not a regular file`);
+    if (statSync2(real).size > (k === "ticket" ? MAX_TICKET_JSON : 1e6)) return fail2("source-invalid", `${file} is too large`);
+    buf = readFileSync6(real);
+  } catch {
+    return fail2("source-invalid", `cannot read ${file}`);
+  }
+  let id, from, body;
+  if (k === "ticket") {
+    const { tracker } = connectors(config);
+    if (!tracker) return fail2("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
+    const ticket = readTicket(buf.toString("utf8"));
+    if ("error" in ticket) return fail2("source-invalid", ticket.error);
+    const km = KEY_RE.exec(ticket.key);
+    const project = km && projectsOf(config).find((p) => p.project === km[1]);
+    if (!project) return fail2("source-invalid", `${ticket.key} is not an issue key of a configured project`);
+    const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+    const text = cleanText(Buffer.from(ticketBody({ key: ticket.key, summary: ticket.summary, issueType: ticket.issueType, description: ticket.description, criteria: readWithMap(ticket, type).acceptanceCriteria.text })));
+    if ("error" in text) return fail2("source-invalid", `the ticket text is ${text.error}`);
+    id = ticket.key;
+    from = `${tracker.url}/browse/${ticket.key}`;
+    body = text.body;
+  } else {
+    const text = cleanText(buf);
+    if ("error" in text) return fail2("source-invalid", `${file} is ${text.error}`);
+    body = text.body;
+    from = relative3(realRoot, real).split("\\").join("/");
+    if (k === "doc") id = slugify(basename3(real).replace(/\.[^.]*$/, ""));
+    else {
+      const id0 = key ?? /^ticket:\s*([A-Z][A-Z0-9_]*-[0-9]+)\s*$/m.exec(body.split("\n---")[0] ?? "")?.[1] ?? /^([A-Z][A-Z0-9_]*-[0-9]+)/.exec(basename3(real))?.[1];
+      if (!id0 || !KEY_RE.test(id0)) return fail2("source-invalid", `cannot tell which ticket this ${k} belongs to: pass --key PROJ-123`);
+      id = id0;
+    }
+  }
+  if (secretGuard({ text: body }).length > 0) return fail2("source-secret", `the text looks like a credential, so nothing was written ${NOT_A_GUARANTEE}. Remove it from the source and run this again`);
+  const out = sourceFile(k, id, from, body);
+  const path = `${paths.dir}/${out.rel}`;
+  const target = join10(realRoot, path);
+  let action = write ? "created" : "create";
+  if (existsSync7(target)) {
+    if (readFileSync6(target, "utf8") !== out.content) return fail2("source-invalid", `${path} exists with different content: raw files are never overwritten`, { file: path });
+    action = "exists";
+  } else if (write) atomicWrite(target, out.content);
+  return { exitCode: 0, body: { ok: true, path, action, sha256: out.sha, bytes: Buffer.byteLength(out.content), written: action === "created" } };
+};
+
+// src/cli/draft-tickets.ts
+import { readFileSync as readFileSync7, statSync as statSync3 } from "node:fs";
+import { resolve as resolve2 } from "node:path";
+
 // src/plan/draft.ts
 var isObj2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 var KEY = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
@@ -16034,30 +16202,30 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
 }
 
 // src/cli/draft-tickets.ts
-var fail2 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
+var fail3 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES = 2e6;
 var MAX_TICKETS = 200;
 var draftTicketsCommand = ({ root, file }) => {
-  if (!file) return fail2("usage", "draft-tickets needs --file <drafts.json>", 2);
+  if (!file) return fail3("usage", "draft-tickets needs --file <drafts.json>", 2);
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   const { tracker } = connectors(read.config);
-  if (!tracker) return fail2("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
-  if (tracker.server.readOnly) return fail2("tracker-read-only", "tracker.server.readOnly is true: the Jira server exposes no write tool");
+  if (!tracker) return fail3("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
+  if (tracker.server.readOnly) return fail3("tracker-read-only", "tracker.server.readOnly is true: the Jira server exposes no write tool");
   let raw;
   try {
-    const path = resolve(root, file);
-    if (statSync2(path).size > MAX_BYTES) return fail2("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
-    raw = JSON.parse(readFileSync6(path, "utf8"));
+    const path = resolve2(root, file);
+    if (statSync3(path).size > MAX_BYTES) return fail3("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
+    raw = JSON.parse(readFileSync7(path, "utf8"));
   } catch (e) {
-    return fail2("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
+    return fail3("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
   const doc = raw;
-  if (raw === null || typeof raw !== "object" || !Array.isArray(doc.tickets) || doc.tickets.length === 0) return fail2("ticket-draft-invalid", 'the file must be {"project": "KEY", "tickets": [ ... ]} with at least one ticket');
-  if (doc.tickets.length > MAX_TICKETS) return fail2("ticket-draft-invalid", `at most ${MAX_TICKETS} tickets per batch`);
+  if (raw === null || typeof raw !== "object" || !Array.isArray(doc.tickets) || doc.tickets.length === 0) return fail3("ticket-draft-invalid", 'the file must be {"project": "KEY", "tickets": [ ... ]} with at least one ticket');
+  if (doc.tickets.length > MAX_TICKETS) return fail3("ticket-draft-invalid", `at most ${MAX_TICKETS} tickets per batch`);
   const wanted = doc.project === void 0 ? tracker.project : doc.project;
   const info = projectsOf(read.config).find((p) => p.project === wanted);
-  if (!info) return fail2("ticket-draft-invalid", `project ${String(wanted)} is neither the tracker's nor a stream's (${projectsOf(read.config).map((p) => p.project).join(", ")})`);
+  if (!info) return fail3("ticket-draft-invalid", `project ${String(wanted)} is neither the tracker's nor a stream's (${projectsOf(read.config).map((p) => p.project).join(", ")})`);
   const streamOf = /* @__PURE__ */ new Map();
   for (const p of projectsOf(read.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
   const mods = { modules: new Set((read.config.modules?.items ?? []).map((m) => m.id)), streamOf };
@@ -16077,84 +16245,32 @@ var draftTicketsCommand = ({ root, file }) => {
 };
 
 // src/cli/parse-ticket.ts
-import { existsSync as existsSync7, readFileSync as readFileSync7, statSync as statSync3 } from "node:fs";
-import { resolve as resolve2 } from "node:path";
-
-// src/connect/shell.ts
-var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
-
-// src/plan/build.ts
-var KEY_RE = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
-var planFile2 = (key) => `.liftoff/plans/${key}.md`;
-var mrDescriptionFile = (key) => `.liftoff/plans/${key}.mr.md`;
-function slugify(s, max = 40) {
-  const slug = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/g, "");
-  return slug || "work";
-}
-var fill = (pattern, values) => pattern.replace(/\{(key|slug|type|summary)\}/g, (_m, k) => values[k] ?? "");
-function safeBranch(name) {
-  const b = name.replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/\.{2,}/g, ".").replace(/\/{2,}/g, "/").replace(/^[-/.]+|[/.-]+$/g, "").replace(/\.lock$/, "");
-  return b || "work";
-}
-function buildInfo(t, tracker, type, codeHost) {
-  const conv = codeHost?.conventions;
-  const typeWord = type?.branchType ?? slugify(t.issueType || "task");
-  const branch = safeBranch(fill(conv?.branchPattern ?? "{key}-{slug}", { key: t.key, slug: slugify(t.summary), type: typeWord }));
-  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType });
-  const labels = conv?.labels ?? [];
-  const reviewers = conv?.reviewers ?? [];
-  const descFile = mrDescriptionFile(t.key);
-  const mrCreate = codeHost ? [
-    "glab mr create",
-    `--source-branch ${shQuote(branch)}`,
-    ...conv?.targetBranch ? [`--target-branch ${shQuote(conv.targetBranch)}`] : [],
-    `--title ${shQuote(title)}`,
-    `--description-file ${shQuote(descFile)}`,
-    ...labels.map((l) => `--label ${shQuote(l)}`),
-    ...reviewers.map((r) => `--reviewer ${shQuote(r)}`),
-    "--yes"
-  ].join(" ") : null;
-  const readOnly = tracker.server.readOnly;
-  return {
-    branch,
-    title,
-    targetBranch: conv?.targetBranch ?? null,
-    labels,
-    reviewers,
-    mrTemplate: conv?.mrTemplate ?? null,
-    transitions: { start: readOnly ? null : type?.transitions.start ?? null, review: readOnly ? null : type?.transitions.review ?? null },
-    readOnly,
-    planFile: planFile2(t.key),
-    mrDescriptionFile: descFile,
-    mrCreate
-  };
-}
-
-// src/cli/parse-ticket.ts
-var fail3 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
+import { existsSync as existsSync8, readFileSync as readFileSync8, statSync as statSync4 } from "node:fs";
+import { resolve as resolve3 } from "node:path";
+var fail4 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES2 = 2e6;
 var parseTicketCommand = ({ root, file }) => {
-  if (!file) return fail3("usage", "parse-ticket needs --file <ticket.json>", 2);
+  if (!file) return fail4("usage", "parse-ticket needs --file <ticket.json>", 2);
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   const { tracker, codeHost } = connectors(read.config);
-  if (!tracker) return fail3("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
-  const path = resolve2(root, file);
+  if (!tracker) return fail4("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
+  const path = resolve3(root, file);
   let text;
   try {
-    if (statSync3(path).size > MAX_BYTES2) return fail3("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
-    text = readFileSync7(path, "utf8");
+    if (statSync4(path).size > MAX_BYTES2) return fail4("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
+    text = readFileSync8(path, "utf8");
   } catch (e) {
-    return fail3("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
+    return fail4("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
   const ticket = readTicket(text);
-  if ("error" in ticket) return fail3("ticket-invalid", ticket.error);
+  if ("error" in ticket) return fail4("ticket-invalid", ticket.error);
   const km = KEY_RE.exec(ticket.key);
-  if (!km) return fail3("ticket-invalid", `'${ticket.key}' is not an issue key like ${tracker.project}-123`);
+  if (!km) return fail4("ticket-invalid", `'${ticket.key}' is not an issue key like ${tracker.project}-123`);
   const project = projectsOf(read.config).find((p) => p.project === km[1]);
   if (!project) {
     const known = projectsOf(read.config).map((p) => p.project).join(", ");
-    return fail3("ticket-invalid", `${ticket.key} is not in a configured project (${known})`);
+    return fail4("ticket-invalid", `${ticket.key} is not in a configured project (${known})`);
   }
   const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
   const reading = readWithMap(ticket, type);
@@ -16164,7 +16280,7 @@ var parseTicketCommand = ({ root, file }) => {
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   const tpl = codeHost?.conventions.mrTemplate;
-  if (tpl && !existsSync7(resolve2(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
+  if (tpl && !existsSync8(resolve3(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   return {
     exitCode: 0,
@@ -16181,8 +16297,8 @@ var parseTicketCommand = ({ root, file }) => {
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync8, readFileSync as readFileSync8 } from "node:fs";
-import { join as join10 } from "node:path";
+import { existsSync as existsSync9, readFileSync as readFileSync9 } from "node:fs";
+import { join as join11 } from "node:path";
 
 // src/plan/file.ts
 var import_yaml3 = __toESM(require_dist(), 1);
@@ -16250,20 +16366,20 @@ ${p.body}`;
 }
 
 // src/cli/plan.ts
-var fail4 = (code, message, extra = {}, exitCode = 1) => ({
+var fail5 = (code, message, extra = {}, exitCode = 1) => ({
   exitCode,
   body: { ok: false, errors: [{ code, message, ...extra }] }
 });
 var planCommand = ({ root, key, approve }) => {
-  if (!key || !KEY_RE.test(key)) return fail4("usage", "plan needs --key <ISSUE-KEY> (like PROJ-123)", {}, 2);
+  if (!key || !KEY_RE.test(key)) return fail5("usage", "plan needs --key <ISSUE-KEY> (like PROJ-123)", {}, 2);
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   const rel = planFile2(key);
-  const file = join10(root, rel);
-  if (!existsSync8(file)) return fail4("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  const file = join11(root, rel);
+  if (!existsSync9(file)) return fail5("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
-  if (!isInside(resolveReal(root), real)) return fail4("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
-  const plan = readPlan(readFileSync8(real, "utf8"), key);
+  if (!isInside(resolveReal(root), real)) return fail5("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
+  const plan = readPlan(readFileSync9(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
@@ -16389,7 +16505,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index> [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -16399,7 +16515,8 @@ var handlers = {
   plan: planCommand,
   "draft-tickets": draftTicketsCommand,
   "brain-init": brainInit,
-  "brain-index": brainIndex
+  "brain-index": brainIndex,
+  "brain-source": brainSource
 };
 var WRITE_COMMANDS = /* @__PURE__ */ new Set(["brain-init", "brain-index", "brain-source"]);
 function json(root, exitCode, body, stderr = "") {
@@ -16409,7 +16526,7 @@ function usageError(root, message) {
   return json(root, 2, { ok: false, errors: [{ code: "usage", message: `${message}. Usage: ${USAGE}` }] });
 }
 function run(argv, cwd, table = handlers) {
-  let root = resolve3(cwd);
+  let root = resolve4(cwd);
   try {
     let parsed;
     try {
@@ -16423,6 +16540,7 @@ function run(argv, cwd, table = handlers) {
           key: { type: "string" },
           approve: { type: "boolean" },
           write: { type: "boolean" },
+          kind: { type: "string" },
           help: { type: "boolean" }
         }
       });
@@ -16431,7 +16549,7 @@ function run(argv, cwd, table = handlers) {
     }
     const { values, positionals } = parsed;
     if (values.help) return { stdout: JSON.stringify({ usage: USAGE }) + "\n", stderr: "", exitCode: 0 };
-    root = resolve3(cwd, values.root ?? ".");
+    root = resolve4(cwd, values.root ?? ".");
     const [command, ...extra] = positionals;
     if (!command || extra.length > 0 || !Object.hasOwn(table, command)) {
       return usageError(root, command ? `Unknown command or extra arguments: ${positionals.join(" ")}` : "Missing command");
@@ -16444,11 +16562,11 @@ function run(argv, cwd, table = handlers) {
     }
     let isDir = false;
     try {
-      isDir = statSync4(root).isDirectory();
+      isDir = statSync5(root).isDirectory();
     } catch {
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
-    const outcome = table[command]({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve, write: values.write });
+    const outcome = table[command]({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
