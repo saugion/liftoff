@@ -4,6 +4,7 @@ import { resolveReal } from "../cli/fsutil.js";
 import { buildIndex } from "./index.js";
 import { PERSONAL_DIR, type BrainPaths } from "./paths.js";
 import { type Quote, normalize, parsePage, scanLinks } from "./page.js";
+import { type LessonsCheckInput, checkLessons } from "./check-lessons.js";
 import { instructionLike } from "./guards.js";
 import { HEADER_RE, sha256Hex } from "./source.js";
 import { secretGuard } from "../config/secrets.js";
@@ -26,6 +27,7 @@ export interface CheckInput {
   paths: BrainPaths;
   hotMaxLines: number;
   moduleIds: string[];
+  lessons?: Omit<LessonsCheckInput, "realRoot">; // only when brain.lessons is set
 }
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
@@ -65,7 +67,7 @@ const read = (abs: string): string => readFileSync(abs, "utf8");
 const nonEmpty = (text: string): number => text.split(/\r?\n/).filter((l) => l.trim() !== "").length;
 
 // Read-only. Every rule of the plan's table that does not need the raw bodies or the quotes (those are added next).
-export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInput): CheckResult {
+export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds, lessons }: CheckInput): CheckResult {
   const findings: Finding[] = [];
   const add = (level: Finding["level"], code: string, file: string, message: string, line?: number) =>
     findings.push({ code, level, file, message, ...(line !== undefined && { line }) });
@@ -244,5 +246,6 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
       }
     });
   }
+  if (lessons) findings.push(...checkLessons({ realRoot, ...lessons }));
   return result(pages.length, rawFiles.length, logs.length, bySource);
 }
