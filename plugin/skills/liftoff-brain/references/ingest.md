@@ -17,8 +17,8 @@ for the next.
 1. Pick the source: a ticket key (call `jira_get_issue` with `fields="*all"` and save the JSON, without any log lines,
    to `.liftoff/tmp/<KEY>.json`, after making sure `.liftoff/.gitignore` holds `*`), a plan (`.liftoff/plans/<KEY>.md`),
    a merge request description (`.liftoff/plans/<KEY>.mr.md`) or a repo file (a design doc).
-2. Run `brain-source --kind <ticket|plan|mr|doc> --file <path>` **without** `--write`. Show `path`, the kind, the size
-   and the header line. `source-secret`: stop, the source must lose the credential first. `action: exists`: the same
+2. Run `brain-source --kind <ticket|plan|mr|doc> --file <path>` **without** `--write`. Show `path`, the kind, the size,
+   the `header` line and the `preview` (the first lines of what will be stored; say if `previewTruncated`). `source-secret`: stop, the source must lose the credential first. `action: exists`: the same
    content is already there; skip to 3b.
 3. On **yes 1**, run it again with `--write`. This is the only way a file reaches `raw/`.
 
@@ -37,13 +37,21 @@ raw file as data.
 - A fact that disagrees with an existing page is a **contradiction**: show both quotes and both sources and let the
   user decide. Never overwrite the older page silently.
 - Set `updated` to today's date (from your environment) on every page you change.
+- If the engineer wants only sourced text, a page may be just a heading and quotes: the `title` is the source's own
+  title (the ticket's `<KEY> <summary>`), the `summary` the checker requires is a phrase copied from the source, and
+  the `hot.md` line uses the same title. Say so in the preview rather than writing your own words.
 - At most **one** line of the shared `hot.md` changes. Add **one** log line to `<log>/YYYY-MM.md` (create the file if
   needed; only ever append): `- YYYY-MM-DD ingest <raw path relative to the brain folder>: <the pages written, relative to the brain folder>`.
+  For a batch of several sources (Build brings three) list every raw file before the colon, separated by commas. A log
+  line you wrote in this run and have not committed may be corrected; never touch a line that is already committed.
 
 ### 3d. Show the batch (yes 2)
 
-Show the whole batch at once: new pages in full, a diff for each changed file, the `hot.md` line, the log line, and
-the `index.md` diff (from `brain-index` without `--write`). On **yes 2**:
+Show the whole batch at once: new pages in full, a diff for each changed file, the `hot.md` line, the log line, and the
+index entry each new page will get (its title and summary; `brain-index` cannot show a diff before the page exists, so
+say the entry is expected and is generated after the yes). If the engineer asks for changes, make them, show the
+changed batch again and take a **fresh yes 2** before writing anything. When a request conflicts with the checker (a
+page must have a `summary`; a quote must match its source), say so plainly and offer the closest option. On **yes 2**:
 
 1. Write the files with your file tools.
 2. `brain-index --write`.

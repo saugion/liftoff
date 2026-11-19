@@ -91,6 +91,23 @@ describe("brain-source ticket", () => {
     expect(rawFiles(dir)).toHaveLength(2);
   });
 
+  it("the output carries the header line and a preview of the stored body, with or without --write", () => {
+    const dir = setup(BRAIN_CONFIG, { "t.json": ISSUE() });
+    const dry = src(dir, "--kind", "ticket", "--file", "t.json").body;
+    expect(dry.header).toMatch(/^<!-- liftoff brain source; kind: ticket; id: PROJ-123; from: https:\/\/jira\.company\.local\/browse\/PROJ-123; body-sha256:[0-9a-f]{64} -->$/);
+    expect(dry.preview).toContain("# PROJ-123 Reset password by email");
+    expect(dry.preview).toContain("The link expires after 30 minutes.");
+    expect(dry.previewTruncated).toBe(false);
+    expect(dry.preview).not.toContain("SECRET-COMMENT");
+    expect(src(dir, "--kind", "ticket", "--file", "t.json", "--write").body.header).toBe(dry.header);
+  });
+  it("a long source is previewed in its first 40 lines and says it was cut", () => {
+    const dir = setup(BRAIN_CONFIG, { "long.md": Array.from({ length: 100 }, (_, i) => `line ${i}`).join("\n") + "\n" });
+    const r = src(dir, "--kind", "doc", "--file", "long.md").body;
+    expect(r.preview.split("\n")).toHaveLength(40);
+    expect(r.previewTruncated).toBe(true);
+  });
+
   it("a dry run writes nothing and says `create`", () => {
     const dir = setup(BRAIN_CONFIG, { "t.json": ISSUE() });
     expect(src(dir, "--kind", "ticket", "--file", "t.json").body).toMatchObject({ action: "create", written: false });

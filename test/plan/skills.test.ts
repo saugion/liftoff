@@ -211,6 +211,10 @@ describe("Build and the brain", () => {
     expect(build).toContain("write to the project brain except through step 7b, with its approvals");
     expect(build).toContain("plus at most one `<KEY>: brain ingest` commit after its own yes");
   });
+  it("a request to squash, rebase or amend is declined in one line, in both git modes", () => {
+    expect(build).toContain("rewrite history (squash, rebase, amend)");
+    expect(build).toContain("**If the engineer asks you to squash, rebase or amend commits**, decline in one line: rewriting history is theirs (in every git mode)");
+  });
   it("the brain commands it names exist", () => {
     for (const c of ["brain-source", "brain-index", "brain-check"]) expect(Object.keys(handlers)).toContain(c);
     expect(build).toContain("`brain-source`, `brain-index` and `brain-check`");

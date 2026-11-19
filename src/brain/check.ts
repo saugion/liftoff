@@ -31,7 +31,7 @@ const PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
 const MIN_QUOTE = 12;
 // An accident guard, not a guarantee: phrases that read like an instruction to the agent, outside a quote.
 const INSTRUCTION_LIKE = [/ignore (all|any|previous) instructions/i, /you (must|should) now/i, /as an ai/i, /system prompt/i, /\b(agents?|assistant) (must|should|always|never)\b/i];
-const LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) (\S+?)(?::(?: (.+))?)?$/;
+const LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) ([^:\s,]+(?:, [^:\s,]+)*)(?::(?: (.+))?)?$/;
 
 // Every file under `abs`, as paths relative to it, and every symlink (never followed).
 function walk(abs: string, rel = ""): { files: string[]; links: string[] } {
@@ -229,7 +229,7 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
       if (line.trim() === "") return;
       const m = LOG_LINE.exec(line);
       if (!m) return warn("log-format", inDir(`log/${f}`), "not a log line: '- YYYY-MM-DD <ingest|save|fix|retract> <path>[: <paths>]'", i + 1);
-      const named = [m[2]!, ...(m[3] ? m[3].split(/,\s*/) : [])];
+      const named = [...m[2]!.split(/,\s*/), ...(m[3] ? m[3].split(/,\s*/) : [])];
       for (const n of m[1] === "retract" ? [] : named) {
         if (!existsSync(join(dirAbs, n))) warn("log-format", inDir(`log/${f}`), `names ${n}, which no longer exists`, i + 1);
       }

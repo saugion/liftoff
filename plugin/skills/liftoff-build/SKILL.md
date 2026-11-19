@@ -28,11 +28,15 @@ yourself.**
   deviation from the plan and write it into the plan file.
 - **Never:** build from a draft or `stale` plan; open the merge request (not even with `build.mrCreate`: the
   engineer runs it); move, transition, comment on or edit the ticket; write to the tracker at all; merge; push to
-  the target branch; force-push; skip hooks or checks; reset or delete an existing branch; stash or discard the
+  the target branch; force-push; skip hooks or checks; rewrite history (squash, rebase, amend); reset or delete an existing branch; stash or discard the
   engineer's changes; change git config (identity, hooks, remotes: if a commit fails for a missing identity, show the error and ask); run a git write in `manual` mode (see Git mode); write to the project brain except through step 7b, with its approvals; put a credential anywhere.
 
 **If the engineer asks you to open the merge request or move the ticket**, decline in one line (those are theirs, in every
 git mode), give the command or the lane name, and go on with the rest of their answer.
+
+**If the engineer asks you to squash, rebase or amend commits**, decline in one line: rewriting history is theirs
+(in every git mode). Say which commit they mean (for example the intentionally red first one) and that an interactive
+rebase on their side does it, before or after the push, and go on.
 
 **A plan that starts with failing tests** wins over a repo rule like "run the checks before every commit" for that
 first, intentionally red commit: make it, and say so in the push dry-run so the engineer can squash it.

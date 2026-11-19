@@ -15798,7 +15798,7 @@ ${t.criteria}`);
 var PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
 var MIN_QUOTE = 12;
 var INSTRUCTION_LIKE = [/ignore (all|any|previous) instructions/i, /you (must|should) now/i, /as an ai/i, /system prompt/i, /\b(agents?|assistant) (must|should|always|never)\b/i];
-var LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) (\S+?)(?::(?: (.+))?)?$/;
+var LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) ([^:\s,]+(?:, [^:\s,]+)*)(?::(?: (.+))?)?$/;
 function walk(abs, rel = "") {
   const out = { files: [], links: [] };
   let names;
@@ -15970,7 +15970,7 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
       if (line.trim() === "") return;
       const m = LOG_LINE.exec(line);
       if (!m) return warn("log-format", inDir(`log/${f}`), "not a log line: '- YYYY-MM-DD <ingest|save|fix|retract> <path>[: <paths>]'", i + 1);
-      const named = [m[2], ...m[3] ? m[3].split(/,\s*/) : []];
+      const named = [...m[2].split(/,\s*/), ...m[3] ? m[3].split(/,\s*/) : []];
       for (const n of m[1] === "retract" ? [] : named) {
         if (!existsSync5(join8(dirAbs, n))) warn("log-format", inDir(`log/${f}`), `names ${n}, which no longer exists`, i + 1);
       }
@@ -16264,6 +16264,7 @@ var fail2 = (code, message, extra = {}, exitCode = 1) => ({
 });
 var NOT_A_GUARANTEE = "(an accident guard, not a guarantee)";
 var MAX_TICKET_JSON = 2e6;
+var PREVIEW_LINES = 40;
 var brainSource = ({ root, file, key, kind, write }) => {
   if (!kind || !KINDS.includes(kind)) return fail2("usage", `brain-source needs --kind ${KINDS.join("|")}`, {}, 2);
   if (!file) return fail2("usage", "brain-source needs --file <path>", {}, 2);
@@ -16334,7 +16335,9 @@ var brainSource = ({ root, file, key, kind, write }) => {
     if (readFileSync7(target, "utf8") !== out.content) return fail2("source-invalid", `${path} exists with different content: raw files are never overwritten`, { file: path });
     action = "exists";
   } else if (write) atomicWrite(target, out.content);
-  return { exitCode: 0, body: { ok: true, path, action, sha256: out.sha, bytes: Buffer.byteLength(out.content), written: action === "created" } };
+  const lines2 = body.split("\n");
+  const header = out.content.slice(0, out.content.indexOf("\n"));
+  return { exitCode: 0, body: { ok: true, path, action, sha256: out.sha, bytes: Buffer.byteLength(out.content), header, preview: lines2.slice(0, PREVIEW_LINES).join("\n"), previewTruncated: lines2.length > PREVIEW_LINES, written: action === "created" } };
 };
 
 // src/cli/draft-tickets.ts

@@ -18,6 +18,7 @@ const fail = (code: "source-invalid" | "source-secret" | "no-tracker" | "usage",
 
 const NOT_A_GUARANTEE = "(an accident guard, not a guarantee)";
 const MAX_TICKET_JSON = 2_000_000;
+const PREVIEW_LINES = 40;
 
 // Copies one source into <dir>/raw/, content-addressed and read-only by convention. The only writer of raw/.
 export const brainSource: Handler = ({ root, file, key, kind, write }) => {
@@ -96,5 +97,8 @@ export const brainSource: Handler = ({ root, file, key, kind, write }) => {
     if (readFileSync(target, "utf8") !== out.content) return fail("source-invalid", `${path} exists with different content: raw files are never overwritten`, { file: path });
     action = "exists";
   } else if (write) atomicWrite(target, out.content);
-  return { exitCode: 0, body: { ok: true, path, action, sha256: out.sha, bytes: Buffer.byteLength(out.content), written: action === "created" } };
+  // What will be (or was) stored: the header line and the first lines of the body, so the engineer sees it before saying yes.
+  const lines = body.split("\n");
+  const header = out.content.slice(0, out.content.indexOf("\n"));
+  return { exitCode: 0, body: { ok: true, path, action, sha256: out.sha, bytes: Buffer.byteLength(out.content), header, preview: lines.slice(0, PREVIEW_LINES).join("\n"), previewTruncated: lines.length > PREVIEW_LINES, written: action === "created" } };
 };

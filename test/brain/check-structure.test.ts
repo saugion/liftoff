@@ -107,6 +107,13 @@ describe("brain-check structure", () => {
     expect(body.warnings.map((w: any) => [w.code, w.line])).toEqual([["log-format", 2]]);
   });
 
+  it("a batch log line lists every raw file before the colon; a missing one in the list still warns", () => {
+    const { dir, raw } = healthy();
+    put(dir, "brain/log/2026-11.md", `- 2026-11-20 ingest ${raw}, ${raw}: wiki/learnings/reset.md\n- 2026-11-20 ingest ${raw}, raw/docs/gone-aaaaaaaa.md: wiki/learnings/reset.md\n`);
+    const { body } = check(dir);
+    expect(body.warnings.map((w: any) => [w.code, w.line, /gone/.test(w.message)])).toEqual([["log-format", 2, true]]);
+  });
+
   it("findings are sorted by file then line, so the output is stable", () => {
     const { dir } = healthy();
     put(dir, "brain/wiki/learnings/reset.md", page("Reset", ["raw/docs/a.md", "raw/docs/b.md"], "[o](other.md)\n"));

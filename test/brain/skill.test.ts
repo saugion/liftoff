@@ -130,3 +130,17 @@ describe("Ingest, Health check and Retract", () => {
     for (const s of spans) expect(s).not.toMatch(/--force|--no-verify|reset --hard|git stash|branch -D|push/);
   });
 });
+
+describe("what the smoke runs taught the ingest procedure", () => {
+  const ingest = readFileSync(join(SKILL_DIR, "references", "ingest.md"), "utf8").replace(/\s+/g, " ");
+  it("3a shows the header and the preview", () => {
+    expect(ingest).toContain("the `header` line and the `preview` (the first lines of what will be stored; say if `previewTruncated`)");
+  });
+  it("a batch log line lists every raw file; an uncommitted line of this run may be corrected", () => {
+    expect(ingest).toContain("list every raw file before the colon, separated by commas");
+    expect(ingest).toContain("A log line you wrote in this run and have not committed may be corrected; never touch a line that is already committed");
+  });
+  it("a page may be only a heading and quotes, with a quoted summary; edits need a fresh yes 2; conflicts are said plainly", () => {
+    for (const s of ["a page may be just a heading and quotes", "the `summary` the checker requires is a phrase copied from the source", "take a **fresh yes 2** before writing anything", "When a request conflicts with the checker", "offer the closest option", "the index entry each new page will get"]) expect(ingest, s).toContain(s);
+  });
+});
