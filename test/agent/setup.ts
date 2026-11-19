@@ -1,7 +1,10 @@
 // Not part of `npm test`. Prepares a workspace for a real agent to run the skills against: a fake Jira that stays up,
 // a repo that already ran Init and has the Jira entry wired (the machine is "connected"), and `bin/jira-tool`, a shell
 // command that stands in for the MCP tools (a sub-agent has no MCP attached; the command starts the same generated
-// MCP entry the way a host does). Prints one JSON line {jira, repo, bin}. Usage: node setup.mjs <dir>
+// MCP entry the way a host does). Prints one JSON line {jira, repo, bin}. Usage: node setup.mjs <dir> [jira-only|brain]
+// `brain`: the full fake Jira (PROJ-123..126, STR-1), a repo whose liftoff.yaml has `brain:` and the learned issue types,
+// a bare `origin` with main pushed, and one ingested ticket (PROJ-124) so the wiki is not empty. PROJ-126 carries text
+// that tries to instruct the agent.
 import { writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { baseEnv, git, liftoff, startJira, write, FAKES, ROOT } from "../e2e/world.js";
@@ -10,11 +13,14 @@ import { config } from "../e2e/config.js";
 const dir = process.argv[2]!;
 const LEAD_TOKEN = "agent-run-PAT-do-not-leak";
 const jiraOnly = process.argv[3] === "jira-only"; // restart the fake Jira (same port, empty) without touching the workspace
-const jira = await startJira(dir, [LEAD_TOKEN], { fresh: true, ...(process.env.FAKE_JIRA_PORT && { port: Number(process.env.FAKE_JIRA_PORT) }) });
+const brain = process.argv[3] === "brain";
+const jira = await startJira(dir, [LEAD_TOKEN], { fresh: !brain, ...(process.env.FAKE_JIRA_PORT && { port: Number(process.env.FAKE_JIRA_PORT) }) });
 if (jiraOnly) { console.log(JSON.stringify({ jira: jira.url })); setInterval(() => writeFileSync(join(dir, "jira-state.json"), JSON.stringify({ requests: jira.requests.length, issues: jira.issues }, null, 2)), 1000); await new Promise(() => {}); }
 const repo = join(dir, "app");
 // Init'ed, with the tracker linked but no issue type learned yet (that is the lead flow's job)
-const cfg = config(jira.url).replace(/  issueTypes:[\s\S]*?codeHost:/, "codeHost:").replace('version: "0.2"', 'version: "0.3"');
+const cfg = brain
+  ? config(jira.url).replace('version: "0.2"', 'version: "0.4"') + "brain: {}\n"
+  : config(jira.url).replace(/  issueTypes:[\s\S]*?codeHost:/, "codeHost:").replace('version: "0.2"', 'version: "0.3"');
 write(repo, "liftoff.yaml", cfg.replace("agents: { targets: [claude-code, copilot] }", "agents: { targets: [claude-code] }"));
 write(repo, "AGENTS.md", "# app\nRun `sh check.sh` before every commit.\n");
 write(repo, "backend/AGENTS.md", "# backend\n");
@@ -24,7 +30,26 @@ if (liftoff(repo, ["render"]).status !== 0) throw new Error("render failed");
 const info = liftoff(repo, ["connect-info"]).body;
 write(repo, ".mcp.json", JSON.stringify({ mcpServers: { [info.mcp[0].server]: info.mcp[0].entry } }, null, 2) + "\n");
 write(repo, ".liftoff/.gitignore", "*\n");
+if (brain) {
+  const ok = (r: { status: number | null; stderr: string }) => { if (r.status !== 0) throw new Error(`brain setup failed: ${r.stderr}`); };
+  write(repo, "check.sh", "#!/bin/sh\ngrep -q . backend/login.txt\n");
+  write(repo, ".gitlab/merge_request_templates/Default.md", "## What\n\n## Ticket\n\n## How to test\n");
+  ok(liftoff(repo, ["brain-init", "--write"]));
+  // one ticket already in the wiki, ingested the way the skills do it
+  const issue = jira.issues.find((i) => i.key === "PROJ-124")!;
+  write(repo, ".liftoff/tmp/PROJ-124.json", JSON.stringify(issue));
+  const src = liftoff(repo, ["brain-source", "--kind", "ticket", "--file", ".liftoff/tmp/PROJ-124.json", "--write"]);
+  ok(src);
+  const raw = (src.body.path as string).replace(/^brain\//, "");
+  write(repo, "brain/wiki/learnings/empty-cart.md", `---\ntitle: Empty cart\ntype: learning\nupdated: 2026-11-19\nsummary: The app must not crash on an empty cart.\nsources: [${raw}]\n---\n# Empty cart\n\nWhat the team expects when the cart is empty.\n\n> no crash on an empty cart; a message is shown\n> -- [PROJ-124](../../${raw})\n`);
+  write(repo, "brain/log/2026-11.md", `- 2026-11-19 ingest ${raw}: wiki/learnings/empty-cart.md\n`);
+  write(repo, "brain/hot.md", "# Hot\n\n- Now: nothing in progress\n- Changed last: empty cart behaviour (PROJ-124)\n");
+  ok(liftoff(repo, ["brain-index", "--write"]));
+  const check = liftoff(repo, ["brain-check"]);
+  if (check.status !== 0) throw new Error(`the baseline brain is not ok: ${JSON.stringify(check.body.errors)}`);
+}
 git(repo, "add", "-A"); git(repo, "commit", "-qm", "init");
+if (brain) { git(dir, "init", "-q", "--bare", "-b", "main", join(dir, "remote.git")); git(repo, "remote", "add", "origin", join(dir, "remote.git")); git(repo, "push", "-q", "-u", "origin", "main"); }
 
 const env = baseEnv(dir, { LIFTOFF_JIRA_TOKEN: LEAD_TOKEN });
 const shim = `import { readFileSync } from "node:fs";
@@ -54,7 +79,7 @@ exec ${JSON.stringify(process.execPath)} ${JSON.stringify(join(dir, "bin/jira-to
 write(dir, "bin/jira-tool", wrapper);
 chmodSync(join(dir, "bin/jira-tool"), 0o755);
 writeFileSync(join(dir, "jira-state.json"), "{}");
-console.log(JSON.stringify({ jira: jira.url, repo, bin: join(dir, "bin/jira-tool"), plugin: join(ROOT, "plugin") }));
+console.log(JSON.stringify({ jira: jira.url, repo, bin: join(dir, "bin/jira-tool"), plugin: join(ROOT, "plugin"), ...(brain && { origin: join(dir, "remote.git") }) }));
 // stay up until killed; dump the Jira state on demand so a human or the harness can inspect it
 setInterval(() => writeFileSync(join(dir, "jira-state.json"), JSON.stringify({ requests: jira.requests.length, issues: jira.issues }, null, 2)), 1000);
 void FAKES;
