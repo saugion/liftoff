@@ -64,6 +64,21 @@ terminal. The accepted environment-variable route exposes the token to the agent
 - Jira DC renders wiki markup and the MCP server converts Markdown on write and back on read; the quirks are in
   `plugin/skills/liftoff-connect/assets/jira-dc-formatting.md`.
 
+## Project brain (0.4)
+
+- **The CLI is the only writer of `raw/`.** A source copied by an agent could be edited to make a quote pass, so the copy is
+  made by a command that names the file by its content (`<kind>/<id>-<hash>.md`), never overwrites, and records the original
+  path and hash in a header; `brain-check` compares every quote with the file and flags a changed one.
+- **The index is generated**, never edited: two branches that add pages would conflict on a hand-kept list. Git can still
+  merge the generated file cleanly and wrong, so a health check after a merge or pull runs `brain-index --write`.
+- **Log files merge by union** (`.gitattributes`, optional) because every ingest appends a line; without it two branches can conflict
+  and the lead resolves it by hand.
+- **Structure and quotes are checked, truth is not.** A wrong source gives a faithfully wrong wiki; retract and a health
+  check that reports contradictions are the repair path, and the ticket, `AGENTS.md`, `CONSTRAINTS.md` and the code win over
+  a page.
+- **Copilot gap.** Claude Code can deny edits under `raw/` with a committed settings rule; VS Code Copilot only asks for
+  approval, so there `brain-check` is the guard.
+
 ## Lessons (0.4)
 
 - **The count is per engineer.** Syncing personal files between people would need a server, and one engineer's habit is

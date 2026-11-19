@@ -86,18 +86,39 @@ Contents: [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket
 21. **Epics can be created** (your request): `Epic` is a normal issue type taught by the lead flow (template + the instance's Epic Name field in `createFields`). A batch can hold an epic and its tickets (`"epic": "#0"`); later tickets use the epic's key. An epic cannot have an epic link. A new epic in a stream is not in `streams.items[].epics` automatically: the skill proposes the diff and only applies it with approval (the file is shared). Until it is registered, a ticket naming it by key is refused when the stream lists epics.
 22. **Release:** I tagged the existing `0.3.0` (never published) rather than bumping to 0.4.0, because every minimum in the config (`streams`, `build` need 0.3) and all docs say 0.3. The release script refuses a version equal to the current one, so I ran its steps by hand: clean install, build, tests, tag, push main then the tag. The earlier note that `v0.1.0` is the only tag is now outdated.
 
+## Brain (0.4)
+
+23. **The brain is opt-in and lives in the repo.** `brain` in `liftoff.yaml` (needs `plugin.version` 0.4), the wiki committed and
+    reviewed in merge requests, a personal layer under the self-ignored `.liftoff/`. A repo without `brain` behaves exactly as v0.3.
+24. **The CLI is the only writer of `raw/`.** `brain-source` copies a source into a content-addressed file that it never
+    overwrites; `brain-check` verifies every quote word for word and reports an edited raw file (`source-changed`).
+25. **Init (teammate) does not edit shared brain files.** The plan had Init propose the `AGENTS.md` block, the Claude and VS Code
+    settings and `.gitattributes` with an approval each; the smoke run showed a teammate was being asked to change files the
+    lead owns. Now Init only creates the local structure and says "tell the lead" for what is missing; the Brain skill's Setup
+    (the lead) proposes them. Deviation from B12.
+26. **Build's ingest commit sits on the ticket's branch**, after its own yes, as a separate `<KEY>: brain ingest` commit, and
+    Build never pushes it separately. Outside Build the Brain skill never commits on the target branch: it proposes a
+    `brain/<id>` branch in the same approval.
+27. **A raw ticket copy keeps only summary, description and acceptance criteria** and is checked for credentials; text aimed
+    at the agent is reported to the engineer, who decides whether the raw copy is stored (a source cannot be redacted).
+28. **`brain.required` defaults to false**: a teammate who has not run Init gets a warning, not a block.
+29. **Git can merge `index.md` cleanly and still leave it wrong**, so the skill runs the health check after a merge or pull and
+    the fix is always `brain-index --write`. Found by the end-to-end run.
+30. **Release note:** the marketplace fragment Init recommends pins `ref: v0.4.0`, a tag that exists only once v0.4.0 is
+    published; until then the pilot stays on `v0.3.0` and a teammate on v0.4 must not run Init.
+
 ## Lessons (0.4)
 
-23. **Opt-in inside `brain`.** `brain.lessons` is part of the `brain` section hash and has no `required` of its own. A brain
+31. **Opt-in inside `brain`.** `brain.lessons` is part of the `brain` section hash and has no `required` of its own. A brain
     without lessons keeps its hash, and a teammate sees the addition as an optional change.
-24. **A lesson for the lead is a message, not a diff.** The plan listed a `lead` target both as invalid in `add` and as a
+32. **A lesson for the lead is a message, not a diff.** The plan listed a `lead` target both as invalid in `add` and as a
     message; I took the message reading. A selected lead lesson returns text to send to the lead and changes no file.
-25. **The ten open questions took Opus's defaults** (you said "ok difetti"): `capture: notify`, ready after 2 distinct tickets,
+33. **The ten open questions took Opus's defaults** (you said "ok difetti"): `capture: notify`, ready after 2 distinct tickets,
     unpromoted lessons appear only as a reminder in Plan's outline, the Brain skill never pushes the lessons branch, metrics
     compare before and after in the same repo.
-26. **Retiring a rule to make room is the engineer's choice.** On `lessons-full` the skill shows the block's rules and lets
+34. **Retiring a rule to make room is the engineer's choice.** On `lessons-full` the skill shows the block's rules and lets
     the engineer choose; with equal dates "oldest first" means nothing.
-27. **Manual mode has no second approval.** The reference's "yes 2" applies to `assisted`; in `manual` the commands are handed
+35. **Manual mode has no second approval.** The reference's "yes 2" applies to `assisted`; in `manual` the commands are handed
     over and the branch name is a suggestion.
-28. **The diff header carries line counts** (`@@ -1,4 +1,6 @@`); the first version had none, which the smoke run flagged.
-29. **Found by the end-to-end run:** a lesson whose evidence hash was all digits could not be read back; the hash is now quoted.
+36. **The diff header carries line counts** (`@@ -1,4 +1,6 @@`); the first version had none, which the smoke run flagged.
+37. **Found by the end-to-end run:** a lesson whose evidence hash was all digits could not be read back; the hash is now quoted.

@@ -4,6 +4,14 @@ Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `doc
 
 ## 0.4.0 (not released yet)
 
+### Project brain (opt-in: `brain` in `liftoff.yaml`, needs `plugin.version` 0.4)
+
+- A shared wiki in the repo (`brain/`: `raw/` sources written only by the CLI, `wiki/` pages with verified quotes, `log/`,
+  a generated `index.md`) and a personal layer (`.liftoff/brain/`, never committed).
+- New commands: `brain-init`, `brain-source`, `brain-index`, `brain-check`; `parse-ticket` returns `brain`; `--write` and `--kind`.
+- New skill `liftoff-brain`: Setup (the lead), Ingest (three approvals), Query, Health check, Retract, Personal notes.
+- Init creates the local structure on a teammate's machine; Plan reads the brain; Build offers an ingest as a separate commit.
+
 ### Lessons loop (opt-in: `brain.lessons` in `liftoff.yaml`)
 
 - New `brain.lessons` section (`capture`, `promoteAfter`, `maxRules`, `reviewAfterDays`, `metrics`), part of the `brain` hash.

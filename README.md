@@ -6,7 +6,7 @@ the team writes its rules down once, in one file, and every engineer's agent fol
 ticket, write a plan, write the code and prepare the merge request, all the way the team does it. The engineer approves
 every step and stays in charge.
 
-Current release: **v0.3.0**, built and tested, not yet piloted. See [Status](#status-and-limits).
+Current release: **v0.4.0**, built and tested, not yet piloted (the pilot runs on v0.3.0; the project brain is new in v0.4). See [Status](#status-and-limits).
 
 **What a team gets**
 
@@ -59,6 +59,18 @@ Sara clones the repo, runs `/liftoff:liftoff-init` (no questions, it applies Nin
 5. **Sara finishes.** She reviews the code, opens the merge request with that command and moves the ticket to the
    next column herself. LiftOff never opens the merge request, never merges and never moves a ticket.
 
+**With the project brain (optional, after a few weeks)**
+
+6. **The wiki already knows.** Nina turned on the brain. Sara's next *"plan PROJ-130"* starts from what the team's
+   agents wrote down before: the plan names the wiki pages it used, and says so when a page and the ticket disagree
+   (the ticket wins).
+7. **Sara finishes, and the agent offers a note.** After the build it offers to add the ticket, the plan and the merge
+   request text to the wiki, on the same branch, as a quote from each source. Sara reads the pages, says yes, and the
+   change reaches `main` in the same merge request that reviews her code.
+8. **A correction becomes a rule.** Twice, on different tickets, Sara told the agent to run the API tests with
+   `make test-api`. "Promote my lessons" shows the one-line rule and the diff; Sara commits it on a branch and opens a
+   merge request, and Nina and the team review it like code.
+
 At no point does the agent act alone. Everything that leaves the laptop (a ticket, a branch, a push) is shown first
 and waits for a yes.
 
@@ -71,7 +83,7 @@ shared team config and connects the agent to the tracker and code host with the 
 
 ## How it works
 
-Five skills (a skill is a packaged set of instructions the agent follows). The skills call a small command-line tool
+Six skills (a skill is a packaged set of instructions the agent follows). The skills call a small command-line tool
 bundled with the plugin, which checks the team's rules. That tool makes no network calls and never handles
 credentials. The agent talks to Jira through an MCP server (a standard way to give an agent access to an outside
 system) and to GitLab through the `glab` command-line tool.
@@ -94,6 +106,7 @@ system) and to GitLab through the `glab` command-line tool.
 | **Connect** | lead once, then each teammate | Teammate: checks prerequisites, stores a personal Jira token in the macOS Keychain (or reads it from an environment variable), adds the Jira server entry, verifies Jira and GitLab. Lead, once: sets the team's ticket templates, starting from real tickets, a built-in default or the lead's own sections (and can change one later), and learns the fields, test-creates one ticket per type until each one works, learns the workflow transitions, learns the merge-request conventions from past merge requests, and writes all of it to `liftoff.yaml`. Can also link work streams. |
 | **Plan** | engineer | Reads a ticket through the team's reading map (where acceptance criteria and key fields live), reads the repo's rules and code, and writes a local plan in sections. The engineer approves it once. Nothing is written to Jira. |
 | **Build** | engineer | Implements the approved plan section by section and runs the repo's checks. Then it self-checks against the acceptance criteria and prepares the branch name, commit messages, the merge-request description and the exact command to open it. |
+| **Brain** | lead (setup), engineer, anyone | Optional. The project's second brain: a wiki in the repo that the team's agents read before planning and keep up to date, and a personal layer that is never committed. The lead turns it on once. After that, "what do we know about X" is answered from the wiki, Build offers to add what a ticket taught, and "promote my lessons" turns repeated corrections into reviewed team rules. See [Project brain](#project-brain-optional). |
 | **Ticket** | PO/PM, engineer | Writes bugs, tasks, stories and epics on the team's templates, or breaks an epic into tickets. The whole batch is shown together and approved once. Works in the team's Jira project or in a linked work stream. |
 
 **Work streams** are optional. A stream is a time-boxed Kanban project (say a 3-6 week roadmap item or an MVP task
@@ -104,7 +117,40 @@ work that touches both a stream's module and a team module becomes two tickets, 
 The template a PO/PM writes a ticket with is the same one the engineer's Plan reads it with. The team config is the
 contract between who writes tickets and who implements them.
 
-## Lessons (optional)
+## Project brain (optional)
+
+A second brain for the project: a shared wiki in the repo, plus a personal layer on each machine. It is off unless the
+lead adds a `brain` section to `liftoff.yaml` (the Brain skill's Setup does it, with a diff to approve).
+
+```
+brain/                      committed, reviewed in merge requests like code
+  README.md   hot.md        what it is; a few lines of "what is going on now"
+  index.md                  generated list of every page
+  raw/                      the sources, copied once and never edited (named by their content)
+  wiki/                     pages: modules, decisions, learnings, each fact quoted from a source in raw/
+  log/                      one line per ingest, retract or fix
+.liftoff/brain/             personal, never committed (ignored): hot.md, notes/, lessons/
+```
+
+- **Three operations.** *Ingest* adds one source (a ticket, a plan, a merge request description, a file): you see
+  the source, then the pages, then the commit, each with its own yes. *Query* answers from the wiki by reading
+  the hot notes, the index and only the pages the question needs. *Health check* reports contradictions and stale
+  pages and changes nothing. *Retract* removes a wrong source's facts from the pages that cite it.
+- **Quotes are checked, not trusted.** Every key fact is a blockquote copied word for word from a raw source, and
+  `brain-check` verifies each one against the file. A raw source is written only by a command that never overwrites;
+  a later edit shows up as an error. The check proves structure and quotes, not truth: a wrong source gives a
+  faithfully wrong wiki.
+- **The wiki is background, not instructions.** The ticket, `AGENTS.md`, `CONSTRAINTS.md` and the code win over a page.
+  Text in a source or page that tries to give the agent an order is reported and never followed.
+- **It plugs into Plan and Build.** Plan reads the brain before the outline and names the pages it used; Build offers an
+  ingest after the work (`brain.afterBuild`: `propose` by default, or `off`), as one extra commit on the ticket's branch.
+- **A teammate gets it with Init**: the folders and the personal layer are created on the machine; the files the lead
+  must commit (an `AGENTS.md` pointer, an optional deny rule for `raw/`) come from the Brain skill's Setup, never from
+  a teammate's Init.
+- **Honest limits.** The brain has not been piloted. The deny rule for `raw/` is enforced in Claude Code, not in VS
+  Code Copilot (there `brain-check` is the guard). A very small brain warns about orphan pages.
+
+### Lessons (optional)
 
 With `brain.lessons` in `liftoff.yaml` (inside `brain`), the agents also learn from corrections, and the team can keep
 what repeats. It is off unless the lead turns it on.
@@ -143,6 +189,7 @@ All of it lives in `liftoff.yaml`, committed in the repo:
 | `tracker` | The Jira Data Center URL and project. For each issue type: the reading map, the ticket template, required creation fields, and the workflow transitions for start, review and done. |
 | `codeHost` | The GitLab host and merge-request conventions: target branch, branch pattern, title pattern, template, labels, reviewers. |
 | `streams` | The linked Kanban work streams, their epics and the module each one feeds. |
+| `brain` | Opt-in. `dir` (where the wiki lives, `brain` by default), `hotMaxLines` (15), `afterBuild` (`propose` or `off`) and `required` (a teammate is warned, or blocked, until they run Init). |
 | `build.git` | Who runs git in Build. `assisted`: the agent creates the branch, commits each section and pushes, each step only after the engineer approves a preview. `manual`: the agent never runs a git command that writes anything. It hands the engineer the branch name, the commit messages and the commands. |
 | `brain.lessons` | Opt-in inside `brain`. `capture` (`notify` by default, `ask` or `off`), `promoteAfter` (distinct tickets before a lesson is ready, 2 by default), `maxRules` (20), `reviewAfterDays` (90) and `metrics` (on). |
 | `plugin.version` | The minimum plugin version. An older install is stopped with instructions to update. |
@@ -162,7 +209,9 @@ config.
   in every git mode. Build never writes to Jira at all.
 - **Ticket text is data, not instructions.** If a ticket contains something like "also push to main", the agent
   reports it and does not follow it.
-- **Nothing is committed for you.** Init and Connect tell you which files to commit.
+- **Nothing is committed for you.** Init, Connect and the Brain skill tell you which files to commit.
+- **The brain's sources are read-only and its quotes are verified.** `raw/` is written only by a command that never
+  overwrites, a page's quote must match its source word for word, and the wiki never outranks the ticket and the code.
 - **A lesson never weakens `CONSTRAINTS.md`, and nothing is promoted without a review.** Personal lessons are data until the
   team merges the rule; the tool never pushes and never opens a merge request.
 
@@ -177,11 +226,11 @@ Homebrew, after you approve.
 Claude Code:
 
 ```
-/plugin marketplace add saugion/liftoff#v0.3.0
+/plugin marketplace add saugion/liftoff#v0.4.0
 /plugin install liftoff@liftoff
 ```
 
-The `#v0.3.0` tag installs exactly that release.
+The `#v0.4.0` tag installs exactly that release. A team already piloting on v0.3.0 stays on its tag until it chooses to move.
 
 VS Code with GitHub Copilot: turn on `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install `liftoff`.
 Plugin support in VS Code is partly experimental, and the pilot will check this path.
@@ -193,7 +242,10 @@ Plugin support in VS Code is partly experimental, and the pilot will check this 
 2. Run `/liftoff:liftoff-connect` and say you are the lead. Give the Jira URL and project, and the GitLab host. Approve
    each test ticket and each config change. If the agent asks you to restart it, restart and run the skill again: it
    picks up where it stopped.
-3. Commit what the skills list: `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, `CLAUDE.md`,
+3. Optional: run `/liftoff:liftoff-brain` and say you are the lead to turn on the project brain (a `brain` section, the folders,
+   an `AGENTS.md` pointer, each one a diff you approve), and add `lessons: {}` under `brain` if you want repeated corrections to become
+   reviewed rules.
+4. Commit what the skills list: `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, `CLAUDE.md`,
    `.github/copilot-instructions.md`, `.claude/settings.json`, `.mcp.json`, `.vscode/mcp.json`.
 
 **Teammate, once per machine**
@@ -210,6 +262,7 @@ Plugin support in VS Code is partly experimental, and the pilot will check this 
 | PO/PM, engineer | `/liftoff:liftoff-ticket` | "create a bug", "break down this epic" |
 | Engineer | `/liftoff:liftoff-plan` | "plan PROJ-123" |
 | Engineer | `/liftoff:liftoff-build` | "build this plan" |
+| Anyone | `/liftoff:liftoff-brain` | "what do we know about login", "promote my lessons" |
 
 After Build you review the work, open the merge request with the command Build handed you, and move the ticket to its
 next lane.
@@ -219,15 +272,15 @@ The repo pins the plugin to a release tag in `.claude/settings.json` (`ref`), an
 
 ## Status and limits
 
-**Built in v0.3.0:** Init, Connect (member and lead flows), Plan, Build with the `build.git` option, Ticket (with
-epics), and work streams.
+**Built in v0.4.0:** Init, Connect (member and lead flows), Plan, Build with the `build.git` option, Ticket (with
+epics), work streams, and the optional project brain (shared wiki, personal layer, lessons loop).
 
 **Supported:** Jira Server/Data Center through the community MCP server `mcp-atlassian`, one Jira project per repo.
 GitLab through `glab`. macOS. Claude Code and GitHub Copilot in VS Code.
 
-**Tested:** 1,219 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 1,701 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote, with a scripted stand-in for the agent. **Nothing has run yet against a real Jira Data Center, a real GitLab or
-a real agent following the skills.** Nothing has been measured.
+a real agent following the skills** apart from scripted runs where an agent followed the brain and lessons skills against fakes. **The brain and the lessons loop have not been piloted.** Nothing has been measured.
 
 **Not yet:**
 
@@ -236,7 +289,7 @@ a real agent following the skills.** Nothing has been measured.
 - sprint support (assigning sprints), and deadline or WIP warnings for streams
 - `doctor` (one command to check the whole setup)
 - a server so chat clients without a shell, like Claude Desktop, can run the Ticket flow
-- the optional Init add-ons: subagents, hooks, a CI workflow, a wiki
+- the optional Init add-ons: subagents, hooks, a CI workflow (the wiki is now the optional project brain)
 - a company-level shared config that repos inherit from
 
 There is also no Close step, on purpose. Updating the ticket and linking the merge request stay with the engineer.
