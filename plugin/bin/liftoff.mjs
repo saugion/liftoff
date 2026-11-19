@@ -15054,22 +15054,22 @@ var URL_WITH_PASSWORD = /\b[a-z][a-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]*@/i;
 var TOKEN = /\b(?:(?:ghp_|github_pat_|glpat-|lin_api_)[A-Za-z0-9_-]{8,}|xox[abeprs]-(?=[A-Za-z0-9-]*\d)[A-Za-z0-9-]{8,})/;
 function secretGuard(raw) {
   const errors = [];
-  const walk = (value, pointer) => {
+  const walk2 = (value, pointer) => {
     if (typeof value === "string") {
       if (TOKEN.test(value) || URL_WITH_PASSWORD.test(value)) {
         errors.push({ path: pointer, message: `value looks like a credential. ${NOTE}` });
       }
     } else if (Array.isArray(value)) {
-      value.forEach((item, i) => walk(item, `${pointer}/${i}`));
+      value.forEach((item, i) => walk2(item, `${pointer}/${i}`));
     } else if (value !== null && typeof value === "object") {
       for (const [key, item] of Object.entries(value)) {
         const child = `${pointer}/${escapePointer(key)}`;
         if (SECRET_KEYS.has(normalizeKey(key))) errors.push({ path: child, message: `key '${key}' looks like a credential. ${NOTE}` });
-        walk(item, child);
+        walk2(item, child);
       }
     }
   };
-  walk(raw, "");
+  walk2(raw, "");
   return errors;
 }
 
@@ -15308,8 +15308,8 @@ function readConfigWithPin(root) {
   const pinOrder = peek.pluginVersion === void 0 ? void 0 : compareVersions(INSTALLED_VERSION, peek.pluginVersion);
   const pinTooNew = pinOrder !== void 0 && pinOrder < 0;
   if (formatTooNew || pinTooNew) return pinTooNew ? { kind: "outdated", minimum: peek.pluginVersion } : { kind: "outdated" };
-  const read = readConfig(file);
-  return read.ok ? { kind: "ok", config: read.value } : { kind: "invalid", errors: read.errors };
+  const read2 = readConfig(file);
+  return read2.ok ? { kind: "ok", config: read2.value } : { kind: "invalid", errors: read2.errors };
 }
 function readFailure(root, outcome) {
   switch (outcome.kind) {
@@ -15461,9 +15461,9 @@ function checkAgentsMd(root, rels, plannedReal) {
   return errors;
 }
 function applyRender(root, opts) {
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return fatal(...readFailure(root, read));
-  const config = read.config;
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return fatal(...readFailure(root, read2));
+  const config = read2.config;
   const rendered = renderAgentFiles(config, { generatorVersion: INSTALLED_VERSION });
   if (!rendered.ok) return fatal(...asCode("render-invalid", rendered.errors.map(toCliError)));
   const generated = rendered.value;
@@ -15544,16 +15544,16 @@ var blocked = (reasons, hint) => ({
   ...hint && { hint }
 });
 function checkConfig(root) {
-  const read = readConfigWithPin(root);
-  switch (read.kind) {
+  const read2 = readConfigWithPin(root);
+  switch (read2.kind) {
     case "missing": {
       const near = nearestRoot(root);
       return blocked([{ code: "config-missing", message: `${CONFIG_FILE} not found in ${root}` }], near === void 0 ? void 0 : { nearestRoot: near });
     }
     case "invalid":
-      return blocked([{ code: "config-invalid", message: `${CONFIG_FILE} is invalid (${read.errors.length} problem${read.errors.length === 1 ? "" : "s"}); see errors`, errors: read.errors }]);
+      return blocked([{ code: "config-invalid", message: `${CONFIG_FILE} is invalid (${read2.errors.length} problem${read2.errors.length === 1 ? "" : "s"}); see errors`, errors: read2.errors }]);
     case "outdated":
-      return blocked([{ code: "plugin-outdated", message: outdatedMessage(read.minimum), ...read.minimum !== void 0 && { minimum: read.minimum } }]);
+      return blocked([{ code: "plugin-outdated", message: outdatedMessage(read2.minimum), ...read2.minimum !== void 0 && { minimum: read2.minimum } }]);
   }
   const applied = readApplied(realpathSync3(root));
   if (applied.kind === "missing") {
@@ -15567,8 +15567,8 @@ function checkConfig(root) {
   }
   const { record } = applied;
   const before = record.sectionHashes;
-  const after = sectionHashes(read.config);
-  const required = /* @__PURE__ */ new Set([...record.requiredSections, ...requiredSections(read.config)]);
+  const after = sectionHashes(read2.config);
+  const required = /* @__PURE__ */ new Set([...record.requiredSections, ...requiredSections(read2.config)]);
   const requiredChanges = [];
   const optionalChanges = [];
   for (const section of [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].sort()) {
@@ -15596,9 +15596,9 @@ var checkConfigCommand = ({ root }) => {
   return { exitCode: result2.status === "blocked" ? 1 : 0, body: { ...result2 } };
 };
 
-// src/cli/brain-index.ts
-import { existsSync as existsSync6, lstatSync as lstatSync3, readFileSync as readFileSync5, readdirSync as readdirSync3 } from "node:fs";
-import { join as join9 } from "node:path";
+// src/brain/check.ts
+import { existsSync as existsSync5, lstatSync as lstatSync2, readFileSync as readFileSync4, readdirSync as readdirSync2 } from "node:fs";
+import { join as join7, posix } from "node:path";
 
 // src/brain/page.ts
 var import_yaml2 = __toESM(require_dist(), 1);
@@ -15628,16 +15628,7 @@ var withoutCodeSpans = (line) => line.replace(/(`+)[^`]*?\1/g, (m) => " ".repeat
 var LINK = /\[[^\]]*\]\(\s*<?([^)\s>]*)>?(?:\s+"[^"]*")?\s*\)/g;
 var CITATION = /^--\s*\[([^\]]*)\]\(\s*<?([^)\s>]+)>?\s*\)\s*$/;
 var EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
-function parsePage(text) {
-  const lines2 = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
-  if (lines2[0] !== "---") return { ok: false, errors: ["no front matter: the file must start with a --- line"] };
-  const end = lines2.indexOf("---", 1);
-  if (end < 0) return { ok: false, errors: ["front matter is not closed with a --- line"] };
-  const doc = (0, import_yaml2.parseDocument)(lines2.slice(1, end).join("\n"));
-  if (doc.errors.length > 0) return { ok: false, errors: doc.errors.map((e) => `front matter YAML: ${e.message.split("\n")[0]}`) };
-  const raw = doc.toJS();
-  const errors = frontErrors(raw);
-  if (errors.length > 0) return { ok: false, errors };
+function scan(lines2, from) {
   const links = [];
   const quotes = [];
   let fence;
@@ -15650,7 +15641,7 @@ function parsePage(text) {
     quotes.push({ text: normalize2(body.join("\n")), ...last && { citation: { label: last[1], path: last[2] } }, line: block.line });
     block = void 0;
   };
-  for (let i = end + 1; i < lines2.length; i++) {
+  for (let i = from; i < lines2.length; i++) {
     const line = lines2[i];
     const fenceMark = /^\s{0,3}(`{3,}|~{3,})/.exec(line)?.[1];
     if (fence !== void 0) {
@@ -15674,6 +15665,20 @@ function parsePage(text) {
     } else closeBlock();
   }
   closeBlock();
+  return { links, quotes };
+}
+var scanLinks = (text) => scan(text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n"), 0).links;
+function parsePage(text) {
+  const lines2 = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
+  if (lines2[0] !== "---") return { ok: false, errors: ["no front matter: the file must start with a --- line"] };
+  const end = lines2.indexOf("---", 1);
+  if (end < 0) return { ok: false, errors: ["front matter is not closed with a --- line"] };
+  const doc = (0, import_yaml2.parseDocument)(lines2.slice(1, end).join("\n"));
+  if (doc.errors.length > 0) return { ok: false, errors: doc.errors.map((e) => `front matter YAML: ${e.message.split("\n")[0]}`) };
+  const raw = doc.toJS();
+  const errors = frontErrors(raw);
+  if (errors.length > 0) return { ok: false, errors };
+  const { links, quotes } = scan(lines2, end + 1);
   return { ok: true, front: raw, links, quotes };
 }
 
@@ -15707,9 +15712,180 @@ ${rows.join("\n")}
 ${body}`, skipped };
 }
 
+// src/brain/source.ts
+import { createHash as createHash2 } from "node:crypto";
+var KINDS = ["ticket", "plan", "mr", "doc"];
+var MAX_SOURCE_BYTES = 256 * 1024;
+var sha256Hex = (s) => createHash2("sha256").update(s).digest("hex");
+var headerLine = (kind, id, from, bodySha) => `<!-- liftoff brain source; kind: ${kind}; id: ${id}; from: ${from.replace(/-->/g, "--").replace(/\s+/g, " ").trim()}; body-sha256:${bodySha} -->`;
+var HEADER_RE = /^<!-- liftoff brain source; kind: (ticket|plan|mr|doc); id: (\S+); from: (.*); body-sha256:([0-9a-f]{64}) -->$/;
+function cleanText(buf) {
+  if (buf.length > MAX_SOURCE_BYTES) return { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` };
+  if (buf.includes(0)) return { error: "not a text file (it has a NUL byte)" };
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return { error: "not valid UTF-8" };
+  }
+  const body = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+  return Buffer.byteLength(body) > MAX_SOURCE_BYTES ? { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` } : { body };
+}
+function sourceFile(kind, id, from, body) {
+  const sha = sha256Hex(body);
+  return { rel: `raw/${kind}s/${id}-${sha.slice(0, 8)}.md`, sha, content: `${headerLine(kind, id, from, sha)}
+${body}` };
+}
+function ticketBody(t) {
+  const parts = [`# ${t.key} ${t.summary}`.trim(), `Type: ${t.issueType}`];
+  if (t.description) parts.push(`## Description
+
+${t.description}`);
+  if (t.criteria) parts.push(`## Acceptance criteria
+
+${t.criteria}`);
+  return parts.join("\n\n").replace(/\r\n?/g, "\n") + "\n";
+}
+
+// src/brain/check.ts
+var PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
+var LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) (\S+?)(?::(?: (.+))?)?$/;
+function walk(abs, rel = "") {
+  const out = { files: [], links: [] };
+  let names;
+  try {
+    names = readdirSync2(join7(abs, rel)).sort();
+  } catch {
+    return out;
+  }
+  for (const name of names) {
+    const r = rel === "" ? name : `${rel}/${name}`;
+    const st = lstatSync2(join7(abs, r));
+    if (st.isSymbolicLink()) out.links.push(r);
+    else if (st.isDirectory()) {
+      const sub = walk(abs, r);
+      out.files.push(...sub.files);
+      out.links.push(...sub.links);
+    } else out.files.push(r);
+  }
+  return out;
+}
+var safeDecode = (s) => {
+  try {
+    return decodeURI(s);
+  } catch {
+    return s;
+  }
+};
+var read = (abs) => readFileSync4(abs, "utf8");
+var nonEmpty = (text) => text.split(/\r?\n/).filter((l) => l.trim() !== "").length;
+function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
+  const findings = [];
+  const add = (level, code, file, message, line) => findings.push({ code, level, file, message, ...line !== void 0 && { line } });
+  const err = (code, file, message, line) => add("error", code, file, message, line);
+  const warn = (code, file, message, line) => add("warning", code, file, message, line);
+  const result2 = (pages2 = 0, raw = 0, logs2 = 0, bySource2 = {}) => {
+    const order = (a, b) => a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line ?? 0) - (b.line ?? 0) || (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
+    return { errors: findings.filter((f) => f.level === "error").sort(order), warnings: findings.filter((f) => f.level === "warning").sort(order), stats: { pages: pages2, raw, logs: logs2 }, bySource: bySource2 };
+  };
+  const dirAbs = join7(realRoot, paths.dir);
+  if (!existsSync5(dirAbs)) {
+    err("brain-missing", paths.dir, `${paths.dir} not found: run brain-init`);
+    return result2();
+  }
+  if (resolveReal(dirAbs) !== dirAbs) {
+    err("symlink", paths.dir, `${paths.dir} is or goes through a symlink`);
+    return result2();
+  }
+  for (const [rel, what] of [[paths.hot, "hot.md"], [paths.index, "index.md"], [paths.raw, "raw/"], [paths.wiki, "wiki/"]]) {
+    if (!existsSync5(join7(realRoot, rel))) err("brain-missing", rel, `${what} not found: run brain-init`);
+  }
+  const tree = walk(dirAbs);
+  for (const l of tree.links) err("symlink", `${paths.dir}/${l}`, "a symlink inside the brain: it could point outside the repo");
+  const inDir = (rel) => `${paths.dir}/${rel}`;
+  const sub = (folder) => tree.files.filter((f) => f.startsWith(`${folder}/`)).map((f) => f.slice(folder.length + 1));
+  const rawFiles = sub("raw").filter((f) => f !== ".gitkeep");
+  for (const f of rawFiles) {
+    const first = read(join7(dirAbs, "raw", f)).split("\n", 1)[0] ?? "";
+    if (!HEADER_RE.test(first)) err("source-unmarked", inDir(`raw/${f}`), "a raw file without the first-line header the CLI writes: it was not added with brain-source");
+  }
+  const wikiFiles = sub("wiki").filter((f) => f !== ".gitkeep");
+  const pages = [];
+  for (const f of wikiFiles) {
+    const path = inDir(`wiki/${f}`);
+    if (!PAGE_NAME.test(f.split("/").pop())) {
+      err("page-name", path, "wiki files are lowercase kebab-case .md files (a-z, 0-9 and -)");
+      continue;
+    }
+    const text = read(join7(dirAbs, "wiki", f));
+    const parsed = parsePage(text);
+    if (!parsed.ok) {
+      for (const m of parsed.errors) err("frontmatter", path, m, 1);
+      pages.push({ rel: f, path, text, sources: [] });
+      continue;
+    }
+    pages.push({ rel: f, path, text, title: parsed.front.title, sources: parsed.front.sources, ...parsed.front.module && { module: parsed.front.module } });
+  }
+  const cited = /* @__PURE__ */ new Set();
+  const bySource = {};
+  for (const p of pages) {
+    for (const s of p.sources) {
+      const norm = posix.normalize(s);
+      if (!norm.startsWith("raw/") || norm.startsWith("..") || !existsSync5(join7(dirAbs, norm)) || !lstatSync2(join7(dirAbs, norm)).isFile()) {
+        err("source-missing", p.path, `source '${s}' is not an existing file under raw/`, 1);
+        continue;
+      }
+      cited.add(norm);
+      (bySource[inDir(norm)] ??= []).push(p.path);
+    }
+    if (p.module !== void 0 && !moduleIds.includes(p.module)) warn("module-unknown", p.path, `module '${p.module}' is not in liftoff.yaml modules`, 1);
+  }
+  for (const f of rawFiles) if (!cited.has(`raw/${f}`)) warn("raw-unreferenced", inDir(`raw/${f}`), "no page cites this source: an unfinished ingest");
+  const linkedPages = /* @__PURE__ */ new Map();
+  const linkCheck = [
+    ...pages.map((p) => ({ rel: `wiki/${p.rel}`, text: p.text, isPage: true })),
+    ...["hot.md", "README.md"].filter((n) => existsSync5(join7(dirAbs, n))).map((n) => ({ rel: n, text: read(join7(dirAbs, n)), isPage: false }))
+  ];
+  for (const f of linkCheck) {
+    for (const l of scanLinks(f.text)) {
+      const target = posix.normalize(posix.join(posix.dirname(f.rel), safeDecode(l.target)));
+      if (target.startsWith("..") || !existsSync5(join7(dirAbs, target))) err("link-broken", inDir(f.rel), `link '${l.target}' does not point at a file inside the brain`, l.line);
+      else if (f.isPage && target !== f.rel) (linkedPages.get(target) ?? linkedPages.set(target, /* @__PURE__ */ new Set()).get(target)).add(f.rel);
+    }
+  }
+  for (const p of pages) if (p.title !== void 0 && !linkedPages.has(`wiki/${p.rel}`)) warn("orphan", p.path, "no other page links to this page");
+  const seen = /* @__PURE__ */ new Map();
+  for (const p of pages) {
+    if (p.title === void 0) continue;
+    const key = p.title.toLowerCase();
+    if (seen.has(key)) warn("duplicate-title", p.path, `same title as ${seen.get(key)}: one page per idea`, 1);
+    else seen.set(key, p.path);
+  }
+  if (existsSync5(join7(dirAbs, "hot.md")) && nonEmpty(read(join7(dirAbs, "hot.md"))) > hotMaxLines) {
+    err("hot-too-long", paths.hot, `hot.md has more than ${hotMaxLines} non-empty lines: keep it short (brain.hotMaxLines)`);
+  }
+  if (existsSync5(join7(dirAbs, "index.md"))) {
+    const want = buildIndex(wikiFiles.filter((f) => f.endsWith(".md")).map((f) => ({ path: f, text: read(join7(dirAbs, "wiki", f)) }))).content;
+    if (read(join7(dirAbs, "index.md")) !== want) err("index-stale", paths.index, "index.md is out of date: run brain-index --write");
+  }
+  const logs = sub("log").filter((f) => f !== ".gitkeep");
+  for (const f of logs) {
+    read(join7(dirAbs, "log", f)).split(/\r?\n/).forEach((line, i) => {
+      if (line.trim() === "") return;
+      const m = LOG_LINE.exec(line);
+      if (!m) return warn("log-format", inDir(`log/${f}`), "not a log line: '- YYYY-MM-DD <ingest|save|fix|retract> <path>[: <paths>]'", i + 1);
+      const named = [m[2], ...m[3] ? m[3].split(/,\s*/) : []];
+      for (const n of m[1] === "retract" ? [] : named) {
+        if (!existsSync5(join7(dirAbs, n))) warn("log-format", inDir(`log/${f}`), `names ${n}, which no longer exists`, i + 1);
+      }
+    });
+  }
+  return result2(pages.length, rawFiles.length, logs.length, bySource);
+}
+
 // src/brain/paths.ts
-import { lstatSync as lstatSync2, readdirSync as readdirSync2 } from "node:fs";
-import { join as join7 } from "node:path";
+import { lstatSync as lstatSync3, readdirSync as readdirSync3 } from "node:fs";
+import { join as join8 } from "node:path";
 var PERSONAL_DIR = ".liftoff/brain";
 var cleanDir = (dir) => dir.split(/[\\/]/).filter((s) => s !== "" && s !== ".").join("/");
 function brainPaths(dirSetting) {
@@ -15727,7 +15903,7 @@ function brainPaths(dirSetting) {
 }
 function symlinkProblem(realRoot, paths) {
   for (const rel of [paths.dir, PERSONAL_DIR]) {
-    const abs = join7(realRoot, rel);
+    const abs = join8(realRoot, rel);
     const real = resolveReal(abs);
     if (!isInside(realRoot, real) || real !== abs) return rel;
     const found = walkForLink(abs, rel);
@@ -15738,13 +15914,13 @@ function symlinkProblem(realRoot, paths) {
 function walkForLink(abs, rel) {
   let entries;
   try {
-    entries = readdirSync2(abs);
+    entries = readdirSync3(abs);
   } catch {
     return void 0;
   }
   for (const name of entries.sort()) {
-    const child = join7(abs, name);
-    const stat = lstatSync2(child);
+    const child = join8(abs, name);
+    const stat = lstatSync3(child);
     if (stat.isSymbolicLink()) return `${rel}/${name}`;
     if (stat.isDirectory()) {
       const found = walkForLink(child, `${rel}/${name}`);
@@ -15755,8 +15931,8 @@ function walkForLink(abs, rel) {
 }
 
 // src/cli/brain-init.ts
-import { existsSync as existsSync5, readFileSync as readFileSync4 } from "node:fs";
-import { join as join8 } from "node:path";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "node:fs";
+import { join as join9 } from "node:path";
 
 // src/brain/scaffold.ts
 var HOT = (title) => `# ${title}
@@ -15807,24 +15983,24 @@ var brainFail = (code, message, extra = {}) => ({
 });
 var NO_BRAIN = "liftoff.yaml has no brain section: the lead enables the brain in liftoff.yaml (Brain skill, Setup)";
 var brainInit = ({ root, write }) => {
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
-  const { brain, agents } = read.config;
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  const { brain, agents } = read2.config;
   if (!brain) return brainFail("no-brain", NO_BRAIN);
   const realRoot = resolveReal(root);
   const paths = brainPaths(brain.dir);
   const link = symlinkProblem(realRoot, paths);
   if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
-  const ignoreText = existsSync5(join8(realRoot, GITIGNORE_PATH)) ? readFileSync4(join8(realRoot, GITIGNORE_PATH), "utf8") : void 0;
+  const ignoreText = existsSync6(join9(realRoot, GITIGNORE_PATH)) ? readFileSync5(join9(realRoot, GITIGNORE_PATH), "utf8") : void 0;
   const needsIgnore = ignoreText === void 0 || !ignoreText.split(/\r?\n/).some((l) => l.trim() === "*");
   const files = [
     { path: GITIGNORE_PATH, exists: !needsIgnore, content: "*\n" },
-    ...scaffoldFiles(paths).map((f) => ({ ...f, exists: existsSync5(join8(realRoot, f.path)) }))
+    ...scaffoldFiles(paths).map((f) => ({ ...f, exists: existsSync6(join9(realRoot, f.path)) }))
   ];
   const planned = files.filter((f) => !f.exists);
   if (write) {
     if (needsIgnore) ensureSelfIgnore(realRoot);
-    for (const f of planned) if (f.path !== GITIGNORE_PATH) atomicWrite(join8(realRoot, f.path), f.content);
+    for (const f of planned) if (f.path !== GITIGNORE_PATH) atomicWrite(join9(realRoot, f.path), f.content);
   }
   return {
     exitCode: 0,
@@ -15838,67 +16014,51 @@ var brainInit = ({ root, write }) => {
   };
 };
 
+// src/cli/brain-check.ts
+var brainCheck = ({ root }) => {
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  const { brain, modules } = read2.config;
+  if (!brain) return brainFail("no-brain", NO_BRAIN);
+  const result2 = checkBrain({
+    realRoot: resolveReal(root),
+    paths: brainPaths(brain.dir),
+    hotMaxLines: brain.hotMaxLines,
+    moduleIds: (modules?.items ?? []).map((m) => m.id)
+  });
+  const ok = result2.errors.length === 0;
+  return { exitCode: ok ? 0 : 1, body: { ok, ...result2 } };
+};
+
 // src/cli/brain-index.ts
+import { existsSync as existsSync7, lstatSync as lstatSync4, readFileSync as readFileSync6, readdirSync as readdirSync4 } from "node:fs";
+import { join as join10 } from "node:path";
 function wikiPages(wikiAbs, prefix = "") {
-  return readdirSync3(join9(wikiAbs, prefix)).sort().flatMap((name) => {
+  return readdirSync4(join10(wikiAbs, prefix)).sort().flatMap((name) => {
     const rel = prefix === "" ? name : `${prefix}/${name}`;
-    if (lstatSync3(join9(wikiAbs, rel)).isDirectory()) return wikiPages(wikiAbs, rel);
-    return name.endsWith(".md") ? [{ path: rel, text: readFileSync5(join9(wikiAbs, rel), "utf8") }] : [];
+    if (lstatSync4(join10(wikiAbs, rel)).isDirectory()) return wikiPages(wikiAbs, rel);
+    return name.endsWith(".md") ? [{ path: rel, text: readFileSync6(join10(wikiAbs, rel), "utf8") }] : [];
   });
 }
 var brainIndex = ({ root, write }) => {
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
-  if (!read.config.brain) return brainFail("no-brain", NO_BRAIN);
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  if (!read2.config.brain) return brainFail("no-brain", NO_BRAIN);
   const realRoot = resolveReal(root);
-  const paths = brainPaths(read.config.brain.dir);
+  const paths = brainPaths(read2.config.brain.dir);
   const link = symlinkProblem(realRoot, paths);
   if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
-  if (!existsSync6(join9(realRoot, paths.wiki))) return brainFail("brain-invalid", `${paths.wiki} not found: run brain-init first`, { file: paths.wiki });
-  const { content, skipped } = buildIndex(wikiPages(join9(realRoot, paths.wiki)));
-  const file = join9(realRoot, paths.index);
-  const changed = !existsSync6(file) || readFileSync5(file, "utf8") !== content;
+  if (!existsSync7(join10(realRoot, paths.wiki))) return brainFail("brain-invalid", `${paths.wiki} not found: run brain-init first`, { file: paths.wiki });
+  const { content, skipped } = buildIndex(wikiPages(join10(realRoot, paths.wiki)));
+  const file = join10(realRoot, paths.index);
+  const changed = !existsSync7(file) || readFileSync6(file, "utf8") !== content;
   if (write && changed) atomicWrite(file, content);
   return { exitCode: 0, body: { ok: true, path: paths.index, content, changed, skipped, written: write === true && changed } };
 };
 
 // src/cli/brain-source.ts
-import { existsSync as existsSync7, readFileSync as readFileSync6, statSync as statSync2 } from "node:fs";
-import { basename as basename3, join as join10, relative as relative3, resolve } from "node:path";
-
-// src/brain/source.ts
-import { createHash as createHash2 } from "node:crypto";
-var KINDS = ["ticket", "plan", "mr", "doc"];
-var MAX_SOURCE_BYTES = 256 * 1024;
-var sha256Hex = (s) => createHash2("sha256").update(s).digest("hex");
-var headerLine = (kind, id, from, bodySha) => `<!-- liftoff brain source; kind: ${kind}; id: ${id}; from: ${from.replace(/-->/g, "--").replace(/\s+/g, " ").trim()}; body-sha256:${bodySha} -->`;
-function cleanText(buf) {
-  if (buf.length > MAX_SOURCE_BYTES) return { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` };
-  if (buf.includes(0)) return { error: "not a text file (it has a NUL byte)" };
-  let text;
-  try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(buf);
-  } catch {
-    return { error: "not valid UTF-8" };
-  }
-  const body = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-  return Buffer.byteLength(body) > MAX_SOURCE_BYTES ? { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` } : { body };
-}
-function sourceFile(kind, id, from, body) {
-  const sha = sha256Hex(body);
-  return { rel: `raw/${kind}s/${id}-${sha.slice(0, 8)}.md`, sha, content: `${headerLine(kind, id, from, sha)}
-${body}` };
-}
-function ticketBody(t) {
-  const parts = [`# ${t.key} ${t.summary}`.trim(), `Type: ${t.issueType}`];
-  if (t.description) parts.push(`## Description
-
-${t.description}`);
-  if (t.criteria) parts.push(`## Acceptance criteria
-
-${t.criteria}`);
-  return parts.join("\n\n").replace(/\r\n?/g, "\n") + "\n";
-}
+import { existsSync as existsSync8, readFileSync as readFileSync7, statSync as statSync2 } from "node:fs";
+import { basename as basename3, join as join11, relative as relative3, resolve } from "node:path";
 
 // src/connect/shell.ts
 var shQuote = (s) => `'${s.replaceAll("'", `'\\''`)}'`;
@@ -16059,15 +16219,15 @@ var brainSource = ({ root, file, key, kind, write }) => {
   if (!kind || !KINDS.includes(kind)) return fail2("usage", `brain-source needs --kind ${KINDS.join("|")}`, {}, 2);
   if (!file) return fail2("usage", "brain-source needs --file <path>", {}, 2);
   const k = kind;
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
-  const config = read.config;
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  const config = read2.config;
   if (!config.brain) return brainFail("no-brain", NO_BRAIN);
   const realRoot = resolveReal(root);
   const paths = brainPaths(config.brain.dir);
   const link = symlinkProblem(realRoot, paths);
   if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
-  if (!existsSync7(join10(realRoot, paths.raw))) return brainFail("brain-invalid", `${paths.raw} not found: run brain-init first`, { file: paths.raw });
+  if (!existsSync8(join11(realRoot, paths.raw))) return brainFail("brain-invalid", `${paths.raw} not found: run brain-init first`, { file: paths.raw });
   const abs = resolve(root, file);
   let real;
   try {
@@ -16078,14 +16238,14 @@ var brainSource = ({ root, file, key, kind, write }) => {
   if (k !== "ticket") {
     if (!isInside(realRoot, real)) return fail2("source-invalid", `${file} is outside the repository`);
     const rel = relative3(realRoot, real).split("\\").join("/");
-    if (isInside(join10(realRoot, paths.dir), real)) return fail2("source-invalid", `${file} is inside the brain: sources come from outside it`);
+    if (isInside(join11(realRoot, paths.dir), real)) return fail2("source-invalid", `${file} is inside the brain: sources come from outside it`);
     if (k === "doc" && (rel === ".liftoff" || rel.startsWith(".liftoff/"))) return fail2("source-invalid", `${file} is in .liftoff (personal files): only a plan or an MR description may come from there`);
   }
   let buf;
   try {
     if (!statSync2(real).isFile()) return fail2("source-invalid", `${file} is not a regular file`);
     if (statSync2(real).size > (k === "ticket" ? MAX_TICKET_JSON : 1e6)) return fail2("source-invalid", `${file} is too large`);
-    buf = readFileSync6(real);
+    buf = readFileSync7(real);
   } catch {
     return fail2("source-invalid", `cannot read ${file}`);
   }
@@ -16119,17 +16279,17 @@ var brainSource = ({ root, file, key, kind, write }) => {
   if (secretGuard({ text: body }).length > 0) return fail2("source-secret", `the text looks like a credential, so nothing was written ${NOT_A_GUARANTEE}. Remove it from the source and run this again`);
   const out = sourceFile(k, id, from, body);
   const path = `${paths.dir}/${out.rel}`;
-  const target = join10(realRoot, path);
+  const target = join11(realRoot, path);
   let action = write ? "created" : "create";
-  if (existsSync7(target)) {
-    if (readFileSync6(target, "utf8") !== out.content) return fail2("source-invalid", `${path} exists with different content: raw files are never overwritten`, { file: path });
+  if (existsSync8(target)) {
+    if (readFileSync7(target, "utf8") !== out.content) return fail2("source-invalid", `${path} exists with different content: raw files are never overwritten`, { file: path });
     action = "exists";
   } else if (write) atomicWrite(target, out.content);
   return { exitCode: 0, body: { ok: true, path, action, sha256: out.sha, bytes: Buffer.byteLength(out.content), written: action === "created" } };
 };
 
 // src/cli/draft-tickets.ts
-import { readFileSync as readFileSync7, statSync as statSync3 } from "node:fs";
+import { readFileSync as readFileSync8, statSync as statSync3 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 
 // src/plan/draft.ts
@@ -16207,16 +16367,16 @@ var MAX_BYTES = 2e6;
 var MAX_TICKETS = 200;
 var draftTicketsCommand = ({ root, file }) => {
   if (!file) return fail3("usage", "draft-tickets needs --file <drafts.json>", 2);
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
-  const { tracker } = connectors(read.config);
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  const { tracker } = connectors(read2.config);
   if (!tracker) return fail3("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
   if (tracker.server.readOnly) return fail3("tracker-read-only", "tracker.server.readOnly is true: the Jira server exposes no write tool");
   let raw;
   try {
     const path = resolve2(root, file);
     if (statSync3(path).size > MAX_BYTES) return fail3("ticket-draft-invalid", `${file} is larger than ${MAX_BYTES} bytes`);
-    raw = JSON.parse(readFileSync7(path, "utf8"));
+    raw = JSON.parse(readFileSync8(path, "utf8"));
   } catch (e) {
     return fail3("ticket-draft-invalid", `cannot read ${file} as JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16224,11 +16384,11 @@ var draftTicketsCommand = ({ root, file }) => {
   if (raw === null || typeof raw !== "object" || !Array.isArray(doc.tickets) || doc.tickets.length === 0) return fail3("ticket-draft-invalid", 'the file must be {"project": "KEY", "tickets": [ ... ]} with at least one ticket');
   if (doc.tickets.length > MAX_TICKETS) return fail3("ticket-draft-invalid", `at most ${MAX_TICKETS} tickets per batch`);
   const wanted = doc.project === void 0 ? tracker.project : doc.project;
-  const info = projectsOf(read.config).find((p) => p.project === wanted);
-  if (!info) return fail3("ticket-draft-invalid", `project ${String(wanted)} is neither the tracker's nor a stream's (${projectsOf(read.config).map((p) => p.project).join(", ")})`);
+  const info = projectsOf(read2.config).find((p) => p.project === wanted);
+  if (!info) return fail3("ticket-draft-invalid", `project ${String(wanted)} is neither the tracker's nor a stream's (${projectsOf(read2.config).map((p) => p.project).join(", ")})`);
   const streamOf = /* @__PURE__ */ new Map();
-  for (const p of projectsOf(read.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
-  const mods = { modules: new Set((read.config.modules?.items ?? []).map((m) => m.id)), streamOf };
+  for (const p of projectsOf(read2.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
+  const mods = { modules: new Set((read2.config.modules?.items ?? []).map((m) => m.id)), streamOf };
   const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods, doc.tickets));
   return {
     exitCode: 0,
@@ -16245,21 +16405,21 @@ var draftTicketsCommand = ({ root, file }) => {
 };
 
 // src/cli/parse-ticket.ts
-import { existsSync as existsSync8, readFileSync as readFileSync8, statSync as statSync4 } from "node:fs";
+import { existsSync as existsSync9, readFileSync as readFileSync9, statSync as statSync4 } from "node:fs";
 import { resolve as resolve3 } from "node:path";
 var fail4 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES2 = 2e6;
 var parseTicketCommand = ({ root, file }) => {
   if (!file) return fail4("usage", "parse-ticket needs --file <ticket.json>", 2);
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
-  const { tracker, codeHost } = connectors(read.config);
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  const { tracker, codeHost } = connectors(read2.config);
   if (!tracker) return fail4("no-tracker", "liftoff.yaml has no tracker: run the Connect skill first");
   const path = resolve3(root, file);
   let text;
   try {
     if (statSync4(path).size > MAX_BYTES2) return fail4("ticket-invalid", `${file} is larger than ${MAX_BYTES2} bytes`);
-    text = readFileSync8(path, "utf8");
+    text = readFileSync9(path, "utf8");
   } catch (e) {
     return fail4("ticket-invalid", `cannot read ${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -16267,9 +16427,9 @@ var parseTicketCommand = ({ root, file }) => {
   if ("error" in ticket) return fail4("ticket-invalid", ticket.error);
   const km = KEY_RE.exec(ticket.key);
   if (!km) return fail4("ticket-invalid", `'${ticket.key}' is not an issue key like ${tracker.project}-123`);
-  const project = projectsOf(read.config).find((p) => p.project === km[1]);
+  const project = projectsOf(read2.config).find((p) => p.project === km[1]);
   if (!project) {
-    const known = projectsOf(read.config).map((p) => p.project).join(", ");
+    const known = projectsOf(read2.config).map((p) => p.project).join(", ");
     return fail4("ticket-invalid", `${ticket.key} is not in a configured project (${known})`);
   }
   const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
@@ -16280,7 +16440,7 @@ var parseTicketCommand = ({ root, file }) => {
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
   const tpl = codeHost?.conventions.mrTemplate;
-  if (tpl && !existsSync8(resolve3(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
+  if (tpl && !existsSync9(resolve3(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
   return {
     exitCode: 0,
@@ -16291,14 +16451,14 @@ var parseTicketCommand = ({ root, file }) => {
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
       reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
       warnings,
-      build: { git: read.config.build?.git ?? "assisted", ...buildInfo(ticket, tracker, type, codeHost) }
+      build: { git: read2.config.build?.git ?? "assisted", ...buildInfo(ticket, tracker, type, codeHost) }
     }
   };
 };
 
 // src/cli/plan.ts
-import { existsSync as existsSync9, readFileSync as readFileSync9 } from "node:fs";
-import { join as join11 } from "node:path";
+import { existsSync as existsSync10, readFileSync as readFileSync10 } from "node:fs";
+import { join as join12 } from "node:path";
 
 // src/plan/file.ts
 var import_yaml3 = __toESM(require_dist(), 1);
@@ -16372,14 +16532,14 @@ var fail5 = (code, message, extra = {}, exitCode = 1) => ({
 });
 var planCommand = ({ root, key, approve }) => {
   if (!key || !KEY_RE.test(key)) return fail5("usage", "plan needs --key <ISSUE-KEY> (like PROJ-123)", {}, 2);
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
   const rel = planFile2(key);
-  const file = join11(root, rel);
-  if (!existsSync9(file)) return fail5("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
+  const file = join12(root, rel);
+  if (!existsSync10(file)) return fail5("plan-missing", `${rel} not found: run the Plan skill first`, { file: rel });
   const real = resolveReal(file);
   if (!isInside(resolveReal(root), real)) return fail5("plan-invalid", `${rel} resolves outside the repository`, { file: rel });
-  const plan = readPlan(readFileSync9(real, "utf8"), key);
+  const plan = readPlan(readFileSync10(real, "utf8"), key);
   if (!plan.ok) return { exitCode: 1, body: { ok: false, errors: plan.errors.map((message) => ({ code: "plan-invalid", message, file: rel })) } };
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
@@ -16499,13 +16659,13 @@ function buildInfo2(config, installedVersion) {
 
 // src/cli/connect-info.ts
 var connectInfo = ({ root }) => {
-  const read = readConfigWithPin(root);
-  if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
-  return { exitCode: 0, body: buildInfo2(read.config, INSTALLED_VERSION) };
+  const read2 = readConfigWithPin(root);
+  if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
+  return { exitCode: 0, body: buildInfo2(read2.config, INSTALLED_VERSION) };
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -16516,7 +16676,8 @@ var handlers = {
   "draft-tickets": draftTicketsCommand,
   "brain-init": brainInit,
   "brain-index": brainIndex,
-  "brain-source": brainSource
+  "brain-source": brainSource,
+  "brain-check": brainCheck
 };
 var WRITE_COMMANDS = /* @__PURE__ */ new Set(["brain-init", "brain-index", "brain-source"]);
 function json(root, exitCode, body, stderr = "") {

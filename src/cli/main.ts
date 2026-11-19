@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { render } from "./apply.js";
 import { checkConfigCommand } from "./check.js";
+import { brainCheck } from "./brain-check.js";
 import { brainIndex } from "./brain-index.js";
 import { brainSource } from "./brain-source.js";
 import { brainInit } from "./brain-init.js";
@@ -16,7 +17,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -30,6 +31,7 @@ export const handlers: Record<string, Handler> = {
   "brain-init": brainInit,
   "brain-index": brainIndex,
   "brain-source": brainSource,
+  "brain-check": brainCheck,
 };
 
 // Commands that can write into the brain; --write is refused everywhere else.

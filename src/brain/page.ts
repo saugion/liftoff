@@ -52,18 +52,8 @@ const LINK = /\[[^\]]*\]\(\s*<?([^)\s>]*)>?(?:\s+"[^"]*")?\s*\)/g;
 const CITATION = /^--\s*\[([^\]]*)\]\(\s*<?([^)\s>]+)>?\s*\)\s*$/;
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
-export function parsePage(text: string): Page {
-  const lines = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
-  if (lines[0] !== "---") return { ok: false, errors: ["no front matter: the file must start with a --- line"] };
-  const end = lines.indexOf("---", 1);
-  if (end < 0) return { ok: false, errors: ["front matter is not closed with a --- line"] };
-
-  const doc = parseDocument(lines.slice(1, end).join("\n"));
-  if (doc.errors.length > 0) return { ok: false, errors: doc.errors.map((e) => `front matter YAML: ${e.message.split("\n")[0]}`) };
-  const raw = doc.toJS() as unknown;
-  const errors = frontErrors(raw);
-  if (errors.length > 0) return { ok: false, errors };
-
+// Links and quote blocks of a Markdown body, from line index `from`. Code spans and fenced blocks are ignored.
+function scan(lines: string[], from: number): { links: Link[]; quotes: Quote[] } {
   const links: Link[] = [];
   const quotes: Quote[] = [];
   let fence: string | undefined;
@@ -77,7 +67,7 @@ export function parsePage(text: string): Page {
     block = undefined;
   };
 
-  for (let i = end + 1; i < lines.length; i++) {
+  for (let i = from; i < lines.length; i++) {
     const line = lines[i]!;
     const fenceMark = /^\s{0,3}(`{3,}|~{3,})/.exec(line)?.[1];
     if (fence !== undefined) {
@@ -101,5 +91,24 @@ export function parsePage(text: string): Page {
     } else closeBlock();
   }
   closeBlock();
+  return { links, quotes };
+}
+
+// Relative links of any Markdown text (no front matter needed): hot.md, README.md and the like.
+export const scanLinks = (text: string): Link[] => scan(text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n"), 0).links;
+
+export function parsePage(text: string): Page {
+  const lines = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
+  if (lines[0] !== "---") return { ok: false, errors: ["no front matter: the file must start with a --- line"] };
+  const end = lines.indexOf("---", 1);
+  if (end < 0) return { ok: false, errors: ["front matter is not closed with a --- line"] };
+
+  const doc = parseDocument(lines.slice(1, end).join("\n"));
+  if (doc.errors.length > 0) return { ok: false, errors: doc.errors.map((e) => `front matter YAML: ${e.message.split("\n")[0]}`) };
+  const raw = doc.toJS() as unknown;
+  const errors = frontErrors(raw);
+  if (errors.length > 0) return { ok: false, errors };
+
+  const { links, quotes } = scan(lines, end + 1);
   return { ok: true, front: raw as Front, links, quotes };
 }

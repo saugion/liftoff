@@ -10,6 +10,9 @@ export const sha256Hex = (s: string): string => createHash("sha256").update(s).d
 export const headerLine = (kind: SourceKind, id: string, from: string, bodySha: string): string =>
   `<!-- liftoff brain source; kind: ${kind}; id: ${id}; from: ${from.replace(/-->/g, "--").replace(/\s+/g, " ").trim()}; body-sha256:${bodySha} -->`;
 
+// Matches the first line of a raw file: kind, id, origin, body hash.
+export const HEADER_RE = /^<!-- liftoff brain source; kind: (ticket|plan|mr|doc); id: (\S+); from: (.*); body-sha256:([0-9a-f]{64}) -->$/;
+
 // A verbatim text source: UTF-8, LF line endings, no NUL, within the size limit. Returns the body or the reason.
 export function cleanText(buf: Buffer): { body: string } | { error: string } {
   if (buf.length > MAX_SOURCE_BYTES) return { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` };
