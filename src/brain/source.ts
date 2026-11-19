@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const KINDS = ["ticket", "plan", "mr", "doc"] as const;
+export const KINDS = ["ticket", "plan", "mr", "doc", "lesson"] as const;
 export type SourceKind = (typeof KINDS)[number];
 
 export const MAX_SOURCE_BYTES = 256 * 1024;
@@ -11,7 +11,7 @@ export const headerLine = (kind: SourceKind, id: string, from: string, bodySha: 
   `<!-- liftoff brain source; kind: ${kind}; id: ${id}; from: ${from.replace(/-->/g, "--").replace(/\s+/g, " ").trim()}; body-sha256:${bodySha} -->`;
 
 // Matches the first line of a raw file: kind, id, origin, body hash.
-export const HEADER_RE = /^<!-- liftoff brain source; kind: (ticket|plan|mr|doc); id: (\S+); from: (.*); body-sha256:([0-9a-f]{64}) -->$/;
+export const HEADER_RE = /^<!-- liftoff brain source; kind: (ticket|plan|mr|doc|lesson); id: (\S+); from: (.*); body-sha256:([0-9a-f]{64}) -->$/;
 
 // A verbatim text source: UTF-8, LF line endings, no NUL, within the size limit. Returns the body or the reason.
 export function cleanText(buf: Buffer): { body: string } | { error: string } {
@@ -47,4 +47,11 @@ export function ticketBody(t: TicketBody): string {
   if (t.description) parts.push(`## Description\n\n${t.description}`);
   if (t.criteria) parts.push(`## Acceptance criteria\n\n${t.criteria}`);
   return parts.join("\n\n").replace(/\r\n?/g, "\n") + "\n";
+}
+
+// A personal lesson as a source: the rule and the engineer's own words, verbatim, and the key. No dates, tickets,
+// status or other metadata.
+export function lessonBody(l: { key: string; rule: string; occurrences: { text: string }[] }): string {
+  const quotes = l.occurrences.map((o) => o.text.split("\n").map((t) => `> ${t}`).join("\n"));
+  return `# ${l.key}\n\n${l.rule}\n\n${quotes.join("\n\n")}\n`;
 }

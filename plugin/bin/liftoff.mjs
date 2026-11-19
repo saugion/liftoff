@@ -16079,11 +16079,11 @@ function checkLessons({ realRoot, files, maxRules, reviewAfterDays, today: today
 
 // src/brain/source.ts
 import { createHash as createHash3 } from "node:crypto";
-var KINDS2 = ["ticket", "plan", "mr", "doc"];
+var KINDS2 = ["ticket", "plan", "mr", "doc", "lesson"];
 var MAX_SOURCE_BYTES = 256 * 1024;
 var sha256Hex = (s) => createHash3("sha256").update(s).digest("hex");
 var headerLine = (kind, id, from, bodySha) => `<!-- liftoff brain source; kind: ${kind}; id: ${id}; from: ${from.replace(/-->/g, "--").replace(/\s+/g, " ").trim()}; body-sha256:${bodySha} -->`;
-var HEADER_RE = /^<!-- liftoff brain source; kind: (ticket|plan|mr|doc); id: (\S+); from: (.*); body-sha256:([0-9a-f]{64}) -->$/;
+var HEADER_RE = /^<!-- liftoff brain source; kind: (ticket|plan|mr|doc|lesson); id: (\S+); from: (.*); body-sha256:([0-9a-f]{64}) -->$/;
 function cleanText(buf) {
   if (buf.length > MAX_SOURCE_BYTES) return { error: `larger than ${MAX_SOURCE_BYTES / 1024} KB` };
   if (buf.includes(0)) return { error: "not a text file (it has a NUL byte)" };
@@ -16110,6 +16110,15 @@ ${t.description}`);
 
 ${t.criteria}`);
   return parts.join("\n\n").replace(/\r\n?/g, "\n") + "\n";
+}
+function lessonBody(l) {
+  const quotes = l.occurrences.map((o) => o.text.split("\n").map((t) => `> ${t}`).join("\n"));
+  return `# ${l.key}
+
+${l.rule}
+
+${quotes.join("\n\n")}
+`;
 }
 
 // src/brain/check.ts
@@ -16741,7 +16750,11 @@ var brainSource = ({ root, file, key, kind, write }) => {
     if (!isInside(realRoot, real)) return fail2("source-invalid", `${file} is outside the repository`);
     const rel = relative3(realRoot, real).split("\\").join("/");
     if (isInside(join13(realRoot, paths.dir), real)) return fail2("source-invalid", `${file} is inside the brain: sources come from outside it`);
-    if (k === "doc" && (rel === ".liftoff" || rel.startsWith(".liftoff/"))) return fail2("source-invalid", `${file} is in .liftoff (personal files): only a plan or an MR description may come from there`);
+    if (k === "doc" && (rel === ".liftoff" || rel.startsWith(".liftoff/"))) return fail2("source-invalid", `${file} is in .liftoff (personal files): only a plan, an MR description or a lesson may come from there`);
+    if (k === "lesson") {
+      if (!config.brain.lessons) return fail2("no-lessons", "liftoff.yaml has no brain.lessons section: the lead enables lessons in liftoff.yaml");
+      if (!/^\.liftoff\/brain\/lessons\/[a-z0-9][a-z0-9-]{1,39}\.md$/.test(rel)) return fail2("source-invalid", `${file} is not a personal lesson (.liftoff/brain/lessons/<key>.md)`);
+    }
   }
   let buf;
   try {
@@ -16765,6 +16778,14 @@ var brainSource = ({ root, file, key, kind, write }) => {
     if ("error" in text) return fail2("source-invalid", `the ticket text is ${text.error}`);
     id = ticket.key;
     from = `${tracker.url}/browse/${ticket.key}`;
+    body = text.body;
+  } else if (k === "lesson") {
+    const lesson = parseLesson(buf.toString("utf8"));
+    if (!lesson.ok) return fail2("source-invalid", `${file} is not a valid lesson: ${lesson.errors.join("; ")}`);
+    const text = cleanText(Buffer.from(lessonBody(lesson.lesson)));
+    if ("error" in text) return fail2("source-invalid", `the lesson text is ${text.error}`);
+    id = lesson.lesson.key;
+    from = relative3(realRoot, real).split("\\").join("/");
     body = text.body;
   } else {
     const text = cleanText(buf);
@@ -17416,7 +17437,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote> [--kind <ticket|plan|mr|doc>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/main.js";
 import { cleanText, headerLine, sha256Hex, sourceFile, ticketBody } from "../../src/brain/source.js";
 import { CONFIG, repo } from "../plan/helpers.js";
+import { lessonBody } from "../../src/brain/source.js";
 import { tempDir } from "../helpers.js";
 
 const BRAIN_CONFIG = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain: {}\n";
@@ -207,5 +208,62 @@ describe("brain-source usage and guards", () => {
   it("--write is accepted by brain-source", () => {
     const dir = setup(BRAIN_CONFIG, { "d.md": "x\n" });
     expect(src(dir, "--kind", "doc", "--file", "d.md", "--write").exitCode).toBe(0);
+  });
+});
+
+describe("brain-source lesson", () => {
+  const LESSONS_CONFIG = BRAIN_CONFIG.replace("brain: {}\n", "brain:\n  lessons: {}\n");
+  const draft = { key: "api-test-command", rule: "Run the API tests with `make test-api`.", kind: "command", target: "wiki", skill: "build", ticket: "PROJ-123", evidence: "no, here the API tests run with make test-api" };
+  const lessonSetup = () => {
+    const dir = setup(LESSONS_CONFIG);
+    put(dir, ".liftoff/tmp/l.json", JSON.stringify(draft));
+    run(["lesson-add", "--root", dir, "--file", ".liftoff/tmp/l.json", "--write"], "/");
+    put(dir, ".liftoff/tmp/l.json", JSON.stringify({ ...draft, ticket: "PROJ-131", evidence: "again: make test-api" }));
+    run(["lesson-add", "--root", dir, "--file", ".liftoff/tmp/l.json", "--write"], "/");
+    return dir;
+  };
+
+  it("stores the rule and the engineer's words, verbatim, as raw/lessons/<key>-<sha8>.md, with no metadata but the key", () => {
+    const dir = lessonSetup();
+    const { exitCode, body } = src(dir, "--kind", "lesson", "--file", ".liftoff/brain/lessons/api-test-command.md", "--write");
+    expect(exitCode).toBe(0);
+    expect(body.path).toMatch(/^brain\/raw\/lessons\/api-test-command-[0-9a-f]{8}\.md$/);
+    const text = readFileSync(join(dir, body.path), "utf8");
+    expect(text.split("\n")[0]).toMatch(/kind: lesson; id: api-test-command;/);
+    expect(text).toContain("# api-test-command\n\nRun the API tests with `make test-api`.\n\n> no, here the API tests run with make test-api\n\n> again: make test-api\n");
+    for (const leak of ["PROJ-123", "PROJ-131", "status", "tainted", "occurrences", "2026"]) expect(text.split("\n").slice(1).join("\n"), leak).not.toContain(leak);
+  });
+
+  it("a quote of the engineer's words in a wiki page passes brain-check", () => {
+    const dir = lessonSetup();
+    const raw = src(dir, "--kind", "lesson", "--file", ".liftoff/brain/lessons/api-test-command.md", "--write").body.path.replace(/^brain\//, "");
+    put(dir, "brain/wiki/learnings/api-tests.md", `---\ntitle: API tests\ntype: learning\nupdated: 2026-11-19\nsummary: How the API tests run.\nsources: [${raw}]\n---\n# API tests\n\n> no, here the API tests run with make test-api\n> -- [lesson](../../${raw})\n`);
+    run(["brain-index", "--root", dir, "--write"], "/");
+    const r = JSON.parse(run(["brain-check", "--root", dir], "/").stdout);
+    expect(r.errors).toEqual([]);
+  });
+
+  it("a lesson file outside the lessons folder, or a file that is not a lesson, is source-invalid", () => {
+    const dir = lessonSetup();
+    put(dir, "elsewhere.md", readFileSync(join(dir, ".liftoff/brain/lessons/api-test-command.md"), "utf8"));
+    expect(src(dir, "--kind", "lesson", "--file", "elsewhere.md").body.errors[0].code).toBe("source-invalid");
+    put(dir, ".liftoff/brain/lessons/broken.md", "garbage\n");
+    expect(src(dir, "--kind", "lesson", "--file", ".liftoff/brain/lessons/broken.md").body.errors[0].code).toBe("source-invalid");
+  });
+
+  it("without brain.lessons: no-lessons; a credential in the words: source-secret, nothing written", () => {
+    const dir = setup(BRAIN_CONFIG);
+    put(dir, ".liftoff/brain/lessons/api-test-command.md", "x\n");
+    expect(src(dir, "--kind", "lesson", "--file", ".liftoff/brain/lessons/api-test-command.md").body.errors[0].code).toBe("no-lessons");
+    const withLessons = lessonSetup();
+    const f = join(withLessons, ".liftoff/brain/lessons/api-test-command.md");
+    writeFileSync(f, readFileSync(f, "utf8").replace("again: make test-api", "again: use glpat-abcdefghij1234567890"));
+    const r = src(withLessons, "--kind", "lesson", "--file", ".liftoff/brain/lessons/api-test-command.md", "--write");
+    expect([r.exitCode, r.body.errors[0].code]).toEqual([1, "source-secret"]);
+    expect(rawFiles(withLessons)).toEqual([]);
+  });
+
+  it("lessonBody is the key, the rule and the quoted words, nothing else", () => {
+    expect(lessonBody({ key: "k-1", rule: "A rule.", occurrences: [{ text: "one\ntwo" }, { text: "three" }] })).toBe("# k-1\n\nA rule.\n\n> one\n> two\n\n> three\n");
   });
 });
