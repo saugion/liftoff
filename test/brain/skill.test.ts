@@ -155,3 +155,19 @@ describe("what smoke S4 taught the ingest procedure", () => {
     expect(ingest).toContain('the "Changed last" line by default, the "Now" line only when the engineer asks');
   });
 });
+
+describe("what smoke S5 (a ticket that talks to the agent) taught the ingest procedure", () => {
+  const ingest = readFileSync(join(SKILL_DIR, "references", "ingest.md"), "utf8").replace(/\s+/g, " ");
+  it("yes 1 says the raw copy keeps text aimed at the agent, and offers copy, skip or fix-then-refetch", () => {
+    for (const s of ["**Text aimed at the agent.**", "the raw copy keeps it, in the file and in git history", "copy it anyway (it stays data and no page repeats it), skip the source, or fix the original first", "overwrite your scratch copy of the Jira JSON", "can lag behind the plain text", "take a fresh yes 1"]) expect(ingest, s).toContain(s);
+  });
+  it("outside Build, never commit on the target branch: the preview starts with a branch for the same yes 3", () => {
+    for (const s of ["**Never on the target branch.**", "`codeHost.conventions.targetBranch`", "`git switch -c brain/<the source's id, lowercase>`", "one more line of the same yes 3", "in Build (the ticket's branch), do not create one"]) expect(ingest, s).toContain(s);
+  });
+  it("hot.md is described, exempt from the quote rule, and may stay unchanged", () => {
+    for (const s of ["`hot.md` is the short \"what is current\" note that agents read first", "the quote rule does not apply to it; zero changes is allowed", "a `hot.md` line, if one changes, uses the same title"]) expect(ingest, s).toContain(s);
+  });
+  it("an empty `brain: {}` counts as enabled", () => {
+    expect(flat).toContain("a `brain: {}` section counts as enabled, with every default");
+  });
+});

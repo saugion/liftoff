@@ -51,7 +51,7 @@ that is not JSON means something is wrong with the environment: show `message` o
 
 | Error code | What you do |
 |---|---|
-| `no-brain` | The lead has not enabled the brain. If the user says they are the lead, offer step 2 (Setup); otherwise say "ask the lead". Stop. |
+| `no-brain` | The lead has not enabled the brain (a `brain: {}` section counts as enabled, with every default). If the user says they are the lead, offer step 2 (Setup); otherwise say "ask the lead". Stop. |
 | `brain-invalid` | Show `message` and `file`. A missing folder: run `brain-init`. A symlink: ask the user to replace it with a real folder. Stop. |
 | `source-invalid` | Show `message`; fix the input (a different file, a `--key`) and run again. Never work around it by writing into `raw/`. |
 | `source-secret` | The text looks like a credential. Nothing was written. Tell the user to remove it from the source first; the check is an accident guard, not a guarantee. |
