@@ -5,6 +5,7 @@ export const MIN_CONNECT_PLUGIN = "0.2";
 export const MIN_JIRA_SERVER_VERSION = "0.22.0";
 export const MIN_STREAMS_PLUGIN = "0.3";
 export const MIN_BUILD_PLUGIN = "0.3";
+export const MIN_BRAIN_PLUGIN = "0.4";
 
 export type Transition = { name: string; fields?: Record<string, unknown> };
 export type IssueType = {
@@ -164,6 +165,15 @@ export function connectorErrors(raw: RawConfig): ConfigError[] {
   }
   if (raw.build && (compareVersions(raw.plugin.version, MIN_BUILD_PLUGIN) ?? -1) < 0) {
     errors.push({ path: "/plugin/version", message: `the build section needs plugin.version ${MIN_BUILD_PLUGIN} or newer` });
+  }
+  if (raw.brain) {
+    if ((compareVersions(raw.plugin.version, MIN_BRAIN_PLUGIN) ?? -1) < 0) {
+      errors.push({ path: "/plugin/version", message: `the brain section needs plugin.version ${MIN_BRAIN_PLUGIN} or newer` });
+    }
+    // The shared brain is committed: it cannot be the repo root, and it cannot live in the personal layer.
+    const dir = (raw.brain.dir ?? "brain").split(/[\\/]/).filter((seg) => seg !== "" && seg !== ".");
+    if (dir.length === 0) errors.push({ path: "/brain/dir", message: "the brain folder cannot be the repo root" });
+    else if (dir[0]!.toLowerCase() === ".liftoff") errors.push({ path: "/brain/dir", message: "the shared brain cannot live under .liftoff (that folder is personal and ignored by git)" });
   }
   if (tracker) {
     if (!portOk(tracker.url.slice("https://".length))) errors.push({ path: "/tracker/url", message: "port must be 1-65535" });

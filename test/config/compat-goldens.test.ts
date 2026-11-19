@@ -9,7 +9,7 @@ const GOLDEN = join(import.meta.dirname, "..", "fixtures", "config", "v1-hashes.
 const actual = () =>
   Object.fromEntries(
     readdirSync(DIR)
-      .filter((f) => f.endsWith(".yaml") && !f.startsWith("connect-"))
+      .filter((f) => f.endsWith(".yaml") && !f.startsWith("connect-") && !f.startsWith("brain-"))
       .sort()
       .map((f) => {
         const r = readConfig(join(DIR, f));

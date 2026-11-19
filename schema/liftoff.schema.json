@@ -500,6 +500,29 @@
           "$ref": "#/definitions/requiredFlag"
         }
       }
+    },
+    "brain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dir": {
+          "$ref": "#/definitions/relativePath"
+        },
+        "hotMaxLines": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 40
+        },
+        "afterBuild": {
+          "enum": [
+            "propose",
+            "off"
+          ]
+        },
+        "required": {
+          "$ref": "#/definitions/requiredFlag"
+        }
+      }
     }
   }
 }

@@ -78,6 +78,16 @@ describe("optional changes warn", () => {
     expect(summary(body)).toEqual([`optional-changed:${section}`]);
   });
 
+  it("a lead adding `brain` is only a warning for a teammate (optional-changed, not blocked)", () => {
+    const dir = makeRepo({ targets: "[claude-code]", modules: [], pluginVersion: "0.4" });
+    expect(render(dir).exitCode).toBe(0);
+    writeFileSync(join(dir, "liftoff.yaml"), config(dir) + "brain: {}\n");
+    const { exitCode, body } = check(dir);
+    expect(exitCode).toBe(0);
+    expect(body.status).toBe("warn");
+    expect(summary(body)).toEqual(["optional-changed:brain"]);
+  });
+
   it("an added optional section says 'was added'", () => {
     const dir = applied();
     writeFileSync(join(dir, "liftoff.yaml"), config(dir) + STACK);

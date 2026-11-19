@@ -14301,6 +14301,7 @@ var MIN_CONNECT_PLUGIN = "0.2";
 var MIN_JIRA_SERVER_VERSION = "0.22.0";
 var MIN_STREAMS_PLUGIN = "0.3";
 var MIN_BUILD_PLUGIN = "0.3";
+var MIN_BRAIN_PLUGIN = "0.4";
 function projectsOf(config) {
   const { tracker } = connectors(config);
   if (!tracker) return [];
@@ -14405,6 +14406,14 @@ function connectorErrors(raw) {
   if (raw.build && (compareVersions(raw.plugin.version, MIN_BUILD_PLUGIN) ?? -1) < 0) {
     errors.push({ path: "/plugin/version", message: `the build section needs plugin.version ${MIN_BUILD_PLUGIN} or newer` });
   }
+  if (raw.brain) {
+    if ((compareVersions(raw.plugin.version, MIN_BRAIN_PLUGIN) ?? -1) < 0) {
+      errors.push({ path: "/plugin/version", message: `the brain section needs plugin.version ${MIN_BRAIN_PLUGIN} or newer` });
+    }
+    const dir = (raw.brain.dir ?? "brain").split(/[\\/]/).filter((seg) => seg !== "" && seg !== ".");
+    if (dir.length === 0) errors.push({ path: "/brain/dir", message: "the brain folder cannot be the repo root" });
+    else if (dir[0].toLowerCase() === ".liftoff") errors.push({ path: "/brain/dir", message: "the shared brain cannot live under .liftoff (that folder is personal and ignored by git)" });
+  }
   if (tracker) {
     if (!portOk(tracker.url.slice("https://".length))) errors.push({ path: "/tracker/url", message: "port must be 1-65535" });
     if ((compareVersions(tracker.server.version, MIN_JIRA_SERVER_VERSION) ?? -1) < 0) {
@@ -14461,6 +14470,9 @@ function normalize(raw) {
     },
     ...raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker) },
     ...raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } },
+    ...raw.brain && {
+      brain: { dir: raw.brain.dir ?? "brain", hotMaxLines: raw.brain.hotMaxLines ?? 15, afterBuild: raw.brain.afterBuild ?? "propose", required: raw.brain.required ?? false }
+    },
     ...raw.streams && { streams: Object.keys(raw.streams).length === 0 ? {} : normalizeStreams(raw.streams) },
     ...raw.codeHost && { codeHost: Object.keys(raw.codeHost).length === 0 ? {} : normalizeCodeHost(raw.codeHost) }
   };
@@ -14987,6 +14999,29 @@ var liftoff_schema_default = {
           enum: [
             "assisted",
             "manual"
+          ]
+        },
+        required: {
+          $ref: "#/definitions/requiredFlag"
+        }
+      }
+    },
+    brain: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        dir: {
+          $ref: "#/definitions/relativePath"
+        },
+        hotMaxLines: {
+          type: "integer",
+          minimum: 5,
+          maximum: 40
+        },
+        afterBuild: {
+          enum: [
+            "propose",
+            "off"
           ]
         },
         required: {

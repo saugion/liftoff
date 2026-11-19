@@ -67,7 +67,7 @@ describe("compatibility", () => {
   });
   it("every new fixture gives the same result with CRLF line endings", () => {
     for (const kind of ["valid", "invalid"]) {
-      for (const f of readdirSync(join(FIXTURES, kind)).filter((n) => n.startsWith("connect-"))) {
+      for (const f of readdirSync(join(FIXTURES, kind)).filter((n) => n.startsWith("connect-") || n.startsWith("brain-"))) {
         const text = readFileSync(join(FIXTURES, kind, f), "utf8");
         const lf = parseConfig(text), crlf = parseConfig(text.replace(/\n/g, "\r\n"));
         expect(crlf, f).toEqual(lf);

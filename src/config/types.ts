@@ -22,6 +22,7 @@ export interface RawConfig {
   codeHost?: Record<string, never> | RawCodeHost;
   streams?: Record<string, never> | RawStreams;
   build?: { git?: "assisted" | "manual"; required?: boolean };
+  brain?: { dir?: string; hotMaxLines?: number; afterBuild?: "propose" | "off"; required?: boolean };
 }
 
 // Normalized: defaults applied inside every section that is present. An absent section stays absent.
@@ -37,6 +38,7 @@ export interface Config {
   codeHost?: Record<string, never> | CodeHostConfig;
   streams?: Record<string, never> | StreamsConfig;
   build?: { git: "assisted" | "manual"; required: boolean }; // assisted: the agent runs git after an approved dry-run; manual: the engineer runs every git write
+  brain?: { dir: string; hotMaxLines: number; afterBuild: "propose" | "off"; required: boolean }; // presence of the section is the opt-in
 }
 
 export interface ConfigError {
