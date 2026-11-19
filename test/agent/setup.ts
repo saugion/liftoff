@@ -1,10 +1,11 @@
 // Not part of `npm test`. Prepares a workspace for a real agent to run the skills against: a fake Jira that stays up,
 // a repo that already ran Init and has the Jira entry wired (the machine is "connected"), and `bin/jira-tool`, a shell
 // command that stands in for the MCP tools (a sub-agent has no MCP attached; the command starts the same generated
-// MCP entry the way a host does). Prints one JSON line {jira, repo, bin}. Usage: node setup.mjs <dir> [jira-only|brain]
+// MCP entry the way a host does). Prints one JSON line {jira, repo, bin}. Usage: node setup.mjs <dir> [jira-only|brain|lessons]
 // `brain`: the full fake Jira (PROJ-123..126, STR-1), a repo whose liftoff.yaml has `brain:` and the learned issue types,
 // a bare `origin` with main pushed, and one ingested ticket (PROJ-124) so the wiki is not empty. PROJ-126 carries text
-// that tries to instruct the agent.
+// that tries to instruct the agent. `lessons`: the same plus `brain.lessons: {}` and one personal lesson at count 1
+// (a test-command correction made on PROJ-124), so one more correction on another ticket makes it ready.
 import { writeFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { baseEnv, git, liftoff, startJira, write, FAKES, ROOT } from "../e2e/world.js";
@@ -13,13 +14,14 @@ import { config } from "../e2e/config.js";
 const dir = process.argv[2]!;
 const LEAD_TOKEN = "agent-run-PAT-do-not-leak";
 const jiraOnly = process.argv[3] === "jira-only"; // restart the fake Jira (same port, empty) without touching the workspace
-const brain = process.argv[3] === "brain";
+const lessons = process.argv[3] === "lessons";
+const brain = process.argv[3] === "brain" || lessons;
 const jira = await startJira(dir, [LEAD_TOKEN], { fresh: !brain, ...(process.env.FAKE_JIRA_PORT && { port: Number(process.env.FAKE_JIRA_PORT) }) });
 if (jiraOnly) { console.log(JSON.stringify({ jira: jira.url })); setInterval(() => writeFileSync(join(dir, "jira-state.json"), JSON.stringify({ requests: jira.requests.length, issues: jira.issues }, null, 2)), 1000); await new Promise(() => {}); }
 const repo = join(dir, "app");
 // Init'ed, with the tracker linked but no issue type learned yet (that is the lead flow's job)
 const cfg = brain
-  ? config(jira.url).replace('version: "0.2"', 'version: "0.4"') + "brain: {}\n"
+  ? config(jira.url).replace('version: "0.2"', 'version: "0.4"') + (lessons ? "brain:\n  lessons: {}\n" : "brain: {}\n")
   : config(jira.url).replace(/  issueTypes:[\s\S]*?codeHost:/, "codeHost:").replace('version: "0.2"', 'version: "0.3"');
 write(repo, "liftoff.yaml", cfg.replace("agents: { targets: [claude-code, copilot] }", "agents: { targets: [claude-code] }"));
 write(repo, "AGENTS.md", "# app\nRun `sh check.sh` before every commit.\n");
@@ -47,6 +49,14 @@ if (brain) {
   ok(liftoff(repo, ["brain-index", "--write"]));
   const check = liftoff(repo, ["brain-check"]);
   if (check.status !== 0) throw new Error(`the baseline brain is not ok: ${JSON.stringify(check.body.errors)}`);
+  if (lessons) {
+    write(repo, ".liftoff/tmp/lesson.json", JSON.stringify({ key: "api-test-command", rule: "Run the API tests with `make test-api`, not `npm test` at the root.", kind: "command", target: "agents-md", skill: "build", ticket: "PROJ-124", evidence: "no, in this repo the API tests run with make test-api" }));
+    const added = liftoff(repo, ["lesson-add", "--file", ".liftoff/tmp/lesson.json", "--write"]);
+    ok(added);
+    if (added.body.count !== 1 || added.body.ready) throw new Error(`the baseline lesson should be at count 1: ${JSON.stringify(added.body)}`);
+    const checked = liftoff(repo, ["brain-check"]);
+    if (checked.status !== 0) throw new Error(`the baseline with a lesson is not ok: ${JSON.stringify(checked.body.errors)}`);
+  }
 }
 git(repo, "add", "-A"); git(repo, "commit", "-qm", "init");
 if (brain) { git(dir, "init", "-q", "--bare", "-b", "main", join(dir, "remote.git")); git(repo, "remote", "add", "origin", join(dir, "remote.git")); git(repo, "push", "-q", "-u", "origin", "main"); }
@@ -79,7 +89,7 @@ exec ${JSON.stringify(process.execPath)} ${JSON.stringify(join(dir, "bin/jira-to
 write(dir, "bin/jira-tool", wrapper);
 chmodSync(join(dir, "bin/jira-tool"), 0o755);
 writeFileSync(join(dir, "jira-state.json"), "{}");
-console.log(JSON.stringify({ jira: jira.url, repo, bin: join(dir, "bin/jira-tool"), plugin: join(ROOT, "plugin"), ...(brain && { origin: join(dir, "remote.git") }) }));
+console.log(JSON.stringify({ jira: jira.url, repo, bin: join(dir, "bin/jira-tool"), plugin: join(ROOT, "plugin"), ...(brain && { lessons, origin: join(dir, "remote.git") }) }));
 // stay up until killed; dump the Jira state on demand so a human or the harness can inspect it
 setInterval(() => writeFileSync(join(dir, "jira-state.json"), JSON.stringify({ requests: jira.requests.length, issues: jira.issues }, null, 2)), 1000);
 void FAKES;
