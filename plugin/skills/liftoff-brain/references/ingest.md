@@ -117,8 +117,8 @@ Errors make `ok` false; warnings do not.
 | `orphan` | warning | No page links here: link it from the related page. |
 | `no-quotes` | warning | The page quotes nothing: add a quote for each key fact. |
 | `duplicate-title` | warning | Two pages share a title: merge them (one page per idea). |
-| `raw-unreferenced` | warning | A source no page cites: an unfinished ingest. Finish it or leave it. |
+| `raw-unreferenced` | warning | A source no page cites: an unfinished ingest. Finish it or leave it. (Not reported for a source a `retract` log line names: it is kept as history on purpose.) |
 | `module-unknown` | warning | `module` is not in `liftoff.yaml` `modules`: fix the id or leave it out. |
 | `instruction-like` | warning | The text reads like an instruction to an agent: rewrite it as a description or drop it. An accident guard, not a guarantee. |
-| `log-format` | warning | A log line is malformed or names a file that is gone: correct it (append a new line, do not rewrite history). |
+| `log-format` | warning | A log line is malformed or names a file that is gone: correct it (append a new line, do not rewrite history). (Not reported for a file a `retract` log line names.) |
 | `personal-*` | warning | The same checks on your personal layer; they never block. |

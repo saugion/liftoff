@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { tempDir } from "../helpers.js";
 import { CONFIG, repo } from "../plan/helpers.js";
-import { CFG, call, check, healthy, page, put } from "./helpers.js";
+import { CFG, call, check, healthy, page, put, quote } from "./helpers.js";
 
 const codes = (list: any[]) => list.map((f) => f.code);
 
@@ -100,11 +100,26 @@ describe("brain-check structure", () => {
     }
   });
 
-  it("log lines: retract may name a removed file; any other op naming a missing file warns", () => {
+  it("log lines: a file a retract line names may be gone; any other missing file still warns", () => {
     const { dir } = healthy();
-    put(dir, "brain/log/2026-11.md", "- 2026-11-20 retract raw/docs/gone-aaaaaaaa.md: wiki/learnings/reset.md\n- 2026-11-20 ingest raw/docs/gone-aaaaaaaa.md\n");
+    put(dir, "brain/log/2026-11.md", [
+      "- 2026-11-19 ingest raw/docs/gone-aaaaaaaa.md: wiki/learnings/reset.md, wiki/learnings/deleted-page.md",
+      "- 2026-11-20 retract raw/docs/gone-aaaaaaaa.md: wiki/learnings/deleted-page.md",
+      "- 2026-11-20 ingest raw/docs/other-gone-bbbbbbbb.md",
+      "",
+    ].join("\n"));
     const { body } = check(dir);
-    expect(body.warnings.map((w: any) => [w.code, w.line])).toEqual([["log-format", 2]]);
+    expect(body.warnings.map((w: any) => [w.code, w.line, /other-gone/.test(w.message)])).toEqual([["log-format", 3, true]]);
+  });
+
+  it("a source kept on purpose after a retract is not an unfinished ingest", () => {
+    const { dir, raw } = healthy();
+    put(dir, "brain/wiki/learnings/other.md", page("Other", [raw], `[r](reset.md)\n\n${quote(raw)}`));
+    put(dir, "spare.md", "Spare text for a retracted source.\n");
+    const spare = call(dir, "brain-source", "--kind", "doc", "--file", "spare.md", "--write").body.path.replace(/^brain\//, "");
+    expect(codes(check(dir).body.warnings)).toContain("raw-unreferenced");
+    appendFileSync(join(dir, "brain/log/2026-11.md"), `- 2026-11-21 retract ${spare}: wiki/learnings/reset.md\n`);
+    expect(codes(check(dir).body.warnings)).not.toContain("raw-unreferenced");
   });
 
   it("a batch log line lists every raw file before the colon; a missing one in the list still warns", () => {

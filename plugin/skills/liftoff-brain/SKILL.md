@@ -161,18 +161,38 @@ source exactly, **never by editing the source**. This skill never pushes.
 
 ## 5. Health check
 
-Run `brain-check` and report `errors`, `warnings` and `stats`; `references/ingest.md` says what each code means. Then
-the reading pass, which is a report only: contradictions between pages, facts a newer source replaced (compare
-`updated` and the order of the sources), ideas that keep coming up and have no page, a stale `hot.md`, pages that
-lean on one source (`bySource`). **A health check changes nothing.** A fix you propose goes through the same three
-approvals as an ingest (step 3, log op `fix`).
+Run `brain-check` and report `errors`, `warnings` and `stats`; `references/ingest.md` says what each code means.
+Use `brain-init` here only for its `paths`: its `proposals` are not part of a health check. Then the reading pass, which
+is a report only:
+- **Contradictions between pages.** When two sources disagree and `updated` and the log do not say which is newer,
+  do not guess: report both quotes and ask the user which source is right. You may compare a raw copy with the file it
+  came from (the `from` in its header) and report a difference as a possibly stale source.
+- **Facts a newer source replaced** (compare `updated` and the order of the log lines).
+- **Ideas that keep coming up and have no page:** a name or phrase on three or more pages that has no page of its own.
+- **A stale `hot.md`**, and **a source that backs more than three pages** (`bySource`).
+
+**A health check changes nothing.** Run it also after a merge or a pull: git can merge `index.md` cleanly and still leave
+it listing only one side's pages, which `brain-check` reports as `index-stale`; the fix is always `brain-index --write`,
+never merging the index by hand. A fix you propose goes through the same three approvals as an ingest (step 3, log op
+`fix`).
 
 ## 6. Retract a source
 
 When a source turns out wrong (from a health check or on request): list `bySource` for it, and for each page that
-cites it propose removing or re-sourcing the fact, as a diff, with a yes. Log op `retract`. The raw file stays (it is
-history) unless the user asks to delete it; then show the deletion in the commit preview. If the ingest is the last
-change to those pages, offer `git revert` of the ingest commit first.
+cites it propose removing or re-sourcing the fact, as a diff, with a yes. A fact that has no other source is dropped
+and said so; a page whose only facts came from the retracted source is deleted (delete that one page file with `rm` on
+its exact path and stage the deletion; offer an empty page only if the user asks, since the checker wants a summary and
+a quote). Re-sourcing means quoting a source that really says it; with equal `updated` dates use the source the user
+says is right.
+
+- **Approvals:** yes 2 for the batch (the diffs, the regenerated index and one log line `- <date> retract <raw path>: <pages>`)
+  and yes 3 for the commit. There is no yes 1, because nothing enters `raw/`.
+- **Commit:** `brain: retract <raw path>`, on a new `brain/retract-<id>` branch when you are on the target branch (the
+  rule of ingest.md 3e). Offer `git revert` of the ingest commit only if that commit changed nothing else (one source,
+  no `hot.md` change); otherwise a normal commit.
+- **The raw file stays** (it is history) unless the user asks to delete it; then show the deletion in the commit preview.
+  `brain-check` does not warn about a source or a page a `retract` log line names. The original file the source came
+  from is the team's to correct: say so.
 
 ## 7. Personal
 

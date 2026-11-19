@@ -119,8 +119,8 @@ describe("Ingest, Health check and Retract", () => {
   });
   it("Health check changes nothing; Retract keeps the raw file and logs the op", () => {
     expect(flat).toContain("**A health check changes nothing.**");
-    expect(flat).toContain("Log op `retract`");
-    expect(flat).toContain("The raw file stays (it is history)");
+    expect(flat).toContain("one log line `- <date> retract <raw path>: <pages>`");
+    expect(flat).toContain("**The raw file stays** (it is history)");
   });
   it("every command the reference runs exists", () => {
     for (const c of new Set([...ingest.matchAll(/`(brain-(?:init|index|source|check))\b/g)].map((x) => x[1]!))) expect(Object.keys(handlers), c).toContain(c);
@@ -191,5 +191,17 @@ describe("what smoke S7 (a question, then 'save it') taught the Query step", () 
   });
   it("'save it' is a request, the default is a personal note with a kebab-case slug, and a restated page adds nothing shared", () => {
     for (const s of ["\"Save it\" is the request, not the yes: show what you will write first (step 7)", "the slug being the title in lowercase kebab-case", "in particular when the answer only restates a page that already exists", "restating an existing page adds nothing"]) expect(query, s).toContain(s);
+  });
+});
+
+describe("what smoke S8 (health check, then retract) taught the skill", () => {
+  const sec = (from: string, to: string) => flat.slice(flat.indexOf(from), flat.indexOf(to));
+  const health = sec("## 5. Health check", "## 6. Retract");
+  const retract = sec("## 6. Retract", "## 7. Personal");
+  it("Health check: brain-init only for paths, criteria for each reading-pass item, no guessing between sources", () => {
+    for (const s of ["Use `brain-init` here only for its `paths`", "do not guess: report both quotes and ask the user which source is right", "compare a raw copy with the file it came from", "a name or phrase on three or more pages that has no page of its own", "a source that backs more than three pages"]) expect(health, s).toContain(s);
+  });
+  it("Retract: dropped facts, deleted pages, approvals, commit message and branch, revert only for a lone ingest", () => {
+    for (const s of ["A fact that has no other source is dropped and said so", "a page whose only facts came from the retracted source is deleted", "yes 2 for the batch", "There is no yes 1, because nothing enters `raw/`", "`brain: retract <raw path>`", "a new `brain/retract-<id>` branch", "Offer `git revert` of the ingest commit only if that commit changed nothing else", "`brain-check` does not warn about a source or a page a `retract` log line names", "The original file the source came from is the team's to correct"]) expect(retract, s).toContain(s);
   });
 });

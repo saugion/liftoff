@@ -95,6 +95,16 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
   const inDir = (rel: string) => `${paths.dir}/${rel}`;
   const sub = (folder: string) => tree.files.filter((f) => f.startsWith(`${folder}/`)).map((f) => f.slice(folder.length + 1));
 
+  // Files a `retract` log line names (the retracted source and the pages it touched): kept or deleted on purpose.
+  const logFiles = sub("log").filter((f) => f !== ".gitkeep");
+  const retracted = new Set<string>();
+  for (const f of logFiles) {
+    for (const line of read(join(dirAbs, "log", f)).split(/\r?\n/)) {
+      const m = LOG_LINE.exec(line);
+      if (m && m[1] === "retract") for (const n of [...m[2]!.split(/,\s*/), ...(m[3] ? m[3].split(/,\s*/) : [])]) retracted.add(n);
+    }
+  }
+
   // raw/: every file carries the header the CLI writes.
   const rawFiles = sub("raw").filter((f) => f !== ".gitkeep");
   const rawBody = new Map<string, string>(); // "raw/docs/x.md" -> body without the header line
@@ -142,7 +152,7 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
     }
     if (p.module !== undefined && !moduleIds.includes(p.module)) warn("module-unknown", p.path, `module '${p.module}' is not in liftoff.yaml modules`, 1);
   }
-  for (const f of rawFiles) if (!cited.has(`raw/${f}`)) warn("raw-unreferenced", inDir(`raw/${f}`), "no page cites this source: an unfinished ingest");
+  for (const f of rawFiles) if (!cited.has(`raw/${f}`) && !retracted.has(`raw/${f}`)) warn("raw-unreferenced", inDir(`raw/${f}`), "no page cites this source: an unfinished ingest");
 
   // Links: pages, hot.md and README.md. A link must land on an existing file or folder inside the brain.
   const linkedPages = new Map<string, Set<string>>(); // page rel path -> pages linking to it
@@ -223,7 +233,7 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
     const want = buildIndex(wikiFiles.filter((f) => f.endsWith(".md")).map((f) => ({ path: f, text: read(join(dirAbs, "wiki", f)) }))).content;
     if (read(join(dirAbs, "index.md")) !== want) err("index-stale", paths.index, "index.md is out of date: run brain-index --write");
   }
-  const logs = sub("log").filter((f) => f !== ".gitkeep");
+  const logs = logFiles;
   for (const f of logs) {
     read(join(dirAbs, "log", f)).split(/\r?\n/).forEach((line, i) => {
       if (line.trim() === "") return;
@@ -231,7 +241,7 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
       if (!m) return warn("log-format", inDir(`log/${f}`), "not a log line: '- YYYY-MM-DD <ingest|save|fix|retract> <path>[: <paths>]'", i + 1);
       const named = [...m[2]!.split(/,\s*/), ...(m[3] ? m[3].split(/,\s*/) : [])];
       for (const n of m[1] === "retract" ? [] : named) {
-        if (!existsSync(join(dirAbs, n))) warn("log-format", inDir(`log/${f}`), `names ${n}, which no longer exists`, i + 1);
+        if (!existsSync(join(dirAbs, n)) && !retracted.has(n)) warn("log-format", inDir(`log/${f}`), `names ${n}, which no longer exists`, i + 1);
       }
     });
   }
