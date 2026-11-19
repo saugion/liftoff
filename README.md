@@ -85,7 +85,8 @@ shared team config and connects the agent to the tracker and code host with the 
 
 Six skills (a skill is a packaged set of instructions the agent follows). The skills call a small command-line tool
 bundled with the plugin, which checks the team's rules. That tool makes no network calls and never handles
-credentials. The agent talks to Jira through an MCP server (a standard way to give an agent access to an outside
+credentials. (The optional [control panel](#control-panel-optional) is a separate program that listens only on your own
+machine.) The agent talks to Jira through an MCP server (a standard way to give an agent access to an outside
 system) and to GitLab through the `glab` command-line tool.
 
 ```
@@ -253,7 +254,9 @@ Plugin support in VS Code is partly experimental, and the pilot will check this 
 3. Optional: run `/liftoff:liftoff-brain` and say you are the lead to turn on the project brain (a `brain` section, the folders,
    an `AGENTS.md` pointer, each one a diff you approve), and add `lessons: {}` under `brain` if you want repeated corrections to become
    reviewed rules.
-4. Commit what the skills list: `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, `CLAUDE.md`,
+4. Optional: to set up or change `liftoff.yaml` in a form instead of through the skills, run `npm run ui -- --root <your repo>`
+   from a clone of LiftOff (see [Control panel](#control-panel-optional)).
+5. Commit what the skills list: `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, `CLAUDE.md`,
    `.github/copilot-instructions.md`, `.claude/settings.json`, `.mcp.json`, `.vscode/mcp.json`.
 
 **Teammate, once per machine**
@@ -283,12 +286,14 @@ The repo pins the plugin to a release tag in `.claude/settings.json` (`ref`), an
 **Built in v0.4.0:** Init, Connect (member and lead flows), Plan, Build with the `build.git` option, Ticket (with
 epics), work streams, and the optional project brain (shared wiki, personal layer, lessons loop).
 
+**Unreleased:** the [control panel](#control-panel-optional) (`liftoff-ui`): a local page to set up and change `liftoff.yaml`.
+
 **Supported:** Jira Server/Data Center through the community MCP server `mcp-atlassian`, one Jira project per repo.
 GitLab through `glab`. macOS. Claude Code and GitHub Copilot in VS Code.
 
-**Tested:** 1,701 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 1,723 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote, with a scripted stand-in for the agent. **Nothing has run yet against a real Jira Data Center, a real GitLab or
-a real agent following the skills** apart from scripted runs where an agent followed the brain and lessons skills against fakes. **The brain and the lessons loop have not been piloted.** Nothing has been measured.
+a real agent following the skills** apart from scripted runs where an agent followed the brain and lessons skills against fakes. **The brain and the lessons loop have not been piloted.** Nothing has been measured. The control panel's server is tested end to end; its page has no automated browser test yet.
 
 **Not yet:**
 
@@ -299,6 +304,7 @@ a real agent following the skills** apart from scripted runs where an agent foll
 - a server so chat clients without a shell, like Claude Desktop, can run the Ticket flow
 - the optional Init add-ons: subagents, hooks, a CI workflow (the wiki is now the optional project brain)
 - a company-level shared config that repos inherit from
+- the control panel inside the plugin (today it runs from a clone of this repo)
 
 There is also no Close step, on purpose. Updating the ticket and linking the merge request stay with the engineer.
 
