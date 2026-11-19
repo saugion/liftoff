@@ -152,6 +152,7 @@ describe("plugin/ is small and clean", () => {
       "skills/liftoff-brain/SKILL.md",
       "skills/liftoff-brain/assets/page-template.md",
       "skills/liftoff-brain/references/ingest.md",
+      "skills/liftoff-brain/references/lessons.md",
       "skills/liftoff-build/SKILL.md",
       "skills/liftoff-connect/SKILL.md",
       "skills/liftoff-connect/assets/defaults.json",
