@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -177,5 +177,42 @@ describe("Plan and the brain", () => {
   it("without a brain section parse-ticket says null, so Plan reads nothing new", () => {
     const none = repo(CONFIG, { "t.json": JSON.stringify({ key: "PROJ-1", summary: "S", issue_type: { name: "Story" }, description: "x" }) });
     expect(cli(["parse-ticket", "--root", none, "--file", "t.json"]).body.brain).toBeNull();
+  });
+});
+
+describe("Build and the brain", () => {
+  const build = skills["liftoff-build"].body.replace(/\s+/g, " ");
+  const step = build.slice(build.indexOf("## 7b."), build.indexOf("## 8."));
+
+  it("step 7b sits between the description and the push dry-run, gated on brain and afterBuild", () => {
+    expect(build.indexOf("## 7. The merge request description")).toBeLessThan(build.indexOf("## 7b."));
+    expect(build.indexOf("## 7b.")).toBeLessThan(build.indexOf("## 8. Dry-run 2"));
+    expect(step).toContain("only when `parse-ticket` answers a `brain` that is not null **and** `brain.afterBuild` is `propose`; otherwise skip this step");
+  });
+  it("parse-ticket brain.afterBuild exists in the real output and Build names it", () => {
+    const dir = repo(CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain: {}\n", { "t.json": JSON.stringify({ key: "PROJ-1", summary: "S", issue_type: { name: "Story" }, description: "x" }) });
+    expect(cli(["parse-ticket", "--root", dir, "--file", "t.json"]).body.brain.afterBuild).toBe("propose");
+    expect(build).toContain("`brain.afterBuild`");
+  });
+  it("the reference it follows exists in the plugin, reached with the CLI's fallback wording", () => {
+    expect(step).toContain("`../liftoff-brain/references/ingest.md` (relative to the directory this SKILL.md was loaded from");
+    expect(existsSync(join(ROOT, "plugin", "skills", "liftoff-build", "..", "liftoff-brain", "references", "ingest.md"))).toBe(true);
+  });
+  it("one batch of three sources, the commit message, its own yes, manual hand-over, never a push", () => {
+    for (const s of ["the three sources as **one batch**", "`<KEY>: brain ingest`", "In `assisted` mode that commit is made only after its own yes", "in `manual` mode you hand over the commands", "Never push from here", "a decline changes nothing", "an addition to the plan's one-commit-per-section rule, never a replacement"]) expect(step.toLowerCase(), s).toContain(s.toLowerCase());
+  });
+  it("brain-check errors are reported in the hand-over, never hidden; the push dry-run lists the brain commit apart", () => {
+    expect(step).toContain("never hide them and never commit past them");
+    expect(build).toContain("the brain commit, if any, listed separately from the section commits");
+    expect(build).toContain("and any `brain-check` errors left");
+  });
+  it("the Always and Never lists keep every v0.3 rule and add the brain ones", () => {
+    for (const s of ["build only from an approved, unchanged plan", "one commit per plan section where git is yours", "run the section's check before moving on", "tick the plan's checkboxes", "build from a draft or `stale` plan", "open the merge request (not even with `build.mrCreate`", "move, transition, comment on or edit the ticket", "write to the tracker at all", "merge; push to the target branch; force-push", "skip hooks or checks", "reset or delete an existing branch", "stash or discard the engineer's changes", "change git config", "run a git write in `manual` mode", "put a credential anywhere"]) expect(build, s).toContain(s);
+    expect(build).toContain("write to the project brain except through step 7b, with its approvals");
+    expect(build).toContain("plus at most one `<KEY>: brain ingest` commit after its own yes");
+  });
+  it("the brain commands it names exist", () => {
+    for (const c of ["brain-source", "brain-index", "brain-check"]) expect(Object.keys(handlers)).toContain(c);
+    expect(build).toContain("`brain-source`, `brain-index` and `brain-check`");
   });
 });
