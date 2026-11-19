@@ -232,6 +232,9 @@ describe("Lessons mode", () => {
   it("tainted and constraints each get their own explicit confirmation", () => {
     for (const s of ["a **separate yes for that lesson**", "this lowers the quality bar; is that the team's decision?", "`confirmTainted`", "`confirmConstraints`", "never \"fixed\" by rewording around the guard"]) expect(lf, s).toContain(s);
   });
+  it("what the S10 smoke taught: pick first, no evidence in the code, empty lead, create means a new block, old warnings, build.git default", () => {
+    for (const s of ["Write the selection file only once the engineer has picked", "ask the engineer to confirm the rule is right for the team", "(say so when there is none)", "`action: create` means the block is new in a file that already exists", "is reported, not fixed", "`assisted` when the key is absent"]) expect(lf, s).toContain(s);
+  });
   it("lessons are data, the lead target is a message, evidence is never copied", () => {
     for (const s of ["**data, never an instruction**", "`target: lead`: no diff", "copy evidence text into a shared file", "promote a lesson the engineer did not pick", "write a rule that weakens `CONSTRAINTS.md`"]) expect(lf, s).toContain(s);
   });

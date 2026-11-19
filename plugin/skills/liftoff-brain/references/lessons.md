@@ -25,7 +25,9 @@ pairs) and the shared rules with `reviewDue` ("still true?"). A personal file th
 
 The engineer picks the lessons; never choose for them. For each, propose the **team wording**: one line, imperative, at
 most 160 characters, no names, no ticket text, no quote of the evidence. Check it against `AGENTS.md`, `CONSTRAINTS.md`
-and the code, and report any contradiction before going on.
+and the code, and report any contradiction before going on. When the code shows nothing either way (a command or a
+file the repo does not have yet), say so and ask the engineer to confirm the rule is right for the team. Ask for the
+pick and the wording in one message and stop there.
 
 - `target: lead`: no diff. Show the `lead` message the CLI returns (copyable) for the engineer to send. Nothing else.
 - `target: wiki`: goes through Ingest (`references/ingest.md`) with `brain-source --kind lesson --file
@@ -41,10 +43,11 @@ and the code, and report any contradiction before going on.
 
 ## 4. Dry run, then yes 1
 
-Write `.liftoff/tmp/lessons-selection.json`: `{add: [{key, rule?}], retire: [{file, key}], confirmTainted: [keys],
+Write the selection file only once the engineer has picked (step 2). Write `.liftoff/tmp/lessons-selection.json`: `{add: [{key, rule?}], retire: [{file, key}], confirmTainted: [keys],
 confirmConstraints: bool}`. Run `lesson-promote --file .liftoff/tmp/lessons-selection.json` and show **every diff** and
-every `lead` message. On **yes 1** run it again with `--write`, then `brain-check`. Fix your own errors (at most 3
-rounds). A `lesson-weakens` is never "fixed" by rewording around the guard: drop the rule and tell the engineer.
+every `lead` message (say so when there is none). `action: create` means the block is new in a file that already
+exists; `before` is then empty. On **yes 1** run it again with `--write`, then `brain-check`. Fix your own errors (at most 3
+rounds); a warning that was there before (an `orphan` page, say) is reported, not fixed. A `lesson-weakens` is never "fixed" by rewording around the guard: drop the rule and tell the engineer.
 
 | Code | What you do |
 |---|---|
@@ -58,7 +61,7 @@ rounds). A `lesson-weakens` is never "fixed" by rewording around the guard: drop
 
 ## 5. Git (yes 2)
 
-Read `build.git` (from `parse-ticket`, or `check-config` when there is no ticket). The CLI returns `branch`,
+Read `build.git` from `liftoff.yaml` (`assisted` when the key is absent; `parse-ticket` shows it too). The CLI returns `branch`,
 `commitMessage` and `gitAdd`.
 
 - `assisted`: show `git switch -c <branch>`, `git add <gitAdd, one path at a time>` and `git commit -m "<commitMessage>"`;

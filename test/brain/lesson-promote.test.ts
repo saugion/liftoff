@@ -1,3 +1,4 @@
+import { diffText } from "../../src/brain/promote.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -206,5 +207,13 @@ describe("lesson-promote: size and retiring", () => {
     expect(ok.body.ok).toBe(true);
     expect(parseBlock(read(dir, "CONSTRAINTS.md")).rules).toEqual([]);
     expect(existsSync(join(dir, ".liftoff/backup/CONSTRAINTS.md"))).toBe(true);
+  });
+});
+
+describe("the diff header counts its lines", () => {
+  it("-start,count +start,count, like a unified diff", () => {
+    const d = diffText("A.md", "a\nb\nc\nd\n", "a\nb\nX\nY\nc\nd\n");
+    expect(d.split("\n")[2]).toBe("@@ -1,4 +1,6 @@");
+    expect(diffText("A.md", "a\nb\n", "a\nB\n").split("\n")[2]).toBe("@@ -1,3 +1,3 @@");
   });
 });

@@ -41,7 +41,8 @@ export function diffText(path: string, before: string, after: string): string {
   while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
   const ctxStart = Math.max(0, head - 2);
   const ctxEnd = Math.min(tail, 2);
-  const out = [`--- a/${path}`, `+++ b/${path}`, `@@ -${ctxStart + 1} +${ctxStart + 1} @@`];
+  const removed = a.length - tail - head, added = b.length - tail - head, ctx = head - ctxStart + ctxEnd;
+  const out = [`--- a/${path}`, `+++ b/${path}`, `@@ -${ctxStart + 1},${ctx + removed} +${ctxStart + 1},${ctx + added} @@`];
   for (let i = ctxStart; i < head; i++) out.push(` ${a[i]}`);
   for (let i = head; i < a.length - tail; i++) out.push(`-${a[i]}`);
   for (let i = head; i < b.length - tail; i++) out.push(`+${b[i]}`);
