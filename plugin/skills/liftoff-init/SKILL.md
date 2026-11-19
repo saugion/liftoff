@@ -37,7 +37,7 @@ The CLI is `bin/liftoff.mjs` at the root of the plugin, shared with the other Li
 **If the path you are about to run still contains `${`, your host did not substitute it: build the absolute path
 from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.mjs` from there).**
 
-Commands: `validate`, `check-config`, `render [--overwrite <path>]...`. Stdout is always **one JSON document**; read it
+Commands: `validate`, `check-config`, `render [--overwrite <path>]...`, and, only when `liftoff.yaml` has a `brain` section, `brain-init [--write]` and `brain-check`. Stdout is always **one JSON document**; read it
 whatever the exit code (exit 1 is a normal state, e.g. the config is missing). Exit 2 or stdout that is not JSON
 means something is wrong with the environment: show `message` or stderr and stop.
 
@@ -101,7 +101,7 @@ what you found as the defaults.
 
 Do **not** ask about: which sections are `required` (defaults: `constraints.required: true` and `build.required: true`, nothing else; a lead
 edits by hand), constraint thresholds (use the template defaults), or extras (subagents, hooks, CI, wiki are not part
-of this version). Then print a recap table (the config values and the files you will create) and **get a yes before
+of this version), or the project brain (a lead turns it on with the Brain skill; here it only follows the config). Then print a recap table (the config values and the files you will create) and **get a yes before
 writing anything**.
 
 ### 4. Layout
@@ -156,6 +156,24 @@ later (for example a path collision) is handled the same way: show `path`, fix t
   appended), apply it on approval, back it up first.
 - Interview mode with an existing `CLAUDE.md` and no `AGENTS.md`: fold it into the new `AGENTS.md` here (rules in step
   8), so the user sees **one** diff.
+
+## 6b. The project brain (both modes, **only when `liftoff.yaml` has a `brain` section**)
+
+No `brain` section: skip this whole step and every brain line in steps 10 and the apply-mode summary. Init never asks
+about the brain and never writes the `brain` section: the lead adds it with the Brain skill (Setup).
+
+1. Run `brain-init` without `--write`. Report `paths` and which `files` say `create`. The files are only added, never
+   overwritten, and sit inside `<dir>` and `.liftoff/brain`.
+2. In interview mode the recap yes covers them (add them to the recap table); in apply mode show the list first and ask
+   once. Then run `brain-init --write`.
+3. Show each entry of `proposals` as a diff and apply it only on its own yes, with a backup (the rule of step 6).
+   **Parse each existing file first; if it does not parse, stop and show the problem.**
+   - `agentsMd`: append the block to the root `AGENTS.md`. **Skip it if a `## Project brain` heading is already there.**
+   - `claudeSettings` (target `claude-code`): merge into `.claude/settings.json` by the rules of step 9: add the deny
+     rule only if absent, keep every other key and the file's indentation, show the result before writing.
+   - `vscodeSettings` (target `copilot`): merge into `.vscode/settings.json` by the same rules. Say that VS Code asks
+     for approval on edits to `raw/` and cannot block them; `brain-check` is the real guard.
+   - `gitattributes`: append the line to `.gitattributes` if it is not there.
 
 ## 7. CONSTRAINTS.md
 
@@ -218,6 +236,10 @@ prompted to install the plugin and must install it by hand. Only `.claude/settin
 - Every path named in `AGENTS.md` exists; the root `AGENTS.md` has `## Rules that always apply` (an existing root file without it, in
   either mode: propose adding the heading as an additive diff with approval, never rewrite the file); `liftoff.yaml` and
   `.claude/settings.json` parse; the files to commit are **not gitignored** (`git check-ignore`).
+- **Only when `brain` is set:** `git check-ignore` must say the brain folder (`brain.dir`, the `dir` in `brain-init`'s
+  `paths`) is **not** ignored and `.liftoff/brain/hot.md` **is**. Run `brain-check` once and report it (a fresh clone
+  of a team's brain is `ok`). The summary also lists the brain files to commit (`<dir>/**`, `.gitattributes`, the
+  settings files) and says the personal layer under `.liftoff/brain` is never committed.
 - Summary: files created, changed and skipped; conflicts left; the CLI's `notices`; unverified commands; the next step
   (commit `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, the generated `CLAUDE.md` and
   `.github/copilot-instructions.md`, and `.claude/settings.json`; `.liftoff/` ignores itself). Offer `git init` if there
@@ -225,7 +247,7 @@ prompted to install the plugin and must install it by hand. Only `.claude/settin
 
 ## Apply mode, in short
 
-No questions (this version has no personal ones). Create the `AGENTS.md` files that are missing (step 6), run `render`
+No questions (this version has no personal ones). Create the `AGENTS.md` files that are missing (step 6), create the brain structure when `brain` is set (step 6b), run `render`
 (step 8), resolve conflicts with the user, add the plugin recommendation if it is missing (step 9), verify (step 10).
 A teammate whose agent is not in `agents.targets` gets no file for it: say so, and suggest asking the lead to add it.
 Expect the agent to ask for approval of shell calls; those are not your questions.
