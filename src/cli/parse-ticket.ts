@@ -49,7 +49,12 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
 
   // Where Plan and Build read the project's brain: null unless the lead turned it on.
-  const brain = read.config.brain && (({ dir, hot, index, personalHot }) => ({ dir, hot, index, personalHot, afterBuild: read.config.brain!.afterBuild }))(brainPaths(read.config.brain.dir));
+  const lessons = read.config.brain?.lessons;
+  const brain = read.config.brain && (({ dir, hot, index, personalHot }) => ({
+    dir, hot, index, personalHot, afterBuild: read.config.brain!.afterBuild,
+    // the lessons loop: null unless the lead turned it on inside the brain
+    lessons: lessons ? { capture: lessons.capture, promoteAfter: lessons.promoteAfter, metrics: lessons.metrics } : null,
+  }))(brainPaths(read.config.brain.dir));
 
   return {
     exitCode: 0,

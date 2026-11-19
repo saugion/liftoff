@@ -17313,7 +17313,16 @@ var parseTicketCommand = ({ root, file }) => {
   const tpl = codeHost?.conventions.mrTemplate;
   if (tpl && !existsSync15(resolve5(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
-  const brain = read2.config.brain && (({ dir, hot, index, personalHot }) => ({ dir, hot, index, personalHot, afterBuild: read2.config.brain.afterBuild }))(brainPaths(read2.config.brain.dir));
+  const lessons = read2.config.brain?.lessons;
+  const brain = read2.config.brain && (({ dir, hot, index, personalHot }) => ({
+    dir,
+    hot,
+    index,
+    personalHot,
+    afterBuild: read2.config.brain.afterBuild,
+    // the lessons loop: null unless the lead turned it on inside the brain
+    lessons: lessons ? { capture: lessons.capture, promoteAfter: lessons.promoteAfter, metrics: lessons.metrics } : null
+  }))(brainPaths(read2.config.brain.dir));
   return {
     exitCode: 0,
     body: {

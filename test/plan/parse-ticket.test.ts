@@ -16,11 +16,17 @@ describe("parse-ticket: brain", () => {
   });
   it("names the brain files, relative to the root, and what Build does after a build", () => {
     const cfg = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain:\n  dir: docs/brain/\n  afterBuild: \"off\"\n";
-    expect(parse(story(), cfg).body.brain).toEqual({ dir: "docs/brain", hot: "docs/brain/hot.md", index: "docs/brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "off" });
+    expect(parse(story(), cfg).body.brain).toEqual({ dir: "docs/brain", hot: "docs/brain/hot.md", index: "docs/brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "off", lessons: null });
   });
   it("uses the defaults for `brain: {}`", () => {
     const cfg = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain: {}\n";
-    expect(parse(story(), cfg).body.brain).toEqual({ dir: "brain", hot: "brain/hot.md", index: "brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "propose" });
+    expect(parse(story(), cfg).body.brain).toEqual({ dir: "brain", hot: "brain/hot.md", index: "brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "propose", lessons: null });
+  });
+  it("lessons: null without the section, its settings with it (defaults for `lessons: {}`), only what Plan and Build need", () => {
+    const base = CONFIG.replace('version: "0.2"', 'version: "0.4"');
+    expect(parse(story(), base + "brain: {}\n").body.brain.lessons).toBeNull();
+    expect(parse(story(), base + "brain:\n  lessons: {}\n").body.brain.lessons).toEqual({ capture: "notify", promoteAfter: 2, metrics: true });
+    expect(parse(story(), base + "brain:\n  lessons:\n    capture: ask\n    promoteAfter: 4\n    maxRules: 9\n    metrics: false\n").body.brain.lessons).toEqual({ capture: "ask", promoteAfter: 4, metrics: false });
   });
 });
 
