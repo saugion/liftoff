@@ -1,6 +1,6 @@
 # LiftOff: handoff
 
-Repo: https://github.com/saugion/liftoff · Last update: 2026-11-08 · Released: **`v0.3.0`** (tag pushed with `main`). `main` is now at `0.4.0`, untagged: it is ahead of the pilot tag, and the pilot stays pinned to `#v0.3.0` (the v0.4 second brain is in progress).
+Repo: https://github.com/saugion/liftoff · Last update: 2026-11-19 · Released: **`v0.4.0`** (the project brain and the lessons loop; tag pushed with `main`). The pilot stays pinned to `#v0.3.0` until the group chooses to move; the brain and lessons are opt-in and have not been piloted.
 
 ## Where we are
 
@@ -17,15 +17,14 @@ git remote. **Nothing has run against a real Jira Data Center, a real GitLab or 
 | Reasoning behind the design | `docs/design-notes.md` (the per-module specs were removed; they are in git history up to commit 79ab5e3) |
 | Decisions the agent took alone, to review | `docs/decisions/DECISIONS.md` |
 
-## v0.4 project brain (built, untagged)
+## v0.4 project brain (released as v0.4.0)
 
 Opt-in `brain` section: a wiki in the repo (`brain/`: raw sources, pages, log, generated index) plus a personal layer under
 `.liftoff/brain/`; commands `brain-init`, `brain-source`, `brain-index`, `brain-check`; the `liftoff-brain` skill (Setup,
 Ingest, Query, Health check, Retract, Personal, Lessons); Init creates the local structure; Plan reads it, Build offers an
-ingest. Built and smoke-run by agents (S1-S8); not piloted. Publishing `v0.4.0` is a separate, manual step (clean install,
-build, test, tag, push `main` then the tag).
+ingest. Built and smoke-run by agents (S1-S8); not piloted. `v0.4.0` was published by hand (clean install, build, test, tag, push `main` then the tag).
 
-## v0.4 lessons loop (built, untagged)
+## v0.4 lessons loop (released as v0.4.0)
 
 Opt-in `brain.lessons`: personal lessons (`lesson-add`, `lesson-list`), promotion into a marked block of `AGENTS.md` or
 `CONSTRAINTS.md` (`lesson-promote`, never git), `brain-check` rules for the blocks, `brain-source --kind lesson`, pilot

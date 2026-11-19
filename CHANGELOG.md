@@ -2,7 +2,7 @@
 
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 
-## 0.4.0 (not released yet)
+## 0.4.0 (2026-11-19)
 
 ### Project brain (opt-in: `brain` in `liftoff.yaml`, needs `plugin.version` 0.4)
 
