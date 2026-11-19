@@ -22,7 +22,22 @@ export function normalize(raw: RawConfig): Config {
     ...(raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker as RawTracker) }),
     ...(raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } }),
     ...(raw.brain && {
-      brain: { dir: raw.brain.dir ?? "brain", hotMaxLines: raw.brain.hotMaxLines ?? 15, afterBuild: raw.brain.afterBuild ?? "propose", required: raw.brain.required ?? false },
+      brain: {
+        dir: raw.brain.dir ?? "brain",
+        hotMaxLines: raw.brain.hotMaxLines ?? 15,
+        afterBuild: raw.brain.afterBuild ?? "propose",
+        required: raw.brain.required ?? false,
+        // Only when present, so a brain without lessons keeps the hash it had before lessons existed.
+        ...(raw.brain.lessons && {
+          lessons: {
+            capture: raw.brain.lessons.capture ?? "notify",
+            promoteAfter: raw.brain.lessons.promoteAfter ?? 2,
+            maxRules: raw.brain.lessons.maxRules ?? 20,
+            reviewAfterDays: raw.brain.lessons.reviewAfterDays ?? 90,
+            metrics: raw.brain.lessons.metrics ?? true,
+          },
+        }),
+      },
     }),
     ...(raw.streams && { streams: Object.keys(raw.streams).length === 0 ? {} : normalizeStreams(raw.streams as RawStreams) }),
     ...(raw.codeHost && { codeHost: Object.keys(raw.codeHost).length === 0 ? {} : normalizeCodeHost(raw.codeHost as RawCodeHost) }),

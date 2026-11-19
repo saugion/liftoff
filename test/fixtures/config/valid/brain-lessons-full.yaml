@@ -1,0 +1,16 @@
+liftoff: 1
+plugin:
+  version: "0.4"
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [claude-code]
+brain:
+  required: true
+  lessons:
+    capture: ask
+    promoteAfter: 3
+    maxRules: 12
+    reviewAfterDays: 60
+    metrics: false

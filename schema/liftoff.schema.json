@@ -521,6 +521,37 @@
         },
         "required": {
           "$ref": "#/definitions/requiredFlag"
+        },
+        "lessons": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "capture": {
+              "enum": [
+                "notify",
+                "ask",
+                "off"
+              ]
+            },
+            "promoteAfter": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10
+            },
+            "maxRules": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 40
+            },
+            "reviewAfterDays": {
+              "type": "integer",
+              "minimum": 30,
+              "maximum": 365
+            },
+            "metrics": {
+              "type": "boolean"
+            }
+          }
         }
       }
     }

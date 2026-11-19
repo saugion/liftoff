@@ -1,0 +1,12 @@
+# expect: /brain/lessons/promoteAfter
+liftoff: 1
+plugin:
+  version: "0.4"
+project:
+  name: acme
+  kind: new
+agents:
+  targets: [claude-code]
+brain:
+  lessons:
+    promoteAfter: 1

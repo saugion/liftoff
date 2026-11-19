@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MIN_BRAIN_PLUGIN, configHash, parseConfig, readConfig, requiredSections, sectionHashes } from "../../src/config/index.js";
@@ -60,5 +61,44 @@ describe("brain section", () => {
       expect(r.ok, dir).toBe(false);
       if (!r.ok) expect(r.errors.map((e) => e.path), dir).toContain("/brain/dir");
     }
+  });
+});
+
+describe("brain.lessons", () => {
+  const withLessons = (body: string) => parse(`brain:\n  lessons:${body}\n`);
+
+  it("`lessons: {}` takes every default, and explicit defaults hash the same", () => {
+    const empty = parse("brain:\n  lessons: {}\n");
+    expect(empty.brain?.lessons).toEqual({ capture: "notify", promoteAfter: 2, maxRules: 20, reviewAfterDays: 90, metrics: true });
+    const explicit = withLessons("\n    capture: notify\n    promoteAfter: 2\n    maxRules: 20\n    reviewAfterDays: 90\n    metrics: true");
+    expect(configHash(explicit)).toBe(configHash(empty));
+  });
+
+  it("a brain without lessons has no `lessons` key, and keeps the hash it had before lessons existed", () => {
+    const plain = parse("brain: {}\n");
+    expect(plain.brain).toEqual({ dir: "brain", hotMaxLines: 15, afterBuild: "propose", required: false });
+    expect("lessons" in plain.brain!).toBe(false);
+    // the section hash of `brain: {}` is the hash recorded when the brain section was introduced (B2): unchanged
+    expect(sectionHashes(plain).brain).toBe("sha256:" + createHash("sha256").update('{"afterBuild":"propose","dir":"brain","hotMaxLines":15,"required":false}').digest("hex"));
+  });
+
+  it("adding or changing lessons changes only `brain` and the config hash", () => {
+    const [a, b, c] = [parse("brain: {}\n"), parse("brain:\n  lessons: {}\n"), withLessons("\n    maxRules: 12")];
+    expect(differing(a, b)).toEqual(["brain"]);
+    expect(differing(b, c)).toEqual(["brain"]);
+    expect(new Set([configHash(a), configHash(b), configHash(c)]).size).toBe(3);
+  });
+
+  it("`required` stays the brain's: the brain flag decides requiredSections, lessons has none of its own", () => {
+    expect(requiredSections(fixture("brain-lessons-full.yaml"))).toEqual(["brain", "liftoff", "plugin"]);
+    expect(requiredSections(fixture("brain-lessons-empty.yaml"))).toEqual(["liftoff", "plugin"]);
+  });
+
+  it.each([
+    ["promoteAfter 1", "\n    promoteAfter: 1"], ["promoteAfter 11", "\n    promoteAfter: 11"], ["maxRules 4", "\n    maxRules: 4"],
+    ["maxRules 41", "\n    maxRules: 41"], ["reviewAfterDays 29", "\n    reviewAfterDays: 29"], ["reviewAfterDays 366", "\n    reviewAfterDays: 366"],
+    ["capture always", "\n    capture: always"], ["metrics maybe", "\n    metrics: maybe"], ["required inside lessons", "\n    required: true"],
+  ])("rejects %s", (_n, body) => {
+    expect(parseConfig(HEAD + `brain:\n  lessons:${body}\n`).ok).toBe(false);
   });
 });

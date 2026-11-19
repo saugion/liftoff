@@ -14471,7 +14471,22 @@ function normalize(raw) {
     ...raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker) },
     ...raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } },
     ...raw.brain && {
-      brain: { dir: raw.brain.dir ?? "brain", hotMaxLines: raw.brain.hotMaxLines ?? 15, afterBuild: raw.brain.afterBuild ?? "propose", required: raw.brain.required ?? false }
+      brain: {
+        dir: raw.brain.dir ?? "brain",
+        hotMaxLines: raw.brain.hotMaxLines ?? 15,
+        afterBuild: raw.brain.afterBuild ?? "propose",
+        required: raw.brain.required ?? false,
+        // Only when present, so a brain without lessons keeps the hash it had before lessons existed.
+        ...raw.brain.lessons && {
+          lessons: {
+            capture: raw.brain.lessons.capture ?? "notify",
+            promoteAfter: raw.brain.lessons.promoteAfter ?? 2,
+            maxRules: raw.brain.lessons.maxRules ?? 20,
+            reviewAfterDays: raw.brain.lessons.reviewAfterDays ?? 90,
+            metrics: raw.brain.lessons.metrics ?? true
+          }
+        }
+      }
     },
     ...raw.streams && { streams: Object.keys(raw.streams).length === 0 ? {} : normalizeStreams(raw.streams) },
     ...raw.codeHost && { codeHost: Object.keys(raw.codeHost).length === 0 ? {} : normalizeCodeHost(raw.codeHost) }
@@ -15026,6 +15041,37 @@ var liftoff_schema_default = {
         },
         required: {
           $ref: "#/definitions/requiredFlag"
+        },
+        lessons: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            capture: {
+              enum: [
+                "notify",
+                "ask",
+                "off"
+              ]
+            },
+            promoteAfter: {
+              type: "integer",
+              minimum: 2,
+              maximum: 10
+            },
+            maxRules: {
+              type: "integer",
+              minimum: 5,
+              maximum: 40
+            },
+            reviewAfterDays: {
+              type: "integer",
+              minimum: 30,
+              maximum: 365
+            },
+            metrics: {
+              type: "boolean"
+            }
+          }
         }
       }
     }

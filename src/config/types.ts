@@ -9,6 +9,10 @@ export interface ModuleItem {
   description?: string;
 }
 
+// The lessons loop (opt-in inside `brain`): presence of `lessons` turns it on.
+export interface RawLessons { capture?: "notify" | "ask" | "off"; promoteAfter?: number; maxRules?: number; reviewAfterDays?: number; metrics?: boolean }
+export interface LessonsConfig { capture: "notify" | "ask" | "off"; promoteAfter: number; maxRules: number; reviewAfterDays: number; metrics: boolean }
+
 // What the schema accepts: optional sections and optional fields inside them.
 export interface RawConfig {
   liftoff: 1;
@@ -22,7 +26,7 @@ export interface RawConfig {
   codeHost?: Record<string, never> | RawCodeHost;
   streams?: Record<string, never> | RawStreams;
   build?: { git?: "assisted" | "manual"; required?: boolean };
-  brain?: { dir?: string; hotMaxLines?: number; afterBuild?: "propose" | "off"; required?: boolean };
+  brain?: { dir?: string; hotMaxLines?: number; afterBuild?: "propose" | "off"; required?: boolean; lessons?: RawLessons };
 }
 
 // Normalized: defaults applied inside every section that is present. An absent section stays absent.
@@ -38,7 +42,7 @@ export interface Config {
   codeHost?: Record<string, never> | CodeHostConfig;
   streams?: Record<string, never> | StreamsConfig;
   build?: { git: "assisted" | "manual"; required: boolean }; // assisted: the agent runs git after an approved dry-run; manual: the engineer runs every git write
-  brain?: { dir: string; hotMaxLines: number; afterBuild: "propose" | "off"; required: boolean }; // presence of the section is the opt-in
+  brain?: { dir: string; hotMaxLines: number; afterBuild: "propose" | "off"; required: boolean; lessons?: LessonsConfig }; // presence of the section is the opt-in
 }
 
 export interface ConfigError {
