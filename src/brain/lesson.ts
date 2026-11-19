@@ -59,7 +59,7 @@ export function draftErrors(d: unknown): string[] {
 // ---- file format -------------------------------------------------------------------------------------------------
 
 export function serializeLesson(l: Lesson): string {
-  const occ = l.occurrences.map((o) => `  - { date: ${o.date}, ${o.ticket ? `ticket: ${o.ticket}, ` : ""}skill: ${o.skill}, evidence: ${o.evidence} }`).join("\n");
+  const occ = l.occurrences.map((o) => `  - { date: ${o.date}, ${o.ticket ? `ticket: ${o.ticket}, ` : ""}skill: ${o.skill}, evidence: "${o.evidence}" }`).join("\n");
   const front = [
     "---",
     `key: ${l.key}`,

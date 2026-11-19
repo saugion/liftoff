@@ -15870,7 +15870,7 @@ function draftErrors(d) {
   return errors;
 }
 function serializeLesson(l) {
-  const occ = l.occurrences.map((o) => `  - { date: ${o.date}, ${o.ticket ? `ticket: ${o.ticket}, ` : ""}skill: ${o.skill}, evidence: ${o.evidence} }`).join("\n");
+  const occ = l.occurrences.map((o) => `  - { date: ${o.date}, ${o.ticket ? `ticket: ${o.ticket}, ` : ""}skill: ${o.skill}, evidence: "${o.evidence}" }`).join("\n");
   const front = [
     "---",
     `key: ${l.key}`,

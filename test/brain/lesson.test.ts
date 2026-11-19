@@ -111,3 +111,11 @@ describe("the instruction-like list is shared", () => {
     expect(instructionLike("The reset link expires after 30 minutes.")).toBe(false);
   });
 });
+
+describe("an evidence hash made only of digits survives a round trip", () => {
+  it.each(["40140182", "00123456", "12345e67"])("%s", (hash) => {
+    const l: Lesson = { key: "a-rule", rule: "Run `make test`.", kind: "command", target: "agents-md", status: "open", tainted: false, occurrences: [{ date: "2026-11-19", ticket: "PROJ-1", skill: "build", evidence: hash, text: "> x" }] };
+    const back = parseLesson(serializeLesson(l));
+    expect(back.ok && back.lesson.occurrences[0]!.evidence).toBe(hash);
+  });
+});
