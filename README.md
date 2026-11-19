@@ -199,6 +199,14 @@ section, every teammate's LiftOff reports a required change until they apply it 
 questions). Init marks `constraints` and `build` required by default. Personal things, like tokens, are never in the
 config.
 
+## Control panel (optional)
+
+`npm run ui -- --root <project>` starts a local page for the lead, PO or TL (an address on `127.0.0.1` that it prints; open it
+in a browser). It shows every section of `liftoff.yaml` (project, modules, tracker, code host, work streams, constraints,
+brain), validates with the same rules as the CLI, and shows the exact change before writing. It is the place to change a
+project that is already set up, and a stopped session resumes where it left off. It never takes a token or a password.
+It is a separate program from the CLI, which still has no network code, and it is not part of the plugin yet.
+
 ## Guarantees
 
 - **Approval before every write to an outside system.** You see exactly what will be sent first: ticket fields, branch,

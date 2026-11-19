@@ -9,7 +9,7 @@ const ENTRY_FRAGMENT = "plugin/skills/liftoff-init/assets/marketplace-entry.json
 
 // src/cli/version.ts imports package.json for its version. Embed the version only: not the scripts and the
 // devDependencies, and not a stale artifact every time someone edits an unrelated line of package.json.
-const packageVersionOnly = {
+export const packageVersionOnly = {
   name: "package-version-only",
   setup(b) {
     const file = resolve("package.json");

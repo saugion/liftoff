@@ -122,3 +122,24 @@ Contents: [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket
     over and the branch name is a suggestion.
 36. **The diff header carries line counts** (`@@ -1,4 +1,6 @@`); the first version had none, which the smoke run flagged.
 37. **Found by the end-to-end run:** a lesson whose evidence hash was all digits could not be read back; the hash is now quoted.
+
+## Control panel (`liftoff-ui`)
+
+38. **The CLI stays pure; the panel is a second bundle.** `ui/` builds to `dist/liftoff-ui.mjs`. `src/` and `dist/liftoff.mjs`
+    still contain no network module (`static-guard.test.ts` is unchanged). The panel may use `node:http` and nothing else,
+    held by `test/ui-guard.test.ts`: it binds `127.0.0.1` only, never connects out, starts no process, and its page loads
+    nothing from outside. It is not shipped in `plugin/` yet (that needs the packaging tests and the release script to
+    know a second binary).
+39. **One validator.** The panel never re-implements a rule: it merges the edit into the YAML and runs `validateConfig`,
+    then writes only if that passes. Errors come back as JSON pointers and the page maps them to fields.
+40. **Edits are patches into the YAML document, not a rewrite.** Untouched fields are left out of the patch, comments stay,
+    and the fields Connect learned (issue-type templates, readingMap, transitions) survive a rename or a branch-prefix
+    change. An absent key is left alone; `null` deletes.
+41. **Apply = write `liftoff.yaml`, then `render`.** If render cannot finish (for example a new module's folder has no
+    `AGENTS.md`) the config is still saved and the page says why. Conflicts are listed, never overwritten.
+42. **Resume and change are the same feature.** The draft lives in `.liftoff/ui-draft.json` (personal, self-ignored), so a
+    stopped session continues on any browser, and the saved file is the base every later edit is diffed against. A write is
+    refused (409) if `liftoff.yaml` changed on disk since the page loaded.
+43. **Local access control.** A random token in the printed address, checked on every request; a `Host` header that is not
+    the loopback address is refused (DNS rebinding); writes must be JSON (so a form on another site cannot post); a strict
+    CSP. No credential is ever sent to the page or accepted by it.

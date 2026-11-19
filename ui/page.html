@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LiftOff control panel</title>
+<style>
+:root{--ink:#0E1726;--mut:#46526A;--line:#D5DBE6;--bg:#F3F5F8;--card:#fff;--acc:#1F4FD8;--bad:#B42318;--ok:#0B6B3A;--ring:#BFD0FF}
+@media (prefers-color-scheme:dark){:root{--ink:#E6ECF7;--mut:#A9B5CC;--line:#2B3750;--bg:#0B1220;--card:#121B2E;--acc:#7AA2FF;--bad:#FF8A80;--ok:#4ADE80;--ring:#27407F}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:16px 32px;background:#0E1726;color:#fff}
+header b{font-size:18px}header small{color:#B6C0D4}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+#bar{display:none;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 32px;background:#FFF4E5;color:#7A2E0E;border-bottom:1px solid #F3D3A6;font-weight:600;font-size:14px}
+#bar.on{display:flex}
+main{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;max-width:1440px;margin:0 auto;padding:28px 32px}
+nav{flex:0 0 240px;display:flex;flex-direction:column;gap:6px}
+.step{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:12px 14px;border:1px solid transparent;border-radius:12px;background:transparent}
+.step:hover{background:rgba(127,140,165,.15)}
+.step.act{background:var(--card);border-color:var(--line)}
+.step small{display:block;color:var(--mut);font-size:12px}
+.badge{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:600;background:var(--line)}
+.act .badge{background:var(--acc);color:#fff}.done .badge{background:var(--ok);color:#fff}
+#form{flex:1 1 440px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px;display:flex;flex-direction:column;gap:22px}
+#pv{flex:1 1 400px;min-width:0;background:#0E1726;color:#D6E0F5;border-radius:16px;overflow:hidden}
+h1{margin:0;font-size:28px;letter-spacing:-.02em}
+.eyebrow{font-size:13px;font-weight:600;color:var(--acc);letter-spacing:.04em;text-transform:uppercase}
+.lede{margin:4px 0 0;color:var(--mut)}
+.f{display:flex;flex-direction:column;gap:6px}
+.f>label,.lab{font-size:14px;font-weight:600}
+.f small,.hint{color:var(--mut);font-size:13px;font-weight:400}
+.in{width:100%;height:44px;padding:0 14px;border:1px solid #C3CAD6;border-radius:10px;background:var(--card)}
+textarea.in{height:auto;padding:12px 14px;min-height:240px;line-height:1.6}
+.in:focus,button:focus-visible{outline:3px solid var(--ring);outline-offset:1px;border-color:var(--acc)}
+.in.bad{border-color:var(--bad)}
+.err{color:var(--bad);font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:12px}.row>*{flex:1 1 180px}
+.btn{height:44px;padding:0 20px;border-radius:10px;border:1px solid #C3CAD6;background:var(--card);font-weight:600}
+.btn:hover{border-color:var(--ink)}.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.sm{height:36px;font-size:13px;padding:0 14px}.btn[disabled]{opacity:.45;cursor:not-allowed}
+.seg{height:44px;padding:0 16px;border:1px solid #C3CAD6;border-radius:10px;background:var(--card);font-weight:500}
+.seg.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.box{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;border:1px solid var(--line);border-radius:12px}
+.card{border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.tog{width:52px;height:30px;border-radius:15px;border:0;background:#98A2B3;position:relative;flex:none}
+.tog i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.tog.on{background:var(--ok)}.tog.on i{left:25px}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.c-saved{background:#E3F5EA;color:#0A4D2A}.c-dirty{background:#FFF4E5;color:#7A2E0E}.c-bad{background:#FDE8E6;color:#8F1D12}.c-ready{background:#E7EEFF;color:#173DAA}.c-todo{background:#E8ECF3;color:#26324A}
+.note{padding:14px 16px;border-radius:12px;font-size:14px}
+.n-info{background:#E7EEFF;color:#173DAA}.n-warn{background:#FFF4E5;color:#7A2E0E}.n-bad{background:#FDE8E6;color:#8F1D12}.n-ok{background:#E3F5EA;color:#0A4D2A}
+.adv{padding:20px;border-radius:12px;background:rgba(127,140,165,.1);border:1px solid var(--line);display:flex;flex-direction:column;gap:18px}
+.foot{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;padding-top:22px;border-top:1px solid var(--line)}
+.pvh{padding:20px 24px 12px}.pvh b{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#8FA3C8}
+.files{padding:0 24px 12px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.files div{display:flex;justify-content:space-between;gap:12px}
+.tabs{display:flex;gap:4px;padding:0 16px;border-bottom:1px solid #26324A}
+.tab{height:36px;padding:0 14px;border:0;border-bottom:2px solid transparent;background:none;color:#8FA3C8;font-size:13px}
+.tab.on{color:#fff;border-bottom-color:var(--acc)}
+pre{margin:0;padding:20px 24px 28px;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word;min-height:420px;background:#0A111E}
+.chg{display:flex;flex-wrap:wrap;gap:4px 14px;padding:12px 16px;border-bottom:1px solid var(--line);align-items:baseline}
+.chg b{flex:0 0 170px;font-size:14px}.chg .a{color:var(--bad);text-decoration:line-through}.chg .b{color:var(--ok)}
+@media(max-width:700px){header,#bar,main{padding-left:16px;padding-right:16px}#form{padding:20px}}
+</style>
+</head>
+<body>
+<header>
+<div><b>LiftOff</b> <small>Control panel</small></div>
+<small class="mono" id="hdr">127.0.0.1 · local only</small>
+</header>
+<div id="bar"></div>
+<main>
+<nav id="nav" aria-label="Sections"></nav>
+<section id="form"></section>
+<aside id="pv" aria-label="Live preview"></aside>
+</main>
+<script>
+"use strict";
+const TOKEN = "__TOKEN__";
+history.replaceState(null, "", location.pathname); // the token is not left in the address bar
+
+// ---------- api
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: Object.assign({ "x-liftoff-token": TOKEN }, body !== undefined ? { "content-type": "application/json" } : {}), body: body !== undefined ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({ ok: false, message: "bad response" }));
+  return Object.assign({ status: r.status }, j);
+}
+
+// ---------- model
+const SECTIONS = [
+  { id: 1, label: "Project", sub: "Name, agents, stack", keys: ["name", "kind", "targets", "langs", "fw"] },
+  { id: 2, label: "Modules", sub: "Parts of the codebase", keys: ["mods"] },
+  { id: 3, label: "Tracker", sub: "Jira Data Center", keys: ["tver", "turl", "tkey", "readOnly", "ssl", "elf", "enf", "its"] },
+  { id: 4, label: "Code host", sub: "GitLab and branches", keys: ["host", "tb", "bp", "tpat", "mrt", "labels", "revs", "git"] },
+  { id: 5, label: "Work streams", sub: "Kanban side projects", keys: ["streams"] },
+  { id: 6, label: "Constraints", sub: "The quality bar", keys: ["cfile", "ctext"] },
+  { id: 7, label: "Brain", sub: "What the project learns", keys: ["brain", "cap", "metrics"] },
+];
+const REVIEW = 8;
+const LAB = { name: "Project name", kind: "Project kind", targets: "Agents", langs: "Languages", fw: "Frameworks", mods: "Modules", tver: "Jira version", turl: "Jira URL", tkey: "Project key", readOnly: "Read-only access", ssl: "Verify SSL", elf: "Epic link field", enf: "Epic name field", its: "Issue types", host: "GitLab host", tb: "Target branch", bp: "Branch pattern", tpat: "MR title pattern", mrt: "MR template", labels: "MR labels", revs: "Reviewers", git: "Git during Build", streams: "Work streams", cfile: "Constraints file", ctext: "Constraints text", brain: "Project brain", cap: "Correction capture", metrics: "Pilot metrics" };
+
+let S = null; // server state
+let O = {};   // the config as saved
+let B = null; // form as saved
+let F = null; // form being edited
+let V = { errors: [], yaml: "" }; // last validation
+let step = 0, tab = 0, tried = false, result = null, note = null, resume = null, saving = "", visited = {};
+let advOpen = { 3: false, 4: false };
+
+const csvOf = (a) => (a || []).join(", ");
+const csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function fromConfig(c, constraints) {
+  const t = c.tracker || {}, h = c.codeHost || {}, cv = h.conventions || {}, s = t.server || {};
+  return {
+    name: c.project?.name || "", kind: c.project?.kind || "new", targets: c.agents?.targets || ["claude-code"], langs: csvOf(c.stack?.languages), fw: csvOf(c.stack?.frameworks),
+    mods: (c.modules?.items || []).map((m) => ({ id: m.id, path: m.path, desc: m.description || "", was: m.id })),
+    tver: s.version || "", turl: t.url || "", tkey: t.project || "", readOnly: s.readOnly ?? true, ssl: s.sslVerify ?? true, elf: t.epicLinkField || "", enf: t.epicNameField || "",
+    its: (t.issueTypes || []).map((i) => ({ name: i.name, branch: i.branchType || "", was: i.name })),
+    host: h.host || "", tb: cv.targetBranch || "", bp: cv.branchPattern || "", tpat: cv.titlePattern || "", mrt: cv.mrTemplate || "", labels: csvOf(cv.labels), revs: csvOf(cv.reviewers), git: c.build?.git || "assisted",
+    streams: (c.streams?.items || []).map((x) => ({ id: x.id, project: x.project, module: x.module || "", epics: csvOf(x.epics), was: x.id })),
+    cfile: c.constraints?.file || constraints.file || "CONSTRAINTS.md", ctext: constraints.text || "",
+    brain: !!c.brain, cap: c.brain?.lessons?.capture || "ask", metrics: c.brain?.lessons?.metrics ?? true,
+  };
+}
+
+// The patch the server merges into liftoff.yaml. A field the user did not touch is left out, so saving never
+// rewrites what it was not asked to change; null clears a value that existed.
+function toPatch() {
+  const fresh = !S.exists;
+  const ch = (k) => fresh || !same(F[k], B[k]);
+  const clr = (v, was) => (v === "" || v == null ? (was !== undefined && was !== "" ? null : undefined) : v);
+  const list = (k, was) => { const a = csv(F[k]); return a.length ? a : (was && was.length ? null : undefined); };
+  const p = {};
+  const set = (sec, key, val) => { if (val !== undefined) (p[sec] = p[sec] || {})[key] = val; };
+  if (ch("name")) set("project", "name", F.name);
+  if (ch("kind")) set("project", "kind", F.kind);
+  if (ch("targets")) set("agents", "targets", F.targets);
+  if (ch("langs")) set("stack", "languages", list("langs", O.stack?.languages));
+  if (ch("fw")) set("stack", "frameworks", list("fw", O.stack?.frameworks));
+  if (ch("mods") && (F.mods.length || O.modules)) set("modules", "items", F.mods.map((m) => ({ $was: m.was, id: m.id, path: m.path, description: clr(m.desc, (O.modules?.items || []).find((x) => x.id === m.was)?.description) })));
+  const t = O.tracker || {}, s = t.server || {};
+  const trackerKeys = ["tver", "turl", "tkey", "readOnly", "ssl", "elf", "enf", "its"];
+  if (trackerKeys.some((k) => (fresh ? F[k] !== "" && F[k] !== undefined && !(k === "readOnly" || k === "ssl") && !(k === "its" && !F.its.length) : !same(F[k], B[k])))) {
+    if (!O.tracker) set("tracker", "kind", "jira-dc");
+    if (ch("turl")) set("tracker", "url", F.turl);
+    if (ch("tkey")) set("tracker", "project", F.tkey);
+    if (ch("tver") || ch("readOnly") || ch("ssl")) p.tracker.server = Object.assign({}, ch("tver") ? { version: F.tver } : {}, ch("readOnly") ? { readOnly: F.readOnly } : {}, ch("ssl") ? { sslVerify: F.ssl } : {});
+    if (ch("elf")) set("tracker", "epicLinkField", clr(F.elf, t.epicLinkField));
+    if (ch("enf")) set("tracker", "epicNameField", clr(F.enf, t.epicNameField));
+    if (ch("its")) set("tracker", "issueTypes", F.its.map((i) => ({ $was: i.was, name: i.name, branchType: clr(i.branch, (t.issueTypes || []).find((x) => x.name === i.was)?.branchType) })));
+  }
+  const h = O.codeHost || {}, cv = h.conventions || {};
+  if (["host", "tb", "bp", "tpat", "mrt", "labels", "revs"].some((k) => (fresh ? F[k] !== "" : !same(F[k], B[k])))) {
+    if (!O.codeHost) set("codeHost", "kind", "gitlab");
+    if (ch("host")) set("codeHost", "host", F.host);
+    const conv = {};
+    const put = (k, key, was, v) => { if (ch(k)) { const x = v === undefined ? clr(F[k], was) : v; if (x !== undefined) conv[key] = x; } };
+    put("tb", "targetBranch", cv.targetBranch); put("bp", "branchPattern", cv.branchPattern); put("tpat", "titlePattern", cv.titlePattern); put("mrt", "mrTemplate", cv.mrTemplate);
+    put("labels", "labels", cv.labels, list("labels", cv.labels)); put("revs", "reviewers", cv.reviewers, list("revs", cv.reviewers));
+    if (Object.keys(conv).length) p.codeHost.conventions = conv;
+  }
+  if (ch("git") && (!fresh || F.git)) set("build", "git", F.git);
+  if (ch("streams") && (F.streams.length || O.streams)) set("streams", "items", F.streams.map((x) => ({ $was: x.was, id: x.id, project: x.project, mode: "kanban", module: clr(x.module, (O.streams?.items || []).find((y) => y.id === x.was)?.module), epics: csv(x.epics) })));
+  if (ch("cfile") && (F.cfile !== "CONSTRAINTS.md" || O.constraints || F.ctext.trim())) set("constraints", "file", F.cfile);
+  if (F.brain && (ch("brain") || ch("cap") || ch("metrics"))) p.brain = Object.assign(O.brain ? {} : { afterBuild: "propose" }, { lessons: { capture: F.cap, metrics: F.metrics } });
+  if (!F.brain && O.brain) p.brain = null;
+  return p;
+}
+
+// ---------- errors: where each server error lands
+const MAP = [
+  [/^\/project\/name/, 1, "name"], [/^\/project/, 1, "kind"], [/^\/agents/, 1, "targets"], [/^\/stack\/frameworks/, 1, "fw"], [/^\/stack/, 1, "langs"],
+  [/^\/modules\/items\/(\d+)\/(id|path|description)/, 2, "mods.$1.$2"], [/^\/modules/, 2, "mods"],
+  [/^\/tracker\/url/, 3, "turl"], [/^\/tracker\/project/, 3, "tkey"], [/^\/tracker\/server/, 3, "tver"], [/^\/tracker\/epicLinkField/, 3, "elf"], [/^\/tracker\/epicNameField/, 3, "enf"],
+  [/^\/tracker\/issueTypes\/(\d+)\/name/, 3, "its.$1.name"], [/^\/tracker\/issueTypes\/(\d+)\/branchType/, 3, "its.$1.branch"], [/^\/tracker/, 3, "tracker"],
+  [/^\/codeHost\/host/, 4, "host"], [/^\/codeHost\/conventions\/targetBranch/, 4, "tb"], [/^\/codeHost\/conventions\/branchPattern/, 4, "bp"], [/^\/codeHost\/conventions\/titlePattern/, 4, "tpat"],
+  [/^\/codeHost\/conventions\/mrTemplate/, 4, "mrt"], [/^\/codeHost\/conventions\/labels/, 4, "labels"], [/^\/codeHost\/conventions\/reviewers/, 4, "revs"], [/^\/codeHost/, 4, "codehost"], [/^\/build/, 4, "git"],
+  [/^\/streams\/items\/(\d+)\/(id|project|module|epics)/, 5, "streams.$1.$2"], [/^\/streams/, 5, "streams"],
+  [/^\/constraints/, 6, "cfile"], [/^\/brain/, 7, "brain"],
+];
+function locate(e) {
+  for (const [re, sec, key] of MAP) { const m = re.exec(e.path); if (m) return { sec, key: key.replace(/\$(\d)/g, (_, i) => m[i]), message: e.message }; }
+  return { sec: 0, key: "", message: (e.path ? e.path + ": " : "") + e.message };
+}
+function errs() {
+  const by = {}, secs = {}, loose = [];
+  for (const e of V.errors) {
+    const l = locate(e);
+    if (!l.sec) { loose.push(l.message); continue; }
+    (secs[l.sec] = secs[l.sec] || []).push(l);
+    if (!by[l.key]) by[l.key] = l.message;
+  }
+  return { by, secs, loose };
+}
+const showErr = (sec) => tried || S.exists || visited[sec];
+
+// ---------- status
+const dirtyKeys = () => Object.keys(F).filter((k) => !same(F[k], B[k]));
+const secDirty = (c) => c.keys.some((k) => !same(F[k], B[k]));
+function status(c) {
+  const e = errs().secs[c.id] || [];
+  if (e.length && showErr(c.id)) return ["Needs attention", "bad"];
+  if (S.exists) return secDirty(c) ? ["Unsaved changes", "dirty"] : ["Saved", "saved"];
+  return visited[c.id] ? ["Ready", "ready"] : ["To do", "todo"];
+}
+function summary(id) {
+  const f = F;
+  return [null,
+    (f.name || "No name yet") + " · " + f.kind + " · " + (f.targets.join(", ") || "no agents") + (f.langs ? " · " + f.langs : ""),
+    f.mods.length ? f.mods.length + " module" + (f.mods.length > 1 ? "s" : "") + ": " + f.mods.map((m) => m.id || "?").join(", ") : "None defined. Optional.",
+    f.turl ? (f.tkey || "?") + " on " + f.turl.replace(/^https?:\/\//, "") + (f.readOnly ? " · read-only" : " · read and write") : "Not connected",
+    f.host ? f.host + (f.tb ? " · into " + f.tb : "") + " · git " + f.git : "Not connected",
+    f.streams.length ? f.streams.length + " stream" + (f.streams.length > 1 ? "s" : "") + ": " + f.streams.map((s) => s.id || "?").join(", ") : "None linked. Optional.",
+    f.ctext ? f.cfile + " · " + f.ctext.split("\n").length + " lines" : f.cfile + (S.constraints.text === null ? " · not written yet" : ""),
+    f.brain ? "On · corrections: " + f.cap : "Off"][id];
+}
+
+// ---------- view helpers
+const val = (k) => esc(F[k]);
+const E = (key) => { const m = errs().by[key]; return m && showErr(keySec(key)) ? '<div class="err">' + esc(m) + "</div>" : ""; };
+const bad = (key) => { const m = errs().by[key]; return m && showErr(keySec(key)) ? " bad" : ""; };
+const keySec = (key) => { const top = key.split(".")[0]; return ({ mods: 2, its: 3, streams: 5, tracker: 3, codehost: 4 }[top]) || SECTIONS.find((s) => s.keys.includes(top))?.id || 0; };
+const field = (k, label, ph, extra = "") => `<div class="f"><label for="k-${k}">${label}${extra}</label><input id="k-${k}" class="in${bad(k)}" data-k="${k}" value="${val(k)}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false">${E(k)}</div>`;
+const tog = (k, title, desc) => `<div class="box"><div><b>${title}</b><div class="hint">${desc}</div></div><button class="tog${F[k] ? " on" : ""}" data-a="flip" data-k="${k}" aria-pressed="${F[k]}" aria-label="${esc(title)}"><i></i></button></div>`;
+const segs = (k, opts) => `<div class="row" role="group">${opts.map(([v, l]) => `<button class="seg${F[k] === v ? " on" : ""}" style="flex:0 0 auto" data-a="set" data-k="${k}" data-v="${v}" aria-pressed="${F[k] === v}">${l}</button>`).join("")}</div>`;
+const rowIn = (list, i, f, label, ph, v) => `<div class="f"><label>${label}<input class="in${bad(list + "." + i + "." + f)}" style="margin-top:6px" data-l="${list}" data-i="${i}" data-f="${f}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false"></label>${E(list + "." + i + "." + f)}</div>`;
+
+const BODY = {
+  1: () => `${field("name", "Project name", "e.g. payments-api")}
+<div class="f"><span class="lab">Is the codebase new or existing?</span>${segs("kind", [["new", "New project"], ["existing", "Existing codebase"]])}</div>
+<div class="f"><span class="lab">Agents LiftOff writes instructions for</span><div class="row">${[["claude-code", "Claude Code"], ["copilot", "GitHub Copilot"]].map(([v, l]) => `<button class="seg${F.targets.includes(v) ? " on" : ""}" style="flex:0 0 auto" data-a="target" data-v="${v}" aria-pressed="${F.targets.includes(v)}">${l}</button>`).join("")}</div>${E("targets")}</div>
+${field("langs", "Languages", "e.g. typescript, java", ' <small>· comma separated</small>')}
+${field("fw", "Frameworks", "e.g. spring, react", ' <small>· comma separated, optional</small>')}`,
+  2: () => `${F.mods.length ? "" : '<div class="note n-info">No modules yet. Modules are the parts of your codebase tickets and streams can point to. Optional.</div>'}
+${F.mods.map((m, i) => `<div class="card"><div class="row">${rowIn("mods", i, "id", "Id", "e.g. api", m.id)}${rowIn("mods", i, "path", "Folder", "e.g. services/api", m.path)}</div>${rowIn("mods", i, "description", "What it does <small>· optional</small>", "One line a new teammate would understand", m.desc)}<button class="btn sm" style="align-self:flex-start" data-a="del" data-l="mods" data-i="${i}">Remove module</button></div>`).join("")}
+<button class="btn" style="align-self:flex-start" data-a="add" data-l="mods">Add a module</button>`,
+  3: () => `${field("turl", "Jira Data Center URL", "https://jira.your-company.com")}
+<div class="row">${field("tver", "Jira version", "e.g. 9.12.4")}${field("tkey", "Project key", "e.g. PAY")}</div>
+${tog("readOnly", "Read-only access", "LiftOff reads tickets but never writes to Jira. Safest for a first pilot.")}
+<div class="note n-warn">Your access token never goes in this file or this page. It stays in your environment or keychain.</div>
+${adv(3, tog("ssl", "Verify SSL certificate", "Turn off only for a self-signed test server.") + field("elf", "Epic link field", "e.g. customfield_10014") + field("enf", "Epic name field", "e.g. customfield_10011") +
+  `<div class="f"><span class="lab">Issue types</span><div class="hint">Templates, fields and transitions learned by Connect are kept exactly as they are. Here you only rename a type or set its branch prefix.</div>
+  ${F.its.map((t, i) => `<div class="row" style="align-items:flex-start">${rowIn("its", i, "name", "Name", "e.g. Bug", t.name)}${rowIn("its", i, "branch", "Branch prefix", "e.g. fix", t.branch)}<button class="btn sm" style="flex:0 0 auto;margin-top:30px" data-a="del" data-l="its" data-i="${i}">Remove</button></div>`).join("")}
+  <button class="btn sm" style="align-self:flex-start" data-a="add" data-l="its">Add an issue type</button></div>`)}`,
+  4: () => `${field("host", "GitLab host", "e.g. gitlab.your-company.com")}
+<div class="row">${field("tb", "Target branch", "e.g. main")}${field("bp", "Branch name pattern", "e.g. feature/{key}-{slug}")}</div>
+<div class="f"><span class="lab">Who runs git during Build?</span>${segs("git", [["assisted", "LiftOff, with my approval"], ["manual", "I run git myself"]])}<div class="hint">${F.git === "assisted" ? "LiftOff creates branches and commits, and pauses for your OK before each push." : "LiftOff only edits files. You create branches, commit and push."}</div></div>
+${adv(4, field("tpat", "Merge request title pattern", "e.g. {key}: {summary}") + field("mrt", "Merge request template file", "e.g. .gitlab/merge_request_templates/default.md") + field("labels", "Labels", "e.g. liftoff, needs-review") + field("revs", "Default reviewers", "GitLab usernames, comma separated"))}`,
+  5: () => `${F.streams.length ? "" : '<div class="note n-info">No work streams. A stream is a time-boxed Kanban Jira project linked to a module. Optional.</div>'}
+${F.streams.map((s, i) => `<div class="card"><div class="row">${rowIn("streams", i, "id", "Stream id", "e.g. mvp-checkout", s.id)}${rowIn("streams", i, "project", "Jira project key", "e.g. CHK", s.project)}
+<div class="f"><label>Feeds module<select class="in${bad("streams." + i + ".module")}" style="margin-top:6px" data-l="streams" data-i="${i}" data-f="module"><option value="">None</option>${F.mods.filter((m) => m.id).map((m) => `<option value="${esc(m.id)}"${m.id === s.module ? " selected" : ""}>${esc(m.id)}</option>`).join("")}</select></label>${E("streams." + i + ".module")}</div></div>
+${rowIn("streams", i, "epics", "Epics <small>· comma separated, optional</small>", "e.g. CHK-12, CHK-30", s.epics)}<button class="btn sm" style="align-self:flex-start" data-a="del" data-l="streams" data-i="${i}">Unlink stream</button></div>`).join("")}
+<button class="btn" style="align-self:flex-start" data-a="add" data-l="streams">Link a stream</button>`,
+  6: () => `${field("cfile", "Constraints file", "CONSTRAINTS.md")}
+<div class="f"><label for="k-ctext">Contents <small>· Markdown. Agents must meet it and may not weaken it.</small></label><textarea id="k-ctext" class="in mono" data-k="ctext" spellcheck="false" placeholder="${S.constraints.text === null ? "This file does not exist yet. Init writes it from your stack; or write it here." : ""}">${val("ctext")}</textarea></div>`,
+  7: () => `${tog("brain", "Project brain", "After each Build, LiftOff proposes what the project learned. You approve before anything is saved.")}
+<div class="f"><span class="lab">When a human corrects the agent</span>${segs("cap", [["ask", "Ask me"], ["notify", "Tell me"], ["off", "Ignore"]])}</div>
+${tog("metrics", "Pilot metrics", "Counts only, stored locally. No ticket keys, rules, paths or names.")}
+${F.brain && !O.brain ? '<div class="note n-warn">Turning the brain on writes its settings. Run the Brain skill once to create the wiki folder.</div>' : ""}`,
+};
+const adv = (n, inner) => `<button class="btn sm" style="align-self:flex-start" data-a="adv" data-n="${n}" aria-expanded="${advOpen[n] || advHasErr(n)}">${advOpen[n] || advHasErr(n) ? "Hide" : "Show"} advanced settings</button>${advOpen[n] || advHasErr(n) ? `<div class="adv">${inner}</div>` : ""}`;
+const advKeys = { 3: ["elf", "enf", "its."], 4: ["tpat", "mrt", "labels", "revs"] };
+const advHasErr = (n) => showErr(n) && Object.keys(errs().by).some((k) => advKeys[n].some((a) => k === a || (a.endsWith(".") && k.startsWith(a))));
+
+const COPY = [
+  ["Control panel", () => (S.exists ? "Everything LiftOff knows about this project. Change any section, then review and apply." : "No liftoff.yaml here yet. Seven sections set the project up. Do them in any order; your progress is kept if you stop.")],
+  ["Name your project", () => "How LiftOff refers to the project, which agents it writes for, and the stack."],
+  ["Describe the modules", () => "Name the parts of your codebase so tickets, plans and streams can point to the right one."],
+  ["Connect your tracker", () => "LiftOff reads tickets from Jira so every plan starts from the real ask."],
+  ["Connect your code host", () => "Where merge requests go and how branches are named."],
+  ["Link work streams", () => "A stream is a time-boxed Kanban project. Work that touches a stream and a module becomes one ticket for each."],
+  ["Set the quality bar", () => "Written once, enforced on every change."],
+  ["Decide what the project remembers", () => "The brain keeps lessons between tickets so the same correction is not needed twice."],
+  ["Review and apply", () => (S.exists ? "Only the differences from what is saved. Nothing is written until you apply." : "Check the file on the right. Nothing is written until you apply.")],
+];
+
+const show = (v) => (Array.isArray(v) ? (v.length ? v.map((x) => (typeof x === "string" ? x : x.id || x.name || "?")).join(", ") : "(none)") : v === true ? "on" : v === false ? "off" : v === "" || v == null ? "(empty)" : String(v).length > 60 ? String(v).slice(0, 57) + "…" : String(v));
+const changes = () => (S.exists ? dirtyKeys().map((k) => ({ label: LAB[k], a: show(B[k]), b: show(F[k]) })) : []);
+
+// ---------- draw
+function draw() {
+  const e = errs();
+  document.getElementById("hdr").textContent = "127.0.0.1 · local only · " + (saving || (S.exists ? (dirtyKeys().length ? "draft saved" : "all changes saved") : "progress saved"));
+  const n = changes().length;
+  const bar = document.getElementById("bar");
+  bar.className = S.exists && n && step !== REVIEW ? "on" : "";
+  bar.innerHTML = bar.className ? `<span>${n} unsaved ${n === 1 ? "change" : "changes"}. Your draft is kept if you close this page.</span><span class="row" style="flex:0 0 auto"><button class="btn sm" data-a="discard">Discard changes</button><button class="btn sm pri" data-a="go" data-s="${REVIEW}">Review and apply</button></span>` : "";
+  document.getElementById("nav").innerHTML = [{ n: "⌂", l: "Overview", s: S.exists ? "Project is configured" : "Setup progress", i: 0, c: "" }]
+    .concat(SECTIONS.map((c) => { const st = status(c); return { n: c.id, l: c.label, s: st[0], i: c.id, c: st[1] === "saved" || st[1] === "ready" ? "done" : "" }; }))
+    .concat([{ n: "→", l: "Review and apply", s: n ? n + " to apply" : S.exists ? "Nothing to apply" : "Write the files", i: REVIEW, c: "" }])
+    .map((x) => `<button class="step ${x.i === step ? "act" : x.c}" data-a="go" data-s="${x.i}" ${x.i === step ? 'aria-current="step"' : ""}><span class="badge">${x.n}</span><span><b>${x.l}</b><small>${esc(x.s)}</small></span></button>`).join("");
+  const form = document.getElementById("form");
+  const at = document.activeElement, keep = at && at.dataset && form.contains(at) ? Object.entries(at.dataset).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())}="${CSS.escape(v)}"]`).join("") : "";
+  const sel = at && at.selectionStart !== undefined ? [at.selectionStart, at.selectionEnd] : null;
+  form.innerHTML = head() + banners(e) + body() + foot();
+  const back = keep && form.querySelector(keep);
+  if (back) { back.focus(); if (sel) try { back.setSelectionRange(sel[0], sel[1]); } catch (_) {} }
+  drawPreview();
+}
+function head() {
+  const eyebrow = step === 0 ? (S.exists ? "Configured project" : SECTIONS.filter((c) => ["saved", "ready"].includes(status(c)[1])).length + " of " + SECTIONS.length + " sections ready") : step === REVIEW ? "Last step" : "Section " + step + " of " + SECTIONS.length;
+  return `<div><div class="eyebrow">${eyebrow}</div><h1>${COPY[step][0]}</h1><p class="lede">${COPY[step][1]()}</p></div>`;
+}
+function banners(e) {
+  let h = "";
+  if (note) h += `<div class="note n-${note.k}">${note.html}</div>`;
+  if (S.errors.length && S.exists && step === 0) h += `<div class="note n-bad"><b>liftoff.yaml does not validate today:</b><br>${S.errors.slice(0, 5).map((x) => esc((x.path || "") + " " + x.message)).join("<br>")}</div>`;
+  if (e.loose.length && (step === REVIEW || step === 0)) h += `<div class="note n-bad">${e.loose.map(esc).join("<br>")}</div>`;
+  return h;
+}
+function body() {
+  if (step === 0) return overview();
+  if (step === REVIEW) return review();
+  return BODY[step]();
+}
+function overview() {
+  let h = "";
+  if (resume) h += `<div class="note n-info" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center"><span><b>Welcome back.</b> You left off at <b>${esc(resume.label)}</b> (${esc(new Date(resume.savedAt).toLocaleString())}). ${resume.stale ? "liftoff.yaml changed on disk since." : ""}</span><span class="row" style="flex:0 0 auto"><button class="btn sm" data-a="drop-draft">Discard draft</button><button class="btn sm pri" data-a="resume">Resume</button></span></div>`;
+  h += '<div class="grid">' + SECTIONS.map((c) => { const st = status(c); return `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px"><b>${c.label}</b><span class="chip c-${st[1]}">${st[0]}</span></div><div style="color:var(--mut);word-break:break-word">${esc(summary(c.id))}</div><button class="btn sm" style="align-self:flex-start" data-a="go" data-s="${c.id}">${S.exists ? "Edit" : visited[c.id] ? "Continue" : "Start"}</button></div>`; }).join("") + "</div>";
+  return h;
+}
+function review() {
+  const ch = changes(), e = errs();
+  let h = "";
+  if (V.errors.length) h += `<div class="note n-bad"><b>Fix these before applying:</b><div class="row" style="margin-top:8px">${SECTIONS.filter((c) => (e.secs[c.id] || []).length).map((c) => `<button class="btn sm" style="flex:0 0 auto" data-a="go" data-s="${c.id}">Fix ${c.label}</button>`).join("")}</div></div>`;
+  if (result) h += resultView();
+  if (S.exists && ch.length) h += `<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">${ch.map((c) => `<div class="chg"><b>${c.label}</b><span class="a mono">${esc(c.a)}</span><span class="b mono">${esc(c.b)}</span></div>`).join("")}</div>`;
+  else if (S.exists && !result) h += '<p class="lede">Nothing to apply. The project matches what is saved.</p>';
+  if (!S.exists) h += '<p class="lede">First write. This creates liftoff.yaml' + (F.ctext.trim() ? " and " + esc(F.cfile) : "") + ", then renders the agent files. The preview on the right is the exact text.</p>";
+  return h;
+}
+function resultView() {
+  const r = result.render;
+  let h = `<div class="note n-ok"><b>Applied.</b> liftoff.yaml is up to date.</div>`;
+  if (r && r.ok) h += `<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">${r.files.map((f) => `<div class="chg"><b class="mono" style="flex:1 1 auto;word-break:break-all">${esc(f.path)}</b><span class="chip c-${f.action === "conflict" ? "dirty" : "saved"}">${esc(f.action)}${f.reason ? ": " + esc(f.reason) : ""}</span></div>`).join("")}</div>` + (r.files.some((f) => f.action === "conflict") ? '<div class="note n-warn">A file marked conflict was left untouched because someone edited it by hand. Resolve it with the Init skill.</div>' : "") + (r.notices || []).map((x) => `<div class="note n-info">${esc(x)}</div>`).join("");
+  else if (r) h += `<div class="note n-warn"><b>The config is saved, but the agent files were not rendered:</b><br>${(r.errors || []).map((x) => esc(x.message)).join("<br>")}</div>`;
+  return h;
+}
+function foot() {
+  if (step === 0) return "";
+  const blocked = V.errors.length > 0 || (S.exists && !changes().length);
+  const next = step === REVIEW ? `<button class="btn pri" data-a="apply" ${blocked ? "disabled" : ""}>${S.exists ? "Apply " + changes().length + " change" + (changes().length === 1 ? "" : "s") : "Write files"}</button>` : `<button class="btn pri" data-a="go" data-s="${step + 1}" data-check="1">${step === 7 ? "Review and apply" : "Continue"}</button>`;
+  return `<div class="foot"><button class="btn" data-a="go" data-s="${step - 1}">${step === 1 ? "Overview" : "Back"}</button><span class="err">${tried && (errs().secs[step] || []).length ? "Fix the highlighted fields to continue." : ""}</span>${next}</div>`;
+}
+function drawPreview() {
+  const ch = changes();
+  const tag = (dirty) => (!S.exists ? ["new", "#4ADE80"] : dirty ? ["update", "#FBBF24"] : ["in sync", "#8FA3C8"]);
+  const cd = dirtyKeys().some((k) => k === "cfile" || k === "ctext");
+  const yamlDirty = dirtyKeys().some((k) => !["cfile", "ctext"].includes(k));
+  const files = [["liftoff.yaml", tag(yamlDirty)]].concat(F.ctext.trim() || cd ? [[F.cfile, tag(cd)]] : []);
+  const tabs = ["Changes", "liftoff.yaml"].concat(F.ctext ? [F.cfile] : []);
+  if (tab >= tabs.length) tab = 0;
+  const txt = tab === 0 ? (S.exists ? (ch.length ? ch.map((c) => c.label + "\n  - " + c.a + "\n  + " + c.b).join("\n\n") : "In sync. liftoff.yaml matches your settings.") : "Nothing written yet.\nThe first apply creates the files listed above.") : tab === 1 ? V.yaml : F.ctext;
+  document.getElementById("pv").innerHTML = `<div class="pvh"><b>Live preview</b><div style="color:#B6C0D4;font-size:14px">The exact text that will be written. Updates as you type.</div></div>
+<div class="files mono">${files.map(([p, t]) => `<div><span style="color:#fff">${esc(p)}</span><span style="color:${t[1]}">${t[0]}</span></div>`).join("")}<div style="color:#8FA3C8">then agent files are rendered from it</div></div>
+<div class="tabs" role="tablist">${tabs.map((t, i) => `<button class="tab mono${i === tab ? " on" : ""}" role="tab" aria-selected="${i === tab}" data-a="tab" data-i="${i}">${esc(t)}</button>`).join("")}</div><pre class="mono">${esc(txt)}</pre>`;
+}
+
+// ---------- changes -> validation -> draft
+let vt = 0, dt = 0;
+function changed() {
+  note = null; result = null;
+  clearTimeout(vt); vt = setTimeout(validate, 250);
+  clearTimeout(dt); dt = setTimeout(saveDraft, 600);
+  saving = "saving…";
+  hdr();
+}
+const hdr = () => { document.getElementById("hdr").textContent = "127.0.0.1 · local only · " + (saving || "draft saved"); };
+async function validate() {
+  const r = await api("POST", "/api/validate", { patch: toPatch() }).catch(() => null);
+  if (!r || !r.ok) { note = { k: "bad", html: "Lost connection to liftoff-ui. Restart it; your draft is saved." }; return draw(); }
+  V = { errors: r.errors, yaml: r.yaml };
+  draw();
+}
+async function saveDraft() {
+  if (!dirtyKeys().length) await api("DELETE", "/api/draft").catch(() => null);
+  else await api("PUT", "/api/draft", { form: F, step, baseHash: S.hash }).catch(() => null);
+  saving = ""; hdr();
+}
+
+// ---------- events
+function setList(l, i, f, v) {
+  const old = F[l][i][f];
+  F[l][i][f] = v;
+  if (l === "mods" && f === "id") F.streams.forEach((x) => { if (x.module === old) x.module = v; }); // a rename follows its streams
+}
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (t.dataset.k) F[t.dataset.k] = t.value;
+  else if (t.dataset.l) setList(t.dataset.l, +t.dataset.i, t.dataset.f, t.value);
+  else return;
+  changed(); drawPreview();
+});
+document.addEventListener("change", (ev) => { const t = ev.target; if (t.tagName === "SELECT" && t.dataset.l) { setList(t.dataset.l, +t.dataset.i, t.dataset.f, t.value); changed(); } });
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-a]");
+  if (!b) return;
+  const d = b.dataset, a = d.a;
+  if (a === "go") {
+    const to = +d.s;
+    if (d.check && (errs().secs[step] || []).length) { tried = true; return draw(); }
+    tried = false; step = to; if (to >= 1 && to <= 7) visited[to] = true; saveStep(); return draw();
+  }
+  if (a === "set") F[d.k] = d.v;
+  else if (a === "flip") F[d.k] = !F[d.k];
+  else if (a === "target") F.targets = F.targets.includes(d.v) ? F.targets.filter((x) => x !== d.v) : F.targets.concat([d.v]);
+  else if (a === "adv") { advOpen[d.n] = !advOpen[d.n]; return draw(); }
+  else if (a === "tab") { tab = +d.i; return drawPreview(); }
+  else if (a === "add") F[d.l].push(d.l === "mods" ? { id: "", path: "", desc: "" } : d.l === "its" ? { name: "", branch: "" } : { id: "", project: "", module: "", epics: "" });
+  else if (a === "del") {
+    const gone = F[d.l].splice(+d.i, 1)[0];
+    if (d.l === "mods") F.streams.forEach((s) => { if (s.module === gone.id) s.module = ""; });
+  } else if (a === "discard") { F = clone(B); }
+  else if (a === "resume") { F = Object.assign(clone(B), resume.form); step = resume.step || 0; resume = null; }
+  else if (a === "drop-draft") { resume = null; await api("DELETE", "/api/draft"); return draw(); }
+  else if (a === "apply") return apply();
+  else return;
+  changed(); draw(); validate();
+});
+const saveStep = () => { clearTimeout(dt); dt = setTimeout(saveDraft, 300); };
+
+async function apply() {
+  const r = await api("POST", "/api/apply", { patch: toPatch(), baseHash: S.hash, constraints: F.ctext.trim() || S.constraints.text !== null ? { file: F.cfile, text: F.ctext } : null });
+  if (r.status === 409) { note = { k: "warn", html: "liftoff.yaml changed on disk since this page loaded. <button class='btn sm' data-a='reload'>Reload and keep my edits</button>" }; return draw(); }
+  if (!r.ok) { V.errors = r.errors || []; note = { k: "bad", html: esc(r.message || "Not applied. Nothing was written.") }; return draw(); }
+  result = r; await load(true); result = r; step = REVIEW; draw();
+}
+document.addEventListener("click", async (ev) => { if (ev.target.dataset && ev.target.dataset.a === "reload") { const keep = F; await load(true); F = Object.assign(clone(B), keep); changed(); validate(); } });
+
+// ---------- load
+async function load(keepStep) {
+  const s = await api("GET", "/api/state");
+  if (!s.ok) { document.getElementById("form").innerHTML = '<div class="note n-bad">Cannot reach liftoff-ui. Restart it from the project folder.</div>'; throw new Error("state"); }
+  S = s; O = s.config || {}; B = fromConfig(O, s.constraints); F = clone(B);
+  if (!keepStep) {
+    const d = s.draft;
+    if (d && d.form && !same(Object.assign(clone(B), d.form), B)) resume = { form: d.form, step: d.step || 0, savedAt: d.savedAt, stale: d.baseHash !== s.hash, label: d.step === REVIEW ? "Review and apply" : (SECTIONS.find((c) => c.id === d.step) || { label: "the overview" }).label };
+  }
+  V = { errors: s.errors, yaml: "" };
+  await validate();
+}
+load(false).catch(() => {});
+</script>
+</body>
+</html>
