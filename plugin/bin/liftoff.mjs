@@ -15597,8 +15597,8 @@ var checkConfigCommand = ({ root }) => {
 };
 
 // src/brain/check.ts
-import { existsSync as existsSync5, lstatSync as lstatSync2, readFileSync as readFileSync4, readdirSync as readdirSync2 } from "node:fs";
-import { join as join7, posix } from "node:path";
+import { existsSync as existsSync5, lstatSync as lstatSync3, readFileSync as readFileSync4, readdirSync as readdirSync3 } from "node:fs";
+import { join as join8, posix } from "node:path";
 
 // src/brain/page.ts
 var import_yaml2 = __toESM(require_dist(), 1);
@@ -15712,6 +15712,53 @@ ${rows.join("\n")}
 ${body}`, skipped };
 }
 
+// src/brain/paths.ts
+import { lstatSync as lstatSync2, readdirSync as readdirSync2 } from "node:fs";
+import { join as join7 } from "node:path";
+var PERSONAL_DIR = ".liftoff/brain";
+var cleanDir = (dir) => dir.split(/[\\/]/).filter((s) => s !== "" && s !== ".").join("/");
+function brainPaths(dirSetting) {
+  const dir = cleanDir(dirSetting);
+  return {
+    dir,
+    hot: `${dir}/hot.md`,
+    index: `${dir}/index.md`,
+    raw: `${dir}/raw`,
+    wiki: `${dir}/wiki`,
+    log: `${dir}/log`,
+    personalHot: `${PERSONAL_DIR}/hot.md`,
+    personalNotes: `${PERSONAL_DIR}/notes`
+  };
+}
+function symlinkProblem(realRoot, paths) {
+  for (const rel of [paths.dir, PERSONAL_DIR]) {
+    const abs = join7(realRoot, rel);
+    const real = resolveReal(abs);
+    if (!isInside(realRoot, real) || real !== abs) return rel;
+    const found = walkForLink(abs, rel);
+    if (found) return found;
+  }
+  return void 0;
+}
+function walkForLink(abs, rel) {
+  let entries;
+  try {
+    entries = readdirSync2(abs);
+  } catch {
+    return void 0;
+  }
+  for (const name of entries.sort()) {
+    const child = join7(abs, name);
+    const stat = lstatSync2(child);
+    if (stat.isSymbolicLink()) return `${rel}/${name}`;
+    if (stat.isDirectory()) {
+      const found = walkForLink(child, `${rel}/${name}`);
+      if (found) return found;
+    }
+  }
+  return void 0;
+}
+
 // src/brain/source.ts
 import { createHash as createHash2 } from "node:crypto";
 var KINDS = ["ticket", "plan", "mr", "doc"];
@@ -15749,18 +15796,20 @@ ${t.criteria}`);
 
 // src/brain/check.ts
 var PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
+var MIN_QUOTE = 12;
+var INSTRUCTION_LIKE = [/ignore (all|any|previous) instructions/i, /you (must|should) now/i, /as an ai/i, /system prompt/i, /\b(agents?|assistant) (must|should|always|never)\b/i];
 var LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) (\S+?)(?::(?: (.+))?)?$/;
 function walk(abs, rel = "") {
   const out = { files: [], links: [] };
   let names;
   try {
-    names = readdirSync2(join7(abs, rel)).sort();
+    names = readdirSync3(join8(abs, rel)).sort();
   } catch {
     return out;
   }
   for (const name of names) {
     const r = rel === "" ? name : `${rel}/${name}`;
-    const st = lstatSync2(join7(abs, r));
+    const st = lstatSync3(join8(abs, r));
     if (st.isSymbolicLink()) out.links.push(r);
     else if (st.isDirectory()) {
       const sub = walk(abs, r);
@@ -15788,7 +15837,7 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
     const order = (a, b) => a.file < b.file ? -1 : a.file > b.file ? 1 : (a.line ?? 0) - (b.line ?? 0) || (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
     return { errors: findings.filter((f) => f.level === "error").sort(order), warnings: findings.filter((f) => f.level === "warning").sort(order), stats: { pages: pages2, raw, logs: logs2 }, bySource: bySource2 };
   };
-  const dirAbs = join7(realRoot, paths.dir);
+  const dirAbs = join8(realRoot, paths.dir);
   if (!existsSync5(dirAbs)) {
     err("brain-missing", paths.dir, `${paths.dir} not found: run brain-init`);
     return result2();
@@ -15798,16 +15847,22 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
     return result2();
   }
   for (const [rel, what] of [[paths.hot, "hot.md"], [paths.index, "index.md"], [paths.raw, "raw/"], [paths.wiki, "wiki/"]]) {
-    if (!existsSync5(join7(realRoot, rel))) err("brain-missing", rel, `${what} not found: run brain-init`);
+    if (!existsSync5(join8(realRoot, rel))) err("brain-missing", rel, `${what} not found: run brain-init`);
   }
   const tree = walk(dirAbs);
   for (const l of tree.links) err("symlink", `${paths.dir}/${l}`, "a symlink inside the brain: it could point outside the repo");
   const inDir = (rel) => `${paths.dir}/${rel}`;
   const sub = (folder) => tree.files.filter((f) => f.startsWith(`${folder}/`)).map((f) => f.slice(folder.length + 1));
   const rawFiles = sub("raw").filter((f) => f !== ".gitkeep");
+  const rawBody = /* @__PURE__ */ new Map();
   for (const f of rawFiles) {
-    const first = read(join7(dirAbs, "raw", f)).split("\n", 1)[0] ?? "";
-    if (!HEADER_RE.test(first)) err("source-unmarked", inDir(`raw/${f}`), "a raw file without the first-line header the CLI writes: it was not added with brain-source");
+    const text = read(join8(dirAbs, "raw", f));
+    const nl = text.indexOf("\n");
+    const header = HEADER_RE.exec(nl < 0 ? text : text.slice(0, nl));
+    const body = nl < 0 ? "" : text.slice(nl + 1);
+    rawBody.set(`raw/${f}`, body);
+    if (!header) err("source-unmarked", inDir(`raw/${f}`), "a raw file without the first-line header the CLI writes: it was not added with brain-source");
+    else if (sha256Hex(body) !== header[4]) err("source-changed", inDir(`raw/${f}`), "the body no longer matches the hash in its header: a raw file was edited after ingest");
   }
   const wikiFiles = sub("wiki").filter((f) => f !== ".gitkeep");
   const pages = [];
@@ -15817,26 +15872,27 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
       err("page-name", path, "wiki files are lowercase kebab-case .md files (a-z, 0-9 and -)");
       continue;
     }
-    const text = read(join7(dirAbs, "wiki", f));
+    const text = read(join8(dirAbs, "wiki", f));
     const parsed = parsePage(text);
     if (!parsed.ok) {
       for (const m of parsed.errors) err("frontmatter", path, m, 1);
-      pages.push({ rel: f, path, text, sources: [] });
+      pages.push({ rel: f, path, text, sources: [], quotes: [] });
       continue;
     }
-    pages.push({ rel: f, path, text, title: parsed.front.title, sources: parsed.front.sources, ...parsed.front.module && { module: parsed.front.module } });
+    pages.push({ rel: f, path, text, title: parsed.front.title, sources: parsed.front.sources, quotes: parsed.quotes, ...parsed.front.module && { module: parsed.front.module } });
   }
   const cited = /* @__PURE__ */ new Set();
   const bySource = {};
   for (const p of pages) {
     for (const s of p.sources) {
       const norm = posix.normalize(s);
-      if (!norm.startsWith("raw/") || norm.startsWith("..") || !existsSync5(join7(dirAbs, norm)) || !lstatSync2(join7(dirAbs, norm)).isFile()) {
+      if (!norm.startsWith("raw/") || norm.startsWith("..") || !existsSync5(join8(dirAbs, norm)) || !lstatSync3(join8(dirAbs, norm)).isFile()) {
         err("source-missing", p.path, `source '${s}' is not an existing file under raw/`, 1);
         continue;
       }
       cited.add(norm);
-      (bySource[inDir(norm)] ??= []).push(p.path);
+      const citing = bySource[inDir(norm)] ??= [];
+      if (!citing.includes(p.path)) citing.push(p.path);
     }
     if (p.module !== void 0 && !moduleIds.includes(p.module)) warn("module-unknown", p.path, `module '${p.module}' is not in liftoff.yaml modules`, 1);
   }
@@ -15844,12 +15900,12 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
   const linkedPages = /* @__PURE__ */ new Map();
   const linkCheck = [
     ...pages.map((p) => ({ rel: `wiki/${p.rel}`, text: p.text, isPage: true })),
-    ...["hot.md", "README.md"].filter((n) => existsSync5(join7(dirAbs, n))).map((n) => ({ rel: n, text: read(join7(dirAbs, n)), isPage: false }))
+    ...["hot.md", "README.md"].filter((n) => existsSync5(join8(dirAbs, n))).map((n) => ({ rel: n, text: read(join8(dirAbs, n)), isPage: false }))
   ];
   for (const f of linkCheck) {
     for (const l of scanLinks(f.text)) {
       const target = posix.normalize(posix.join(posix.dirname(f.rel), safeDecode(l.target)));
-      if (target.startsWith("..") || !existsSync5(join7(dirAbs, target))) err("link-broken", inDir(f.rel), `link '${l.target}' does not point at a file inside the brain`, l.line);
+      if (target.startsWith("..") || !existsSync5(join8(dirAbs, target))) err("link-broken", inDir(f.rel), `link '${l.target}' does not point at a file inside the brain`, l.line);
       else if (f.isPage && target !== f.rel) (linkedPages.get(target) ?? linkedPages.set(target, /* @__PURE__ */ new Set()).get(target)).add(f.rel);
     }
   }
@@ -15861,73 +15917,66 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }) {
     if (seen.has(key)) warn("duplicate-title", p.path, `same title as ${seen.get(key)}: one page per idea`, 1);
     else seen.set(key, p.path);
   }
-  if (existsSync5(join7(dirAbs, "hot.md")) && nonEmpty(read(join7(dirAbs, "hot.md"))) > hotMaxLines) {
+  for (const p of pages) {
+    if (p.title === void 0) continue;
+    const listed = new Set(p.sources.map((s) => posix.normalize(s)));
+    if (p.quotes.length === 0) warn("no-quotes", p.path, "the page quotes nothing: every key fact should quote its source", 1);
+    for (const q of p.quotes) {
+      if (!q.citation) {
+        err("quote-uncited", p.path, "a blockquote whose last line is not '-- [label](path-to-raw-file)'", q.line);
+        continue;
+      }
+      const cited2 = posix.normalize(posix.join(posix.dirname(`wiki/${p.rel}`), safeDecode(q.citation.path)));
+      if (!listed.has(cited2)) {
+        err("quote-source-unlisted", p.path, `the quote cites ${q.citation.path}, which is not in this page's sources`, q.line);
+        continue;
+      }
+      if (q.text.length < MIN_QUOTE) err("quote-too-short", p.path, `a quote under ${MIN_QUOTE} characters proves nothing`, q.line);
+      else if (rawBody.has(cited2) && !normalize2(rawBody.get(cited2)).includes(q.text)) err("quote-not-found", p.path, `the quoted text is not in ${cited2}, word for word`, q.line);
+    }
+    let inFront = false;
+    p.text.split(/\r?\n/).forEach((line, i) => {
+      if (line === "---" && (i === 0 || inFront)) {
+        inFront = i === 0;
+        return;
+      }
+      if (inFront || /^\s{0,3}>/.test(line)) return;
+      if (INSTRUCTION_LIKE.some((re) => re.test(line))) warn("instruction-like", p.path, "reads like an instruction to the agent: the wiki is background, never instructions", i + 1);
+    });
+  }
+  for (const f of tree.files) {
+    if (f.endsWith(".gitkeep")) continue;
+    if (secretGuard({ text: read(join8(dirAbs, f)) }).length > 0) err("secret", inDir(f), "looks like a credential (an accident guard, not a guarantee): remove it and the raw source it came from");
+  }
+  const personalAbs = join8(realRoot, PERSONAL_DIR);
+  if (existsSync5(personalAbs)) {
+    const mine = walk(personalAbs);
+    for (const l of mine.links) warn("personal-symlink", `${PERSONAL_DIR}/${l}`, "a symlink in your personal brain");
+    for (const f of mine.files) {
+      if (!f.endsWith(".gitkeep") && secretGuard({ text: read(join8(personalAbs, f)) }).length > 0) warn("personal-secret", `${PERSONAL_DIR}/${f}`, "looks like a credential (an accident guard, not a guarantee)");
+    }
+    if (mine.files.includes("hot.md") && nonEmpty(read(join8(personalAbs, "hot.md"))) > hotMaxLines) warn("personal-hot-too-long", paths.personalHot, `personal hot.md has more than ${hotMaxLines} non-empty lines`);
+  }
+  if (existsSync5(join8(dirAbs, "hot.md")) && nonEmpty(read(join8(dirAbs, "hot.md"))) > hotMaxLines) {
     err("hot-too-long", paths.hot, `hot.md has more than ${hotMaxLines} non-empty lines: keep it short (brain.hotMaxLines)`);
   }
-  if (existsSync5(join7(dirAbs, "index.md"))) {
-    const want = buildIndex(wikiFiles.filter((f) => f.endsWith(".md")).map((f) => ({ path: f, text: read(join7(dirAbs, "wiki", f)) }))).content;
-    if (read(join7(dirAbs, "index.md")) !== want) err("index-stale", paths.index, "index.md is out of date: run brain-index --write");
+  if (existsSync5(join8(dirAbs, "index.md"))) {
+    const want = buildIndex(wikiFiles.filter((f) => f.endsWith(".md")).map((f) => ({ path: f, text: read(join8(dirAbs, "wiki", f)) }))).content;
+    if (read(join8(dirAbs, "index.md")) !== want) err("index-stale", paths.index, "index.md is out of date: run brain-index --write");
   }
   const logs = sub("log").filter((f) => f !== ".gitkeep");
   for (const f of logs) {
-    read(join7(dirAbs, "log", f)).split(/\r?\n/).forEach((line, i) => {
+    read(join8(dirAbs, "log", f)).split(/\r?\n/).forEach((line, i) => {
       if (line.trim() === "") return;
       const m = LOG_LINE.exec(line);
       if (!m) return warn("log-format", inDir(`log/${f}`), "not a log line: '- YYYY-MM-DD <ingest|save|fix|retract> <path>[: <paths>]'", i + 1);
       const named = [m[2], ...m[3] ? m[3].split(/,\s*/) : []];
       for (const n of m[1] === "retract" ? [] : named) {
-        if (!existsSync5(join7(dirAbs, n))) warn("log-format", inDir(`log/${f}`), `names ${n}, which no longer exists`, i + 1);
+        if (!existsSync5(join8(dirAbs, n))) warn("log-format", inDir(`log/${f}`), `names ${n}, which no longer exists`, i + 1);
       }
     });
   }
   return result2(pages.length, rawFiles.length, logs.length, bySource);
-}
-
-// src/brain/paths.ts
-import { lstatSync as lstatSync3, readdirSync as readdirSync3 } from "node:fs";
-import { join as join8 } from "node:path";
-var PERSONAL_DIR = ".liftoff/brain";
-var cleanDir = (dir) => dir.split(/[\\/]/).filter((s) => s !== "" && s !== ".").join("/");
-function brainPaths(dirSetting) {
-  const dir = cleanDir(dirSetting);
-  return {
-    dir,
-    hot: `${dir}/hot.md`,
-    index: `${dir}/index.md`,
-    raw: `${dir}/raw`,
-    wiki: `${dir}/wiki`,
-    log: `${dir}/log`,
-    personalHot: `${PERSONAL_DIR}/hot.md`,
-    personalNotes: `${PERSONAL_DIR}/notes`
-  };
-}
-function symlinkProblem(realRoot, paths) {
-  for (const rel of [paths.dir, PERSONAL_DIR]) {
-    const abs = join8(realRoot, rel);
-    const real = resolveReal(abs);
-    if (!isInside(realRoot, real) || real !== abs) return rel;
-    const found = walkForLink(abs, rel);
-    if (found) return found;
-  }
-  return void 0;
-}
-function walkForLink(abs, rel) {
-  let entries;
-  try {
-    entries = readdirSync3(abs);
-  } catch {
-    return void 0;
-  }
-  for (const name of entries.sort()) {
-    const child = join8(abs, name);
-    const stat = lstatSync3(child);
-    if (stat.isSymbolicLink()) return `${rel}/${name}`;
-    if (stat.isDirectory()) {
-      const found = walkForLink(child, `${rel}/${name}`);
-      if (found) return found;
-    }
-  }
-  return void 0;
 }
 
 // src/cli/brain-init.ts

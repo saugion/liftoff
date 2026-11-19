@@ -1,35 +1,10 @@
-import { appendFileSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { appendFileSync, rmSync, symlinkSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { run } from "../../src/cli/main.js";
-import { CONFIG, repo } from "../plan/helpers.js";
 import { tempDir } from "../helpers.js";
+import { CONFIG, repo } from "../plan/helpers.js";
+import { CFG, call, check, healthy, page, put } from "./helpers.js";
 
-const CFG = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "modules:\n  items:\n    - { id: api, path: src/api }\nbrain: { hotMaxLines: 8 }\n";
-const call = (dir: string, cmd: string, ...args: string[]) => {
-  const r = run([cmd, "--root", dir, ...args], "/");
-  return { exitCode: r.exitCode, body: JSON.parse(r.stdout) as Record<string, any> };
-};
-const check = (dir: string) => call(dir, "brain-check");
-const put = (dir: string, rel: string, text: string) => {
-  mkdirSync(dirname(join(dir, rel)), { recursive: true });
-  writeFileSync(join(dir, rel), text);
-};
-const page = (title: string, sources: string[], body = "", extra = "") =>
-  `---\ntitle: ${title}\ntype: learning\nupdated: 2026-11-19\nsummary: About ${title}.\nsources: [${sources.join(", ")}]\n${extra}---\n# ${title}\n${body}`;
-
-// A healthy brain: one doc source, two pages that link to each other, a log line, a fresh index.
-function healthy(): { dir: string; raw: string } {
-  const dir = repo(CFG, { "notes.md": "The reset link expires after 30 minutes.\n" });
-  call(dir, "brain-init", "--write");
-  const raw = call(dir, "brain-source", "--kind", "doc", "--file", "notes.md", "--write").body.path.replace(/^brain\//, "");
-  put(dir, "brain/wiki/learnings/reset.md", page("Reset", [raw], "See [other](other.md).\n"));
-  put(dir, "brain/wiki/learnings/other.md", page("Other", [raw], "Back to [reset](reset.md).\n", "module: api\n"));
-  put(dir, "brain/log/2026-11.md", `- 2026-11-19 ingest ${raw}: wiki/learnings/reset.md, wiki/learnings/other.md\n`);
-  put(dir, "brain/hot.md", "# Hot\n\n- Now: [reset](wiki/learnings/reset.md)\n");
-  call(dir, "brain-index", "--write");
-  return { dir, raw };
-}
 const codes = (list: any[]) => list.map((f) => f.code);
 
 describe("brain-check structure", () => {

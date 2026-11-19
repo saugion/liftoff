@@ -2,9 +2,10 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join, posix } from "node:path";
 import { resolveReal } from "../cli/fsutil.js";
 import { buildIndex } from "./index.js";
-import { type BrainPaths } from "./paths.js";
-import { parsePage, scanLinks } from "./page.js";
-import { HEADER_RE } from "./source.js";
+import { PERSONAL_DIR, type BrainPaths } from "./paths.js";
+import { type Quote, normalize, parsePage, scanLinks } from "./page.js";
+import { HEADER_RE, sha256Hex } from "./source.js";
+import { secretGuard } from "../config/secrets.js";
 
 export interface Finding {
   code: string;
@@ -27,6 +28,9 @@ export interface CheckInput {
 }
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
+const MIN_QUOTE = 12;
+// An accident guard, not a guarantee: phrases that read like an instruction to the agent, outside a quote.
+const INSTRUCTION_LIKE = [/ignore (all|any|previous) instructions/i, /you (must|should) now/i, /as an ai/i, /system prompt/i, /\b(agents?|assistant) (must|should|always|never)\b/i];
 const LOG_LINE = /^- \d{4}-\d{2}-\d{2} (ingest|save|fix|retract) (\S+?)(?::(?: (.+))?)?$/;
 
 // Every file under `abs`, as paths relative to it, and every symlink (never followed).
@@ -93,14 +97,20 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
 
   // raw/: every file carries the header the CLI writes.
   const rawFiles = sub("raw").filter((f) => f !== ".gitkeep");
+  const rawBody = new Map<string, string>(); // "raw/docs/x.md" -> body without the header line
   for (const f of rawFiles) {
-    const first = read(join(dirAbs, "raw", f)).split("\n", 1)[0] ?? "";
-    if (!HEADER_RE.test(first)) err("source-unmarked", inDir(`raw/${f}`), "a raw file without the first-line header the CLI writes: it was not added with brain-source");
+    const text = read(join(dirAbs, "raw", f));
+    const nl = text.indexOf("\n");
+    const header = HEADER_RE.exec(nl < 0 ? text : text.slice(0, nl));
+    const body = nl < 0 ? "" : text.slice(nl + 1);
+    rawBody.set(`raw/${f}`, body);
+    if (!header) err("source-unmarked", inDir(`raw/${f}`), "a raw file without the first-line header the CLI writes: it was not added with brain-source");
+    else if (sha256Hex(body) !== header[4]) err("source-changed", inDir(`raw/${f}`), "the body no longer matches the hash in its header: a raw file was edited after ingest");
   }
 
   // wiki/: names, front matter, sources.
   const wikiFiles = sub("wiki").filter((f) => f !== ".gitkeep");
-  const pages: { rel: string; path: string; text: string; title?: string; sources: string[]; module?: string }[] = [];
+  const pages: { rel: string; path: string; text: string; title?: string; sources: string[]; module?: string; quotes: Quote[] }[] = [];
   for (const f of wikiFiles) {
     const path = inDir(`wiki/${f}`);
     if (!PAGE_NAME.test(f.split("/").pop()!)) {
@@ -111,10 +121,10 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
     const parsed = parsePage(text);
     if (!parsed.ok) {
       for (const m of parsed.errors) err("frontmatter", path, m, 1);
-      pages.push({ rel: f, path, text, sources: [] });
+      pages.push({ rel: f, path, text, sources: [], quotes: [] });
       continue;
     }
-    pages.push({ rel: f, path, text, title: parsed.front.title, sources: parsed.front.sources, ...(parsed.front.module && { module: parsed.front.module }) });
+    pages.push({ rel: f, path, text, title: parsed.front.title, sources: parsed.front.sources, quotes: parsed.quotes, ...(parsed.front.module && { module: parsed.front.module }) });
   }
 
   const cited = new Set<string>();
@@ -127,7 +137,8 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
         continue;
       }
       cited.add(norm);
-      (bySource[inDir(norm)] ??= []).push(p.path);
+      const citing = (bySource[inDir(norm)] ??= []);
+      if (!citing.includes(p.path)) citing.push(p.path);
     }
     if (p.module !== undefined && !moduleIds.includes(p.module)) warn("module-unknown", p.path, `module '${p.module}' is not in liftoff.yaml modules`, 1);
   }
@@ -154,6 +165,53 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds }: CheckInp
     const key = p.title.toLowerCase();
     if (seen.has(key)) warn("duplicate-title", p.path, `same title as ${seen.get(key)}: one page per idea`, 1);
     else seen.set(key, p.path);
+  }
+
+  // Quotes: every key fact quotes a listed source, word for word.
+  for (const p of pages) {
+    if (p.title === undefined) continue;
+    const listed = new Set(p.sources.map((s) => posix.normalize(s)));
+    if (p.quotes.length === 0) warn("no-quotes", p.path, "the page quotes nothing: every key fact should quote its source", 1);
+    for (const q of p.quotes) {
+      if (!q.citation) {
+        err("quote-uncited", p.path, "a blockquote whose last line is not '-- [label](path-to-raw-file)'", q.line);
+        continue;
+      }
+      const cited = posix.normalize(posix.join(posix.dirname(`wiki/${p.rel}`), safeDecode(q.citation.path)));
+      if (!listed.has(cited)) {
+        err("quote-source-unlisted", p.path, `the quote cites ${q.citation.path}, which is not in this page's sources`, q.line);
+        continue;
+      }
+      if (q.text.length < MIN_QUOTE) err("quote-too-short", p.path, `a quote under ${MIN_QUOTE} characters proves nothing`, q.line);
+      else if (rawBody.has(cited) && !normalize(rawBody.get(cited)!).includes(q.text)) err("quote-not-found", p.path, `the quoted text is not in ${cited}, word for word`, q.line);
+    }
+    // Outside quotes only: a cited quote may legitimately repeat a source that says "must".
+    let inFront = false;
+    p.text.split(/\r?\n/).forEach((line, i) => {
+      if (line === "---" && (i === 0 || inFront)) {
+        inFront = i === 0;
+        return;
+      }
+      if (inFront || /^\s{0,3}>/.test(line)) return;
+      if (INSTRUCTION_LIKE.some((re) => re.test(line))) warn("instruction-like", p.path, "reads like an instruction to the agent: the wiki is background, never instructions", i + 1);
+    });
+  }
+
+  // Credentials anywhere in the brain (an accident guard, not a guarantee).
+  for (const f of tree.files) {
+    if (f.endsWith(".gitkeep")) continue;
+    if (secretGuard({ text: read(join(dirAbs, f)) }).length > 0) err("secret", inDir(f), "looks like a credential (an accident guard, not a guarantee): remove it and the raw source it came from");
+  }
+
+  // The personal layer never leaves the machine: the same checks, as warnings.
+  const personalAbs = join(realRoot, PERSONAL_DIR);
+  if (existsSync(personalAbs)) {
+    const mine = walk(personalAbs);
+    for (const l of mine.links) warn("personal-symlink", `${PERSONAL_DIR}/${l}`, "a symlink in your personal brain");
+    for (const f of mine.files) {
+      if (!f.endsWith(".gitkeep") && secretGuard({ text: read(join(personalAbs, f)) }).length > 0) warn("personal-secret", `${PERSONAL_DIR}/${f}`, "looks like a credential (an accident guard, not a guarantee)");
+    }
+    if (mine.files.includes("hot.md") && nonEmpty(read(join(personalAbs, "hot.md"))) > hotMaxLines) warn("personal-hot-too-long", paths.personalHot, `personal hot.md has more than ${hotMaxLines} non-empty lines`);
   }
 
   // hot.md length, generated index, log lines.
