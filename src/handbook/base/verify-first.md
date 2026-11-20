@@ -29,6 +29,7 @@ with an existing test suite: say so in the plan and move on.
 - **If a criterion cannot be checked by a machine** ("the page feels fast", "the wording is friendly"), say so in the plan and
   ask the engineer how it will be verified (a number, a manual step, a person). Do not leave it out and do not invent a check that
   proves something else.
+- **A check that cannot fail for the right reason is not a check.** If the only command the repo offers passes after any change at all (a file exists, a build compiles), say so and ask how the criterion will really be checked; do not present it as proof.
 - **Never weaken a check to make it pass**: no deleted assertion, no skipped test, no looser threshold. If a check is wrong,
   say why and ask.
 - Team detail (the test commands per module, what counts as enough, the manual checks): add below.

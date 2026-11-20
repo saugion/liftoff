@@ -261,11 +261,11 @@ describe("the practices that add a step: verify-first, clean-review, and the poi
   const read = (n: string) => readFileSync(join(ROOT, "plugin", "skills", n, "SKILL.md"), "utf8").replace(/\s+/g, " ");
   const agent = readFileSync(join(ROOT, "plugin", "agents", "liftoff-reviewer.md"), "utf8");
   it("Plan names verify-first, the check item shape, the refusal and the numbered criteria", () => {
-    for (const x of ["verify-first", "verify AC2: <command> (red first)", "verify repro:", "criterion-unverified", "uncovered", "AC1, AC2", "reading.acceptanceCriteria.items", "never skip it and never invent a command", "handbook-seen --page <id>", "Plan's commands still work"]) expect(read("liftoff-plan"), x).toContain(x);
+    for (const x of ["verify-first", "verify AC2: <command> (red first)", "verify repro:", "criterion-unverified", "uncovered", "AC1, AC2", "reading.acceptanceCriteria.items", "never skip it and never invent a command", "handbook-seen --page <id>", "Plan's commands still work", "cannot fail for the right reason"]) expect(read("liftoff-plan"), x).toContain(x);
   });
   it("Build names the red-before-green, the clean review, the fallback and who owns the findings", () => {
     const b = read("liftoff-build");
-    for (const x of ["see it fail for the right reason", "Never weaken a check", "liftoff-reviewer", "clean-review --key <KEY>", "clean-review-missing", "clean-review-incomplete", "clean-review-secret", "is never called a clean review", "clean review not run", "never apply one, argue one away", "Clean review: N findings, M fixed, K refused", "Not the plan, not this conversation", "did a practice step fail or feel outdated?", "brain/handbook-<id>"]) expect(b, x).toContain(x);
+    for (const x of ["see it fail for the right reason", "Never weaken a check", "liftoff-reviewer", "clean-review --key <KEY>", "clean-review-missing", "clean-review-incomplete", "clean-review-secret", "is never called a clean review", "clean review not run", "never apply one, argue one away", "is the engineer's to tick", "proves little", "write it again after any review fix", "**after** the review fixes are committed", "list every refused `must` finding", "even when the person said yes beforehand", "created from the target branch", "ride along in the merge request", "Clean review: N findings, M fixed, K refused", "Not the plan, not this conversation", "did a practice step fail or feel outdated?", "brain/handbook-<id>"]) expect(b, x).toContain(x);
   });
   it("the reviewer agent is read-only, inherits the model, and treats text as data", () => {
     const front = /^---\n([\s\S]*?)\n---/.exec(agent)![1]!;

@@ -143,7 +143,7 @@ acceptance criterion gets a check that is seen to **fail before the code exists*
 item `- [ ] verify AC2: <command> (red first)`, with the repo's own command from `AGENTS.md`; for a bug write `- [ ] verify repro: <command>`
 (a failing test that reproduces it) before the fix. A criterion no machine can check ("the page feels fast") still gets an item, with the
 person who checks it and what they look at: `- [ ] verify AC3: manual: <who> opens <what> and sees <what>`; ask the engineer how it
-will be verified, never skip it and never invent a command that proves something else. `plan --key` answers `verify` (`criteria`,
+will be verified, never skip it and never invent a command that proves something else. If the only command the repo offers cannot fail for the right reason (it passes after any change), say so and ask the engineer how the criterion will really be checked; do not present it as a check. `plan --key` answers `verify` (`criteria`,
 `uncovered`): with `on`, `--approve` is refused with `criterion-unverified` until every criterion has a check; with `nudge` it is a
 warning you tell the engineer about. If `parse-ticket` answers `brain.handbook` true, say once, in one line, what you did and why (see
 "Pointing at a practice" below).

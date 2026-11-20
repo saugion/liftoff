@@ -5,7 +5,7 @@ Repo: https://github.com/saugion/liftoff · Last update: 2026-11-20 · Released:
 ## Where we are
 
 The MVP is built: **Init, Connect, Plan, Build, Ticket flow (with epics), work streams**, and the `build.git` team option.
-Everything is covered by ~1200 tests, including end-to-end runs (`test/e2e/`) against a fake Jira, a fake `glab` and a real
+Everything is covered by ~1900 tests, including end-to-end runs (`test/e2e/`) against a fake Jira, a fake `glab` and a real
 git remote. **Nothing has run against a real Jira Data Center, a real GitLab or a real agent following the skills.**
 
 | Piece | Where |

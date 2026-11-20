@@ -246,7 +246,7 @@ Notes on what these are not:
 - **One thing the research could not settle:** the auto-compact threshold per model and the exact behaviour of the effort
   setting on every model. The pages avoid both.
 
-## 5. Open questions
+## 5. The questions that were open (all decided)
 
 All three were decided on 2026-11-20 (a design review by an Opus agent, recorded in `DECISIONS.md`).
 

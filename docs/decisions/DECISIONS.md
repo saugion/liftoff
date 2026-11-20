@@ -183,3 +183,30 @@ The designs are in `ticket-po-review.md`, `handbook.md` and `handbook-practice-c
 57. **Not built, on purpose:** a line-based merge for `both-changed` (the CLI gives the three texts, the agent proposes the merge), the shared
     company-level base, read-metrics for the handbook, and anything that needs a real Jira, GitLab or VS Code Copilot.
 
+### Smoke runs with agents (2026-11-20)
+
+Five executors followed the skills against the fake Jira and a real git repo, with haiku personas played by relay (the executors had no
+Agent tool, so every human answer went through the coordinator): the Ticket skill with a PO who answers (Marco), one who delegates (Luca),
+the Plan and Build skills with `verify-first` and `clean-review` on (Sara; the reviewer was a read-only agent given only the input file),
+the Brain skill's handbook Setup (Nina) and a handbook update with one page taken and one declined (Nina).
+
+58. **What worked as designed.** Marco's `_TBD_` for the out-of-scope stayed visible in Jira and he was asked again after a changed assumption
+    (a yes bundled with changes was not taken as the yes); Luca's "you decide" left both decisions `_TBD_` and the ticket was still created, the
+    metric counted it as a no-edit approval (`noEditShare` 1); the clean review, run without the session, found that the work was a text file and
+    not login code, and the agent never applied or dismissed a finding by itself; the declined page was byte-identical afterwards; no token
+    reached any file; nothing reached `origin/main`.
+59. **Wording fixed in the skills after these runs:** a yes in the same message as changes is not the yes; `ready` can carry a `_TBD_` by
+    design and the preview says so; a hand-back ("you decide") is asked once more, then `_TBD_`; where the why goes when the template has no
+    section; the next free file number for drafts; never tick or cross an acceptance criterion (`(x)` is a cross in Jira); a type with no
+    template; `issue_key` for reading a ticket back; how to take `call.args`; a manual verify item is the engineer's to tick; a check that passes
+    after any change proves little and must be said; the clean-review input is written after the section commits and again after a fix; the
+    merge request description comes after the review fixes and names every unmet criterion and refused `must` finding; the handbook branch is
+    cut from the target branch; the push dry-run looks for commits that are not the ticket's; an approval given in advance never replaces a
+    preview; the handbook Setup merges into an existing `brain:` block, says `handbook-init` also writes the index, and says what a `blocked`
+    `check-config` means; an update is one approval per page and the diff is the agent's to make; Plan explains `blocked`.
+60. **Harness, not product:** the executors cannot start a persona or a subagent (no Agent tool), so the human's part and the reviewer were
+    relayed by the coordinator; the first Story had no template because the fake repo's config had none (the coordinator added one); the
+    executor of Plan and Build committed two sections on a standing approval without a preview, which the coordinator told it was a deviation.
+61. **Not exercised:** a real Jira (does `_TBD_` survive its markup, what does `jira_get_issue` return for a description with `*TBD*`), VS Code
+    Copilot (the reviewer fallback, the commands, the hooks), a real GitLab. They are items of `docs/pilot-checklist.md`, not open decisions.
+
