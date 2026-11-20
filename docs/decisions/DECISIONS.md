@@ -15,6 +15,7 @@ the engineer's (Ticket flow 15), which supersedes Plan and Build 5, 6, 17 and Ti
 
 **After v0.4:** [Ticket flow: the PO decides, the agent writes](ticket-po-review.md) (CLI checks and skill text built, not piloted).
 **Proposal after v0.4:** [The living handbook](handbook.md) (not built).
+**Draft after v0.4:** [Handbook practice: context hygiene](handbook-practice-context-hygiene.md) (pages and checks, not built).
 
 Contents: [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket flow, work streams, git option, epics, release](#ticket-flow-work-streams-git-option-epics-release)
 
