@@ -5,7 +5,7 @@ import { parseDocument } from "yaml";
 // Personal data, never an instruction. Pure: text in, data out.
 
 export const KINDS = ["command", "convention", "test", "style", "process"] as const;
-export const TARGETS = ["agents-md", "constraints", "wiki", "lead"] as const;
+export const TARGETS = ["agents-md", "constraints", "wiki", "lead", "handbook"] as const;
 export const SKILLS = ["plan", "build", "brain"] as const;
 export const STATUSES = ["open", "dismissed", "retired"] as const;
 export type Kind = (typeof KINDS)[number];

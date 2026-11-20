@@ -13,7 +13,7 @@ export interface Selection {
 export interface TargetFile { path: string; kind: BlockKind; text: string }
 export interface FileChange { path: string; before: string; after: string; diff: string; rules: BlockRule[]; action: "create" | "update"; text: string }
 export type PromoteResult =
-  | { ok: true; files: FileChange[]; lead: { key: string; rule: string; message: string }[]; retired: string[]; promoted: string[]; branch: string | null; commitMessage: string | null; gitAdd: string[] }
+  | { ok: true; files: FileChange[]; lead: { key: string; rule: string; message: string }[]; handbook: { key: string; rule: string; message: string }[]; retired: string[]; promoted: string[]; branch: string | null; commitMessage: string | null; gitAdd: string[] }
   | { ok: false; code: LessonErrorCode; message: string; file?: string };
 
 export function selectionErrors(x: unknown): string[] {
@@ -83,6 +83,7 @@ export function planPromotion(input: PromoteInput): PromoteResult {
   };
 
   const lead: { key: string; rule: string; message: string }[] = [];
+  const handbook: { key: string; rule: string; message: string }[] = [];
   const promoted: string[] = [];
   const retiredKeys: string[] = [];
 
@@ -109,6 +110,13 @@ export function planPromotion(input: PromoteInput): PromoteResult {
     if (weakensBar(rule)) return fail("lesson-weakens", `the rule for ${a.key} would lower the quality bar. This is an accident guard, not a guarantee: a team that wants a lower bar changes CONSTRAINTS.md by hand, never through a lesson`);
     if (l.tainted && !selection.confirmTainted.includes(a.key)) return fail("lesson-tainted", `${a.key} may have come from ticket text, not from the engineer: confirm it explicitly (confirmTainted) after checking the words`);
     if (l.target === "wiki") return fail("lesson-invalid", `${a.key} is a wiki lesson: it goes through the Brain skill's Ingest, not through a block`);
+    if (l.target === "handbook") {
+      // An explanation, not a rule: it becomes a dated bullet under `## How here` of one handbook page, written by the Brain skill
+      // as a diff the engineer approves. The CLI writes nothing here and never reaches AGENTS.md or CONSTRAINTS.md.
+      handbook.push({ key: l.key, rule, message: `Lesson '${l.key}' is for a handbook page (an explanation of how the team does a step): ${rule}` });
+      promoted.push(l.key);
+      continue;
+    }
     if (l.target === "lead") {
       lead.push({ key: l.key, rule, message: `Lesson '${l.key}' is for the lead (something liftoff.yaml decides): ${rule}` });
       continue;
@@ -135,7 +143,7 @@ export function planPromotion(input: PromoteInput): PromoteResult {
   }
   const parts = [...(promoted.length > 0 ? [`promote ${promoted.join(", ")}`] : []), ...(retiredKeys.length > 0 ? [`retire ${retiredKeys.join(", ")}`] : [])];
   return {
-    ok: true, files, lead, retired: retiredKeys, promoted,
+    ok: true, files, lead, handbook, retired: retiredKeys, promoted,
     branch: files.length > 0 ? `chore/lessons-${today}` : null,
     commitMessage: files.length > 0 ? `lessons: ${parts.join("; ")}` : null,
     gitAdd: files.map((f) => f.path),

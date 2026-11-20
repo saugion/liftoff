@@ -57,12 +57,15 @@ function teamOnly(text: string): Omit<StatusRow, "id"> {
 // The text of the generated index of the pages as they are (or will be) on disk.
 export const indexOf = (texts: Map<string, string>): string => buildHandbookIndex([...texts].map(([id, text]) => ({ id, text }))).content;
 
-// Plans, and with --write creates, the shipped pages the team does not have and has not retired. Never overwrites.
-export const handbookInit: Handler = ({ root, write }) => {
+// Plans, and with --write creates, the shipped pages the team does not have and has not retired (with --page, only that one:
+// how a new practice is adopted one at a time). Never overwrites.
+export const handbookInit: Handler = ({ root, write, page }) => {
   const h = load(root);
   if ("fail" in h) return h.fail;
+  if (page !== undefined && !catalogPage(page)) return fail("usage", `'${page}' is not a page LiftOff ships`, {}, 2);
   const retired = new Set(h.retired.map((r) => r.id));
-  const files = CATALOG.filter((p) => !retired.has(p.id)).map((p) => ({ id: p.id, path: pageFile(h.paths, p.id), exists: h.teamText.has(p.id), text: latest(p).text, stub: p.status === "stub" }));
+  if (page !== undefined && retired.has(page)) return fail("handbook-invalid", `${page} is retired: take it out of retired.txt first if the team wants it back`, { page });
+  const files = CATALOG.filter((p) => !retired.has(p.id) && (page === undefined || p.id === page)).map((p) => ({ id: p.id, path: pageFile(h.paths, p.id), exists: h.teamText.has(p.id), text: latest(p).text, stub: p.status === "stub" }));
   const planned = files.filter((f) => !f.exists);
   if (planned.length + h.teamText.size > h.maxPages) return fail("handbook-invalid", `${planned.length} new pages would take the handbook past brain.handbook.maxPages (${h.maxPages}): retire a page first`);
   if (write) {

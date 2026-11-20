@@ -86,6 +86,7 @@ export const lessonPromote: Handler = ({ root, file, write }) => {
       ok: true,
       files: plan.files.map(({ text: _text, ...rest }) => rest),
       lead: plan.lead,
+      handbook: plan.handbook,
       branch: plan.branch, commitMessage: plan.commitMessage, gitAdd: plan.gitAdd,
       promoted: plan.promoted, retired: plan.retired,
       written: write === true && plan.files.length > 0,

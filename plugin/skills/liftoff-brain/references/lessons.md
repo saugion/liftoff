@@ -31,6 +31,8 @@ pick and the wording in one message and stop there (the two confirmations of ste
 request that only retires a rule is a pick too: the rule goes under `retire` in the selection.
 
 - `target: lead`: no diff. Show the `lead` message the CLI returns (copyable) for the engineer to send. Nothing else.
+- `target: handbook`: no diff from the CLI (it answers `handbook`, with the rule). It is an explanation of how the team does a step, not a rule: write it as one
+  dated bullet under `## How here` of one handbook page, as `references/handbook.md` says. Only with `brain.handbook`.
 - `target: wiki`: goes through Ingest (`references/ingest.md`) with `brain-source --kind lesson --file
   .liftoff/brain/lessons/<key>.md`; the wiki holds only what quotes the source.
 - `agents-md` and `constraints`: continue below.
