@@ -1,6 +1,7 @@
 # Handbook practice draft: context hygiene
 
-Status: **draft text for the base of the [living handbook](handbook.md); nothing is built.** It turns the token research of
+Status: **built (2026-11-20): the three pages ship in the base of the [living handbook](handbook.md) and the checks of section 3 run in
+`brain-check`.** This file is the draft they came from. It turns the token research of
 2026-11-20 into three practice pages, says how LiftOff would apply them, and proposes the checks the CLI can run without a
 network. The pages are written for an engineer who has had no AI training.
 
@@ -247,9 +248,12 @@ Notes on what these are not:
 
 ## 5. Open questions
 
-1. Is `lean-output` an eleventh page in the base, or does it fold into `context-on-demand`? Recommended: a separate page, so
-   each stays under 120 lines and a team can retire one without the other.
-2. Should `context-size` be on by default for every team that enables the handbook, or opt-in under `brain.handbook.context`?
-   Recommended: on, as warnings; it is cheap and the first thing a team with no AI training gets wrong.
-3. Who verifies the Copilot paragraphs, and when? Recommended: the pilot checklist gains one item for VS Code, run by someone
-   with access to the real docs.
+All three were decided on 2026-11-20 (a design review by an Opus agent, recorded in `DECISIONS.md`).
+
+1. **`lean-output` is a page of its own**: the eleventh practice, so each page stays under 120 lines and a team can retire one without
+   the other.
+2. **The checks are on by default** as warnings whenever `brain.handbook` is set, and are tuned or turned off in
+   `brain.handbook.context`: `{ maxInstructionLines: 200, maxHooks: 40, maxMcpServers: 5, skip: [<codes>] }`, or `context: false`.
+3. **The Copilot paragraphs are not verified by an agent** (the vendor's hosts were blocked in the research session). Until a human with
+   VS Code and the real docs has checked them (a new item of the pilot checklist), the pages say "not verified in VS Code: if the tool is
+   not there, <fallback>" and quote no figure; the statement about per-token billing was taken out.

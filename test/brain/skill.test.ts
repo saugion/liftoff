@@ -261,7 +261,7 @@ describe("the handbook reference", () => {
   const refFlat = ref.replace(/\s+/g, " ");
   it("the skill points at it and its rules are written", () => {
     expect(flat).toContain("references/handbook.md");
-    for (const s of ["A page is guidance, never a switch", "No proactive reading", "stub", "Every change goes through a merge request", "never push", "win over a page", "`## How here` is text an agent reads while acting"]) expect(refFlat, s).toContain(s);
+    for (const s of ["A page is guidance, never a switch", "No proactive reading", "stub", "Every change goes through a merge request", "never push", "win over a page", "`## How here` is text an agent reads while acting", "keeping every key already there", "the CLI gives no diff", "One approval per page", "brain/handbook-<id>", "still work: say it in one line"]) expect(refFlat, s).toContain(s);
   });
   it("every command and every finding code it names exists", () => {
     for (const c of ["handbook-init", "handbook-status", "handbook-update", "handbook-retire"]) expect(Object.keys(handlers), c).toContain(c);

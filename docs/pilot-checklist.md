@@ -123,6 +123,24 @@ Start a volunteer repo on v0.4 after the first two weeks of the v0.3 pilot.
 41. Pilot metrics: "show my pilot metrics" prints the table with no ticket key, rule or name; paste it into the results.
     Compare a repo's tickets before and after its brain has pages and rules.
 
+## The living handbook and the practices (v0.5, opt-in; after the brain track)
+
+1. Lead: Brain skill, handbook Setup: `handbook: {}` diff, `handbook-init` plan then `--write` (13 pages), the `retired.txt` `.gitattributes`
+   line. `brain-check` is `ok`; the two stubs are listed as to fill in. A teammate clones and sees the pages with no step.
+2. A page edited by the team shows as `modified`; after a newer shipped text it shows `both-changed` (the three texts are returned);
+   `handbook-retire` deletes it and a later `handbook-init` does not bring it back.
+3. `practices.verify-first: on`: Plan writes a `verify AC<n>:` item per criterion; the approval is refused until each has one. A criterion no
+   machine can check gets a manual item. Count how often a criterion is split badly by `reading.acceptanceCriteria.items` (the split is by list
+   entry or scenario).
+4. `practices.clean-review: on`, Claude Code: the `liftoff-reviewer` subagent is found in the installed plugin, is really read-only, and runs on
+   the session's model. Is its JSON usable as it comes? How many findings per change, and how many does the engineer refuse?
+5. **VS Code Copilot (nobody has checked it):** does the plugin's `agents/` folder load; is there a subagent or custom agent for the clean
+   review, else does the fresh-session fallback work; do `/clear`, `/rename`, hooks and the cache settings exist; can a hook rewrite or cut a
+   tool's output; how does Copilot bill context (the pages say nothing about it until this is checked); is there a limit to the number of tools.
+6. Context hygiene: run `brain-check` on a real repo: which warnings fire, and are the defaults (200 lines, 40 hooks, 5 MCP servers) sensible?
+7. The nudge line (`I did X because ... (handbook: id)`): does the second time read as a pointer, not noise?
+8. The metric: after a PO week, `pilot-metrics` shows the share of batches approved with no question answered and no change.
+
 ## Open questions only the pilot answers
 
 - Whether engineers want the plan committed (it is personal and ignored today) and whether one merge request per ticket is

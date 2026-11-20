@@ -1,9 +1,9 @@
 # The living handbook
 
-Status: **proposal, not built.** Rules 1-8 were decided with the product owner on 2026-11-20; rules 9-20 are what the design
-needed on top of them and are **to be confirmed**. Nothing here is in the skills or the CLI yet. It builds on the project
-brain (`src/brain/*`, the Brain skill), which has not been piloted either; "Order of work" says what ships first so this does
-not double that unknown.
+Status: **built (2026-11-20), phases A, B and C, in version 0.5.0 on `main`, untagged and unpiloted.** Rules 1-8 were decided with the
+product owner; rules 9-27 are what the design needed on top of them, reviewed by an Opus design pass (see `DECISIONS.md`). It builds on
+the project brain (`src/brain/*`, the Brain skill), which has not been piloted either. Everything that adds a step to Plan or Build is
+**off by default** (`practices`, rule 20), so the README's pilot rule holds: nothing changes for a team that does not turn it on.
 
 ## Why
 
@@ -38,7 +38,7 @@ Decided (2026-11-20):
    pilot metrics, and pages not touched for `reviewAfterDays`.
 8. **Every change goes through a merge request** the team reviews. The tool never pushes and never opens it.
 
-To confirm (decided here, because the design needed them):
+Decided while building, because the design needed them:
 
 9. **A page is guidance, never a switch.** The behaviour of a skill is LiftOff's, reviewed in LiftOff's repo. A page can add the
    team's detail to a step LiftOff already performs (which commands, which threshold, what the reviewer looks for), and nothing
@@ -54,8 +54,9 @@ To confirm (decided here, because the design needed them):
     the same `brain-source` path. A practice has no source to quote, so none is demanded.
 13. **Page format.** Front matter (own validator, because the wiki's rejects unknown keys): `title`, `type` (`practice`,
     `convention` or `case`), `updated`, `summary` (one line, 160 characters, used by the index and by the nudge), `origin`, and for a
-    LiftOff page `base` (the first 12 hex digits of the SHA-256 of the shipped body, normalized like quotes: NFC, LF, whitespace
-    runs to one space). Optional `sources`, `module`. The page id is the file name without `.md`. A practice has the sections
+    LiftOff page `base` (in quotes: twelve digits with no letter would be read as a number; it is the first 12 hex digits of the
+    SHA-256 of the title, type, summary, stub mark and body, the body normalized like quotes: NFC, LF, whitespace runs to one space;
+    not `updated`, which a team touches on every edit, and not `origin`/`base` themselves). Optional `sources`, `module`. The page id is the file name without `.md`. A practice has the sections
     `## Why`, `## When`, `## How here` (the team's adaptation: this is what the agents read when they apply it) and `## Example`.
 14. **Size.** At most 120 lines per page (about 1.5k tokens, so reading one on demand is cheap) and `maxPages` per handbook
     (default 40), the way `maxRules` limits the lessons block. Past the limit `brain-check` errors and a new page is refused until
@@ -82,8 +83,8 @@ To confirm (decided here, because the design needed them):
 
 ## What ships in the base
 
-Ten practices and two convention stubs, English text, each page under 120 lines. One line each; the text is for the build, not
-for this document.
+Eleven practices and two convention stubs (thirteen pages), English text, each page under 120 lines. One line each; the text is in
+`src/handbook/base/` and is bundled into the CLI through `src/handbook/catalog.json`, which `npm run build` generates.
 
 | Id | Type | One line |
 |---|---|---|
@@ -97,6 +98,7 @@ for this document.
 | `when-not-ai` | practice | Which work is mechanical (let the agent do it) and which is design (decide it yourself first). |
 | `review-ai-code` | practice | What a human reviewer looks for in generated code: invented APIs, a change wider than the ticket, tests that assert nothing. |
 | `prompt-is-ticket` | practice | A ticket is the prompt the whole team reuses: why, out of scope, acceptance criteria that can be checked. |
+| `lean-output` | practice | Filter test and log output before it enters the context, keep few MCP servers, prefer a CLI the agent already knows. |
 | `how-we-test` | convention | A stub the team fills in: commands, layers, what must never be skipped. |
 | `how-we-review` | convention | A stub the team fills in: who reviews, what a good merge request description holds. |
 
@@ -148,35 +150,61 @@ agent proposes the merged page as a diff the lead approves. A line-based merge i
 
 ## New CLI commands
 
-Read-only unless `--write`, like the brain commands. Folded into existing ones where possible so there is less to remember.
+Read-only unless `--write`, like the brain commands. `--page <id>` and `--reason <text>` are valid only for the handbook commands.
 
 | Command | Does |
 |---|---|
-| `handbook-init [--write]` | Plans, and with `--write` creates, the base pages that are missing and not retired. Never overwrites. |
-| `handbook-status [--page <id>]` | Per page: status, `origin`, review due; and the drift count. For one page, the three texts. Read-only. |
-| `handbook-update --page <id> [--write]` | For `update-available` only: shows, and with `--write` writes, the new text and the new `origin`/`base`. Refuses a modified page and says why. |
-| `handbook-retire <id> --reason <text> [--write]` | Writes the `retired.txt` line and plans the page deletion. |
+| `handbook-init [--page <id>] [--write]` | Plans, and with `--write` creates, the shipped pages that are missing and not retired (with `--page`, only that one: how a new practice is adopted). Never overwrites; refuses past `maxPages`. Writes the index. |
+| `handbook-status [--page <id>]` | Per page: status, origin, stub, `drift`; for one page, the three texts (`team`, `original`, `shipped`). Read-only. |
+| `handbook-update --page <id> [--write]` | For `update-available` only: the shipped text replaces the untouched copy. Refuses anything else and says why. |
+| `handbook-retire --page <id> --reason <text> [--write]` | Writes the `retired.txt` line and deletes the page file. |
+| `handbook-seen --page <id> [--write]` | How a skill points at a page: `form` `full` the first two times, then `id`, `none` for a stub or an absent page; the count is personal (`.liftoff/brain/handbook-seen.json`). |
+| `clean-review --key <KEY>` | Checks the result of the clean-context review against the ticket's criteria. |
+| `pilot-metrics` | The pilot counters that do not need the brain (the PO's review of tickets). |
 
-`brain-check` gains the handbook findings (`handbook-*` codes) and `brain-index --write` regenerates the handbook index too, so the
-single health command and the single index command keep covering everything. All of it is a no-op unless `brain.handbook` is set,
-and `brain.handbook` joins the `brain` section's hash only when present, so a brain without a handbook keeps its hash (as for lessons).
+`brain-check` gains the handbook findings (`handbook-*` codes) and `brain-index --write` regenerates the handbook index too. All of it is a
+no-op unless `brain.handbook` is set, and `brain.handbook` joins the `brain` section's hash only when present, so a brain without a
+handbook keeps its hash (as for lessons). `parse-ticket` also returns `practices`, `reading.acceptanceCriteria.items` (AC1, AC2, ...)
+and `brain.handbook`; `plan` returns `verify`.
+
+## Decisions taken in the build (Opus design review, 2026-11-20)
+
+21. **`practices` section** (`liftoff.yaml`, needs plugin 0.5): ids `ticket-po-review`, `verify-first`, `clean-review`; values
+    `on | nudge | off`; `required` optional. An unknown id is an error (a typo ignored in silence is worse), and so is the id of a page
+    without a step. Only the keys the lead wrote enter the hash (the defaults live in code), so a default added later never changes a
+    config already written. Defaults: `ticket-po-review: on`, `verify-first: off`, `clean-review: off`. `on` performs the step and the
+    CLI enforces it with errors; `nudge` offers it in a line and the CLI only warns.
+22. **`pilot: { metrics }`** (a new top-level section) switches every pilot counter: `pilot.metrics`, else `brain.lessons.metrics`, else off.
+23. **`verify-first`:** the plan carries `- [ ] verify AC<n>: <command> (red first)` in the section that implements the criterion, and
+    `- [ ] verify repro: <command>` first for a bug; a manual check is `verify AC<n>: manual: <who> ...`. `plan --key` answers `verify`;
+    with `on`, `--approve` is refused with `criterion-unverified`; an approved plan is never invalidated by a change of config.
+24. **`clean-review`:** step 6b of Build, after the self-check. On Claude Code the plugin's `liftoff-reviewer` subagent (read-only, no
+    `model:`, so it inherits the session's model and never drops to a smaller one); elsewhere a fresh session with a file input. The reviewer
+    returns JSON (`criteria` verdicts with evidence, `findings` with kind and severity); the findings are the engineer's, never applied or
+    argued away by the agent; fixes are one `<KEY>: review fixes` commit and a `Note:` line, not a new plan section (that would make the
+    approved plan stale).
+25. **Revisions and stubs:** the plugin keeps the last 5 revisions of a page; while a version is in development a changed text replaces its
+    revision, from the next version on it is appended and the old one is never edited. A stub is `status: stub` in the front matter
+    (counted in the fingerprint, without the practice sections); the health check lists it (`handbook-stub`), it does not age, agents
+    skip it, and removing the mark makes the page `modified`.
+26. **Credentials stay an error** anywhere in the brain folder, handbook included (`secret`); only instruction-like and bar-lowering
+    text are warnings, and only on pages the team wrote or changed.
+27. **Context hygiene** is part of `brain-check` when the handbook is on (`context-size`, `import-no-saving`, `emphasis`, `skill-size`,
+    `skill-model`, `hook-count`, `mcp-count`), tuned or turned off in `brain.handbook.context`; see
+    `handbook-practice-context-hygiene.md`.
 
 ## Order of work
 
 The README's pilot rule stands: if fewer than half of the pilot group use Build after four weeks, the product is revisited before
-anything is added. The handbook must not add a step to Plan or Build before that is known. Proposed order:
+anything is added. So everything that adds a step to Plan or Build is off by default. What was built, in this order:
 
-1. **Phase A, pages only (ship with the next release, opt-in, no new step in any skill).** The `practices` switch with its first
-   entry (`ticket-po-review`), the format, `origin`/`base`,
-   `handbook-init`, `handbook-status`, the `brain-check` findings, the index, and Query reading the handbook. The base ships with its
-   provenance from day one, because adding fingerprints later cannot be done retroactively. No nudges, no updates.
-2. **Phase B, nudges.** Each practice's skill step (the Ticket flow's questions, `verify-first`, `clean-review`) arrives with its page
-   and the one-line pointer, each with its own id in `practices` (rule 20).
-3. **Phase C, the loop.** `handbook-update`, `handbook-retire`, drift in the health check, the after-Build question, the lessons target.
-4. **Later:** a line-based merge for `both-changed`, a shared company-level base that repos inherit (already on the README's
-   "Not yet" list), metrics on which practices are read.
-
-Phase A is cheap and unblocks everything; B and C depend on what the pilot shows people actually bypass.
+1. **Phase A, pages:** the format, `origin`/`base`, `handbook-init`, `handbook-status`, the `brain-check` findings, the index, Query reading
+   the handbook, the `practices` section.
+2. **Phase B, the steps and the pointer:** `verify-first`, `clean-review`, the one-line pointer with its personal count, the PO review's
+   modes.
+3. **Phase C, the loop:** `handbook-update`, `handbook-retire`, drift in the health check, the question after a build, the lessons target.
+4. **Later (not built, on purpose):** a line-based merge for `both-changed`, a shared company-level base that repos inherit (on the
+   README's "Not yet" list), metrics on which practices are read.
 
 ## Risks
 
@@ -223,16 +251,8 @@ All seven were decided with the product owner on 2026-11-20.
 
 ## Test plan
 
-- Unit: the front-matter validator (all keys, types, `origin`/`base` consistency, size limits); the body fingerprint (CRLF, whitespace,
-  NFC); the status table, one case per status; `handbook-init` creates only missing pages and skips retired ids; `retired.txt` read
-  and written; `handbook-update` refuses a modified page and replaces an untouched one; the guards fire as warnings; `brain-check`
-  without `brain.handbook` is byte-identical to today (a golden test); the config hash of a brain without a handbook is unchanged.
-- Packaging: the bundled catalog equals the shipped pages, every revision's recorded hash matches its text, every page is under the
-  size limit, every id the skills name exists in the catalog (a drift test like the one for the CLI contract).
-- End to end (fake Jira and `glab`, real git): Init copies the base on a lead's yes; a teammate clones and sees it; the team edits a page;
-  a newer bundled revision makes it `both-changed`; the lead retires another page and a later `handbook-init` does not bring it back;
-  `brain-check` stays `ok` after each step.
-- Skill drift: the Brain and Init skills name the new commands, the `origin` rule and "a page is guidance, never a switch", and each name
-  exists in the real CLI output.
-- A smoke run with agents (`smoke-test`): a lead who sets it up, an engineer whose page step fails because the page is stale and who
-  accepts the fix, and a lead who updates one page and declines another.
+Built: unit tests for the page format, the fingerprint, the status table, `handbook-*`, the checks and the context hygiene; packaging
+tests (the catalog equals the build, every revision parses and carries its own fingerprint, every page is under the limit, the build
+script's fingerprint is the CLI's, no page lowers the bar); skill drift tests (the skills and the reference name the commands, the codes
+and the rules, and each exists in the CLI); end-to-end runs through the scripted agent. Smoke runs with agents (`smoke-test`): see
+`DECISIONS.md` for what they found. Not done: any run on a real Jira, GitLab or in VS Code Copilot (`docs/pilot-checklist.md`).

@@ -6,7 +6,7 @@ the team writes its rules down once, in one file, and every engineer's agent fol
 ticket, write a plan, write the code and prepare the merge request, all the way the team does it. The engineer approves
 every step and stays in charge.
 
-Current release: **v0.4.0**, built and tested, not yet piloted (the pilot runs on v0.3.0; the project brain is new in v0.4). See [Status](#status-and-limits).
+Current release: **v0.4.0**, built and tested, not yet piloted (the pilot runs on v0.3.0; the project brain is new in v0.4). `main` is at **0.5.0**, unreleased and untagged: the PO's review of tickets, the living handbook and the practices below. See [Status](#status-and-limits).
 
 **What a team gets**
 
@@ -108,7 +108,7 @@ system) and to GitLab through the `glab` command-line tool.
 | **Plan** | engineer | Reads a ticket through the team's reading map (where acceptance criteria and key fields live), reads the repo's rules and code, and writes a local plan in sections. The engineer approves it once. Nothing is written to Jira. |
 | **Build** | engineer | Implements the approved plan section by section and runs the repo's checks. Then it self-checks against the acceptance criteria and prepares the branch name, commit messages, the merge-request description and the exact command to open it. |
 | **Brain** | lead (setup), engineer, anyone | Optional. The project's second brain: a wiki in the repo that the team's agents read before planning and keep up to date, and a personal layer that is never committed. The lead turns it on once. After that, "what do we know about X" is answered from the wiki, Build offers to add what a ticket taught, and "promote my lessons" turns repeated corrections into reviewed team rules. See [Project brain](#project-brain-optional). |
-| **Ticket** | PO/PM, engineer | Writes bugs, tasks, stories and epics on the team's templates, or breaks an epic into tickets. The whole batch is shown together and approved once. Works in the team's Jira project or in a linked work stream. |
+| **Ticket** | PO/PM, engineer | Writes bugs, tasks, stories and epics on the team's templates, or breaks an epic into tickets. Before it drafts it asks the two things only the person can decide, the **why** and the **out of scope**, and writes them in the person's words (a skipped one stays a visible `_TBD_`); what it added itself is listed as numbered assumptions the person answers. The whole batch is shown together and approved once. Works in the team's Jira project or in a linked work stream. See [The PO decides](#the-po-decides-and-the-living-handbook). |
 
 **Work streams** are optional. A stream is a time-boxed Kanban project (say a 3-6 week roadmap item or an MVP task
 force) that someone creates by hand in Jira. The lead links it in `liftoff.yaml` together with the code module it
@@ -117,6 +117,29 @@ work that touches both a stream's module and a team module becomes two tickets, 
 
 The template a PO/PM writes a ticket with is the same one the engineer's Plan reads it with. The team config is the
 contract between who writes tickets and who implements them.
+
+## The PO decides, and the living handbook
+
+Two habits of the engineers who use AI well, built into the flow so a team that has had no AI training gets them anyway.
+
+- **The PO decides, the agent writes.** A ticket the agent writes and the PO approves with one quick yes can hide that the decisions were the
+  agent's. So the Ticket skill asks the **why** and the **out of scope** (Epic and Story both, Task the why, Bug neither), never writes them
+  itself, and leaves what nobody answered as `_TBD_`, which Plan then stops on. Everything else it added is a numbered assumption the PO
+  confirms, changes or drops; the batch is `ready` only when each one has an answer. `practices.ticket-po-review` is `on` by default; `nudge`
+  asks the same questions with one yes; `off` goes back to a single approval. A local counter (`pilot-metrics`, no key or text in it) shows how
+  many batches were approved with no question answered and no change.
+- **The living handbook** (optional, `brain.handbook`): thirteen shipped pages in the team's own repo, copied once so the team owns and
+  edits them: eleven practices (verify before you build, a clean-context reviewer, small slices, session hygiene, a pre-mortem on the plan,
+  context on demand, lean output, ...) and two stubs to fill in (how we test, how we review). The agents read a page only when a step needs it
+  and say once, in a line, why they did something (`handbook: verify-first`). A page is guidance, never a switch: it never lowers
+  `CONSTRAINTS.md`. Each page carries its origin and a fingerprint, so a new release brings an **update as a three-way diff**, one page at a
+  time, never applied automatically; a page the team retires stays retired. `brain-check` reports stale pages, how far behind the shipped
+  ones the team is, and **context hygiene** (an `AGENTS.md` over 200 lines, a skill over 500, too many hooks or MCP servers, shouting in
+  capitals): in lines, never tokens.
+- **Two steps off by default** (`practices` in `liftoff.yaml`, each `on`, `nudge` or `off`): `verify-first` (every acceptance criterion gets a
+  check, seen to fail before the code exists; Plan numbers the criteria AC1, AC2 and refuses the approval while one has none) and
+  `clean-review` (before the merge request, a read-only reviewer that has not seen the session re-reads the diff against the ticket and the
+  quality bar; the findings are the engineer's to fix or refuse).
 
 ## Project brain (optional)
 
@@ -286,7 +309,7 @@ The repo pins the plugin to a release tag in `.claude/settings.json` (`ref`), an
 **Built in v0.4.0:** Init, Connect (member and lead flows), Plan, Build with the `build.git` option, Ticket (with
 epics), work streams, and the optional project brain (shared wiki, personal layer, lessons loop).
 
-**Unreleased:** the [control panel](#control-panel-optional) (`liftoff-ui`): a local page to set up and change `liftoff.yaml`.
+**Unreleased (on `main`, 0.5.0):** the [control panel](#control-panel-optional) (`liftoff-ui`); the [PO's review of tickets, the living handbook, `verify-first` and `clean-review`](#the-po-decides-and-the-living-handbook), `practices` and `pilot` in `liftoff.yaml`, and the context-hygiene checks. Nothing in them has been piloted, and the steps that add work to Plan and Build are off until the lead turns them on. Not checked anywhere: a real Jira (does `_TBD_` survive its markup?) and VS Code Copilot (the reviewer's fallback and the commands the pages mention): see `docs/pilot-checklist.md`.
 
 **Supported:** Jira Server/Data Center through the community MCP server `mcp-atlassian`, one Jira project per repo.
 GitLab through `glab`. macOS. Claude Code and GitHub Copilot in VS Code.

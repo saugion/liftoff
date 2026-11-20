@@ -17,7 +17,7 @@ the engineer's (Ticket flow 15), which supersedes Plan and Build 5, 6, 17 and Ti
 **Proposal after v0.4:** [The living handbook](handbook.md) (not built).
 **Draft after v0.4:** [Handbook practice: context hygiene](handbook-practice-context-hygiene.md) (pages and checks, not built).
 
-Contents: [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket flow, work streams, git option, epics, release](#ticket-flow-work-streams-git-option-epics-release)
+Contents: [After v0.4 (0.5.0)](#after-v04-050-unreleased) · [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket flow, work streams, git option, epics, release](#ticket-flow-work-streams-git-option-epics-release)
 
 
 ## Connect (0.2)
@@ -147,3 +147,39 @@ Contents: [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket
 43. **Local access control.** A random token in the printed address, checked on every request; a `Host` header that is not
     the loopback address is refused (DNS rebinding); writes must be JSON (so a form on another site cannot post); a strict
     CSP. No credential is ever sent to the page or accepted by it.
+
+## After v0.4 (0.5.0, unreleased)
+
+Decided with the product owner on 2026-11-20 and built the same day; a design pass by an Opus agent settled what the specs left open.
+The designs are in `ticket-po-review.md`, `handbook.md` and `handbook-practice-context-hygiene.md`. Numbers continue the list above.
+
+44. **Version 0.5.0 on `main`, no tag.** Like 0.2.0 and 0.3.0 before it: `package.json`, `plugin.json` and the marketplace fragment say
+    0.5.0, and the fragment points at a `v0.5.0` tag that does not exist until it is released. Tagging stays the owner's. The tests that
+    use "a pin newer than the installed plugin" moved to 0.6 and 0.5.1.
+45. **The pilot rule holds.** Everything that adds a step to Plan or Build (`verify-first`, `clean-review`) is off by default; the PO review of
+    tickets is on by default because the product owner called it essential, and `practices.ticket-po-review` turns it down or off.
+46. **`practices` and `pilot`** are new top-level sections (plugin 0.5). Unknown ids are errors; only written keys enter the hash;
+    `connect-info` and `parse-ticket` return the resolved modes (handbook.md, rules 20-22).
+47. **`ticket-po-review` modes.** `off`: `po` is not judged (shape and credentials still are), `--review` is ignored with `review-ignored`,
+    `ready` is `allOk`. `nudge`: the questions are asked, the review file is optional (`review-skipped`), a file that exists must be complete.
+    `parse-ticket` keeps reporting `_TBD_` whatever the switch says.
+48. **`draft-tickets --approve`** is run after the person's yes and before the first creation: it fails when the batch is not `ready` and records
+    the `ticket-reviewed` counters once per batch. `noEditApproval` is an approximation: it does not see edits made to the drafts afterwards.
+49. **No trace line in Jira** for the PO's review: the CLI cannot prove who wrote `po`, and the line would add noise to the team's template.
+50. **TBD detection tolerates Jira's markup** (`_TBD_`, `*TBD*`, a bare `TBD`, rendered `<em>TBD</em>`), because what Jira hands back is not
+    what the agent wrote. The pilot checklist asks to confirm what a real Jira returns.
+51. **Criteria are numbered by the CLI**, not by the agent: one item per top-level list entry or Given/When/Then scenario, else a single AC1.
+    `plan` matches `verify AC<n>:` items to them; `--approve` is refused for an uncovered criterion only with `verify-first: on`.
+52. **The clean review is a read-only subagent** (`plugin/agents/liftoff-reviewer.md`: Read, Grep, Glob; no `model:`). The packaging test, which
+    used to forbid any `agents/` folder, now allows exactly this file and checks its tools. Where there is no subagent (VS Code Copilot,
+    unverified) the fallback is a fresh session fed with a file; a review by the writing session is never called clean.
+53. **`base` is quoted** in a page's front matter: found by the first test run, because twelve digits parse as a number.
+54. **The fingerprint covers title, type, summary, stub mark and body** (not `updated`), a change from the first draft of the spec, which said
+    "body only": a team that changes only the summary should count as having modified the page.
+55. **A page shipped by LiftOff never deletes itself from the catalog** (the generator refuses it); a changed text replaces its revision while
+    the version is the one in development and is appended from the next version on.
+56. **The lessons target `handbook`**: `lesson-promote` returns it without touching a file; the Brain skill writes a dated bullet under
+    `## How here` as a diff the engineer approves.
+57. **Not built, on purpose:** a line-based merge for `both-changed` (the CLI gives the three texts, the agent proposes the merge), the shared
+    company-level base, read-metrics for the handbook, and anything that needs a real Jira, GitLab or VS Code Copilot.
+
