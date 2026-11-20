@@ -16219,13 +16219,13 @@ function checkBrain({ realRoot, paths, hotMaxLines, moduleIds, lessons }) {
   const bySource = {};
   for (const p of pages) {
     for (const s of p.sources) {
-      const norm2 = posix.normalize(s);
-      if (!norm2.startsWith("raw/") || norm2.startsWith("..") || !existsSync6(join9(dirAbs, norm2)) || !lstatSync4(join9(dirAbs, norm2)).isFile()) {
+      const norm3 = posix.normalize(s);
+      if (!norm3.startsWith("raw/") || norm3.startsWith("..") || !existsSync6(join9(dirAbs, norm3)) || !lstatSync4(join9(dirAbs, norm3)).isFile()) {
         err("source-missing", p.path, `source '${s}' is not an existing file under raw/`, 1);
         continue;
       }
-      cited.add(norm2);
-      const citing = bySource[inDir(norm2)] ??= [];
+      cited.add(norm3);
+      const citing = bySource[inDir(norm3)] ??= [];
       if (!citing.includes(p.path)) citing.push(p.path);
     }
     if (p.module !== void 0 && !moduleIds.includes(p.module)) warn("module-unknown", p.path, `module '${p.module}' is not in liftoff.yaml modules`, 1);
@@ -16580,6 +16580,16 @@ function readWithMap(t, type) {
   }
   const fields = (type?.readingMap.fields ?? []).map((f) => ({ id: f.id, label: f.label, value: fieldText(t, f.id) }));
   return { acceptanceCriteria, fields: fields.filter((f) => f.value), missing: fields.filter((f) => !f.value).map((f) => f.id) };
+}
+function openPoints(text) {
+  const out = [];
+  let section = "";
+  for (const l of (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/)) {
+    const h = headingOf(l);
+    if (h) section = h.title.replace(/<[^>]+>/g, "").replace(/[*#]/g, "").trim();
+    if (l.includes("_TBD_")) out.push({ section, line: l.trim() });
+  }
+  return out;
 }
 
 // src/cli/lesson-add.ts
@@ -17164,8 +17174,110 @@ var lessonPromote = ({ root, file, write }) => {
 import { readFileSync as readFileSync14, statSync as statSync5 } from "node:fs";
 import { resolve as resolve4 } from "node:path";
 
-// src/plan/draft.ts
+// src/plan/review.ts
 var isObj2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+var TBD = "_TBD_";
+var PO_FIELDS = ["why", "outOfScope"];
+var LABEL = { why: "why", outOfScope: "out of scope" };
+var norm2 = (s) => s.replace(/\s+/g, " ").trim();
+function asked(typeName) {
+  const n = (typeName ?? "").trim().toLowerCase();
+  if (n === "epic" || n === "story" || n === "user story") return { why: true, outOfScope: true };
+  if (n === "bug") return { why: false, outOfScope: false };
+  return { why: true, outOfScope: false };
+}
+function checkPo(po, typeName, description) {
+  const errors = [], warnings = [];
+  const status = { why: "not-asked", outOfScope: "not-asked" };
+  const texts = [];
+  const want = asked(typeName);
+  let given = {};
+  if (po !== void 0) {
+    if (!isObj2(po) || Object.keys(po).some((k) => !PO_FIELDS.includes(k) || typeof po[k] !== "string")) {
+      errors.push({ code: "bad-po", message: `po must be an object with the person's own words as strings: { "why": "...", "outOfScope": "..." }` });
+    } else given = po;
+  }
+  for (const f of PO_FIELDS) {
+    const text = typeof given[f] === "string" ? given[f].trim() : "";
+    const answered = text !== "" && text !== TBD;
+    if (answered) {
+      status[f] = "answered";
+      texts.push(text);
+      if (description !== void 0 && !norm2(description).includes(norm2(text))) {
+        warnings.push({ code: "po-text-not-in-description", message: `the person's words for '${LABEL[f]}' are not in the description: put them in, as said (only the format may change)` });
+      }
+    } else if (want[f]) {
+      status[f] = "missing";
+      warnings.push({ code: "po-decision-missing", message: `no answer from the person for '${LABEL[f]}': leave the section as ${TBD}, never fill it with a guess; Plan will stop on it` });
+    }
+  }
+  return { errors, warnings, status, texts };
+}
+var ANSWERS = ["confirmed", "changed", "dropped"];
+var REF = /^#(\d+)$/;
+function checkReview(raw, descriptions) {
+  const empty = { total: 0, confirmed: 0, changed: 0, dropped: 0, unanswered: 0 };
+  if (raw === void 0) {
+    return { provided: false, ok: false, errors: [{ code: "review-missing", message: "no review file: list what you added on your own as assumptions, take the person's answer to each one, and pass the file with --review" }], warnings: [], assumptions: empty };
+  }
+  const errors = [], warnings = [];
+  const counts = { ...empty };
+  const entries = isObj2(raw) && Array.isArray(raw.tickets) ? raw.tickets : void 0;
+  if (!entries) {
+    return { provided: true, ok: false, errors: [{ code: "review-invalid", message: 'the review file must be { "tickets": [ { "ref": "#0", "assumptions": [ ... ] } ] }' }], warnings, assumptions: counts };
+  }
+  const seen = /* @__PURE__ */ new Set();
+  entries.forEach((e, i) => {
+    const at = (code, message, ticket) => errors.push({ code, message, ...ticket !== void 0 && { ticket } });
+    const m = isObj2(e) && typeof e.ref === "string" ? REF.exec(e.ref) : null;
+    if (!isObj2(e) || !m) return at("review-ref", `entry ${i} needs a ref like "#0" (the ticket's index in the batch)`);
+    const n = Number(m[1]);
+    if (n >= descriptions.length) return at("review-ref", `entry ${i}: ${e.ref} is not a ticket of this batch (${descriptions.length} tickets)`);
+    if (seen.has(n)) return at("review-ref", `${e.ref} has more than one entry`, n);
+    seen.add(n);
+    if (!Array.isArray(e.assumptions)) return at("review-invalid", `${e.ref}: assumptions must be a list (empty when you added nothing on your own)`, n);
+    const ids = /* @__PURE__ */ new Set();
+    const description = descriptions[n];
+    for (const a of e.assumptions) {
+      counts.total++;
+      if (!isObj2(a) || typeof a.text !== "string" || a.text.trim() === "" || !Number.isInteger(a.id)) {
+        counts.unanswered++;
+        at("assumption-invalid", `${e.ref}: every assumption needs an integer id and a text`, n);
+        continue;
+      }
+      const label = `${e.ref} assumption ${String(a.id)}`;
+      if (ids.has(a.id)) at("assumption-invalid", `${label}: the id is used twice`, n);
+      ids.add(a.id);
+      if (typeof a.answer !== "string" || a.answer === "") {
+        counts.unanswered++;
+        at("assumption-unanswered", `${label} has no answer from the person: ask, never assume they agree`, n);
+        continue;
+      }
+      if (!ANSWERS.includes(a.answer)) {
+        counts.unanswered++;
+        at("assumption-invalid", `${label}: answer must be confirmed, changed or dropped`, n);
+        continue;
+      }
+      const answer = a.answer;
+      counts[answer]++;
+      const final = typeof a.final === "string" ? a.final.trim() : "";
+      if (answer === "changed" && final === "") at("assumption-invalid", `${label} is changed: give the text the person wants in final`, n);
+      if (description === void 0) continue;
+      const present = (s) => norm2(description).includes(norm2(s));
+      if (answer === "confirmed" && !present(a.text)) warnings.push({ code: "assumption-not-in-description", message: `${label} is confirmed but its text is not in the description`, ticket: n });
+      if (answer === "changed" && final !== "" && !present(final)) warnings.push({ code: "assumption-not-in-description", message: `${label} is changed but the new text is not in the description`, ticket: n });
+      if (answer === "dropped" && present(a.text)) warnings.push({ code: "assumption-still-in-description", message: `${label} was dropped but its text is still in the description`, ticket: n });
+    }
+    if (secretGuard({ assumptions: e.assumptions }).length > 0) at("credential-like", `${e.ref}: an assumption looks like a credential`, n);
+  });
+  descriptions.forEach((_d, n) => {
+    if (!seen.has(n)) errors.push({ code: "review-ticket-missing", message: `ticket #${n} has no entry in the review file (an entry with an empty assumptions list is fine)`, ticket: n });
+  });
+  return { provided: true, ok: errors.length === 0, errors, warnings, assumptions: counts };
+}
+
+// src/plan/draft.ts
+var isObj3 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 var KEY = /^([A-Z][A-Z0-9_]+)-[0-9]+$/;
 var CREATED_KEY_PLACEHOLDER = "<created key>";
 var keyOfTicket = (n) => `<key of ticket ${n}>`;
@@ -17173,8 +17285,8 @@ var isEpicType = (name) => typeof name === "string" && name.toLowerCase() === "e
 function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ */ new Set(), streamOf: /* @__PURE__ */ new Map() }, batch = []) {
   const errors = [], warnings = [];
   const err = (code, message) => errors.push({ code, message });
-  const t = isObj2(raw) ? raw : {};
-  if (!isObj2(raw)) err("bad-ticket", "a ticket must be a JSON object");
+  const t = isObj3(raw) ? raw : {};
+  if (!isObj3(raw)) err("bad-ticket", "a ticket must be a JSON object");
   const str = (k) => typeof t[k] === "string" ? t[k] : void 0;
   const type = info.issueTypes.find((x) => x.name.toLowerCase() === (str("type") ?? "").toLowerCase());
   if (info.issueTypes.length === 0) err("no-issue-types", `project ${info.project} has no issue types in liftoff.yaml: run the Connect skill`);
@@ -17189,7 +17301,7 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
   const priority = t.priority;
   if (priority !== void 0 && (typeof priority !== "string" || !/^[A-Za-z0-9 ._-]{1,30}$/.test(priority))) err("bad-priority", "priority must be a plain name like High");
   const fields = t.fields === void 0 ? {} : t.fields;
-  if (!isObj2(fields) || Object.keys(fields).some((k) => !/^[A-Za-z0-9_]+$/.test(k))) err("bad-fields", "fields must be an object whose keys are Jira field ids");
+  if (!isObj3(fields) || Object.keys(fields).some((k) => !/^[A-Za-z0-9_]+$/.test(k))) err("bad-fields", "fields must be an object whose keys are Jira field ids");
   const modules = t.modules === void 0 ? [] : t.modules;
   if (!Array.isArray(modules) || modules.some((m) => typeof m !== "string")) err("bad-modules", "modules must be a list of module ids");
   else for (const m of modules) {
@@ -17208,7 +17320,7 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
     else if (ref) {
       const n = Number(ref[1]);
       const target = n < index ? batch[n] : void 0;
-      if (!isObj2(target) || !isEpicType(target.type)) err("bad-epic", `'${epic}' must point to an earlier ticket of type Epic in this batch`);
+      if (!isObj3(target) || !isEpicType(target.type)) err("bad-epic", `'${epic}' must point to an earlier ticket of type Epic in this batch`);
       else epicValue = keyOfTicket(n);
     } else if (!m || m[1] !== info.project) err("bad-epic", `epic must be a key of project ${info.project}, or #N for an Epic earlier in this batch`);
     else {
@@ -17217,27 +17329,30 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
     }
     if (!tracker.epicLinkField) err("epic-link-field-missing", "tracker.epicLinkField is not in liftoff.yaml: the lead sets the Epic Link field id (Connect skill)");
   }
-  if (secretGuard({ summary, description, labels, fields }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");
+  const po = checkPo(t.po, type?.name ?? str("type"), description);
+  errors.push(...po.errors);
+  warnings.push(...po.warnings);
+  if (secretGuard({ summary, description, labels, fields, po: po.texts }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");
   if (type && typeof description === "string" && type.template) {
     const have = new Set(headingTitles(description, true));
     for (const h of new Set(headingTitles(type.template))) if (!have.has(h)) warnings.push({ code: "template-section-missing", message: `the type's template has a section '${h}' that the description lacks` });
   }
   const ok = errors.length === 0;
-  const additional = { ...type?.createFields ?? {}, ...isObj2(fields) ? fields : {} };
+  const additional = { ...type?.createFields ?? {}, ...isObj3(fields) ? fields : {} };
   if (isEpic && tracker.epicNameField && additional[tracker.epicNameField] === void 0 && typeof summary === "string") additional[tracker.epicNameField] = summary.trim();
   if (Array.isArray(labels) && labels.length > 0) additional.labels = labels;
   if (typeof priority === "string") additional.priority = { name: priority };
   const call = ok ? { tool: "jira_create_issue", args: { project_key: info.project, issue_type: type.name, summary, description, ...Object.keys(additional).length > 0 && { additional_fields: additional } } } : null;
   const after = ok && epicValue !== void 0 && tracker.epicLinkField ? [{ tool: "jira_update_issue", args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epicValue } } }] : [];
   const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` \xB7 ${priority}` : ""}${Array.isArray(labels) && labels.length ? ` \xB7 ${labels.join(", ")}` : ""}${typeof epic === "string" ? ` \xB7 epic ${epic}` : ""}`, summary ?? ""].join("\n");
-  return { index, ok, errors, warnings, preview, isEpic, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
+  return { index, ok, errors, warnings, preview, isEpic, po: po.status, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
 }
 
 // src/cli/draft-tickets.ts
 var fail4 = (code, message, exitCode = 1) => ({ exitCode, body: { ok: false, errors: [{ code, message }] } });
 var MAX_BYTES = 2e6;
 var MAX_TICKETS = 200;
-var draftTicketsCommand = ({ root, file }) => {
+var draftTicketsCommand = ({ root, file, review }) => {
   if (!file) return fail4("usage", "draft-tickets needs --file <drafts.json>", 2);
   const read2 = readConfigWithPin(root);
   if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
@@ -17262,6 +17377,20 @@ var draftTicketsCommand = ({ root, file }) => {
   for (const p of projectsOf(read2.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
   const mods = { modules: new Set((read2.config.modules?.items ?? []).map((m) => m.id)), streamOf };
   const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods, doc.tickets));
+  let reviewRaw;
+  let reviewProblem;
+  if (review) {
+    try {
+      const rp = resolve4(root, review);
+      if (statSync5(rp).size > MAX_BYTES) reviewProblem = `${review} is larger than ${MAX_BYTES} bytes`;
+      else reviewRaw = JSON.parse(readFileSync14(rp, "utf8"));
+    } catch (e) {
+      reviewProblem = `cannot read ${review} as JSON: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+  const descriptions = doc.tickets.map((t) => typeof t?.description === "string" ? t.description : void 0);
+  const reviewReport = reviewProblem ? { provided: true, ok: false, errors: [{ code: "review-invalid", message: reviewProblem }], warnings: [], assumptions: { total: 0, confirmed: 0, changed: 0, dropped: 0, unanswered: 0 } } : checkReview(reviewRaw, descriptions);
+  const allOk = tickets.every((t) => t.ok);
   return {
     exitCode: 0,
     body: {
@@ -17270,7 +17399,9 @@ var draftTicketsCommand = ({ root, file }) => {
       stream: info.stream ? { id: info.stream.id, mode: info.stream.mode, module: info.stream.module ?? null, epics: info.stream.epics } : null,
       inheritedTypes: info.inherited,
       count: tickets.length,
-      allOk: tickets.every((t) => t.ok),
+      allOk,
+      review: reviewReport,
+      ready: allOk && reviewReport.ok,
       tickets
     }
   };
@@ -17311,6 +17442,11 @@ var parseTicketCommand = ({ root, file }) => {
   if (reading.acceptanceCriteria.source === "none") warnings.push({ code: "no-acceptance-criteria", message: "no acceptance criteria found with the reading map: ask the engineer, do not invent them" });
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
+  const open = openPoints(ticket.description);
+  if (open.length > 0) {
+    const where = [...new Set(open.map((o) => o.section || "(no section)"))].join(", ");
+    warnings.push({ code: "tbd-open-points", message: `the ticket still says _TBD_ in: ${where}. Settle each with the product owner before the outline; do not guess it and do not invent scope` });
+  }
   const tpl = codeHost?.conventions.mrTemplate;
   if (tpl && !existsSync15(resolve5(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
@@ -17333,6 +17469,7 @@ var parseTicketCommand = ({ root, file }) => {
       known: type !== void 0,
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
       reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
+      openPoints: open,
       warnings,
       build: { git: read2.config.build?.git ?? "assisted", ...buildInfo(ticket, tracker, type, codeHost) }
     }
@@ -17579,7 +17716,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--approve] [--write] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -17616,6 +17753,7 @@ function run(argv, cwd, table = handlers) {
           root: { type: "string" },
           overwrite: { type: "string", multiple: true },
           file: { type: "string" },
+          review: { type: "string" },
           key: { type: "string" },
           approve: { type: "boolean" },
           write: { type: "boolean" },
@@ -17636,6 +17774,9 @@ function run(argv, cwd, table = handlers) {
     if (values.overwrite && command !== "render") {
       return usageError(root, "--overwrite is only valid for render");
     }
+    if (values.review && command !== "draft-tickets") {
+      return usageError(root, "--review is only valid for draft-tickets");
+    }
     if (values.write && !WRITE_COMMANDS.has(command)) {
       return usageError(root, "--write is only valid for brain-init, brain-index, brain-source, lesson-add and lesson-promote");
     }
@@ -17645,7 +17786,7 @@ function run(argv, cwd, table = handlers) {
     } catch {
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
-    const outcome = table[command]({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
+    const outcome = table[command]({ root, overwrite: values.overwrite ?? [], file: values.file, review: values.review, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

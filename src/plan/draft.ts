@@ -2,6 +2,7 @@
 // Pure: JSON in, JSON out. The agent makes the calls, after the engineer approved the batch.
 import type { IssueType, ProjectInfo, TrackerConfig } from "../config/index.js";
 import { secretGuard } from "../config/secrets.js";
+import { checkPo, type PoField, type PoStatus } from "./review.js";
 import { headingTitles } from "./ticket.js";
 
 type Json = Record<string, unknown>;
@@ -15,6 +16,7 @@ export interface DraftResult {
   warnings: DraftIssue[];
   preview: string;
   isEpic: boolean;
+  po: Record<PoField, PoStatus>; // what the person answered of the questions only they can answer
   registerInStream: string | null; // an epic created in a stream: the stream whose `epics` list should get its key
   call: { tool: "jira_create_issue"; args: Json } | null;
   after: { tool: "jira_update_issue"; args: Json }[];
@@ -80,7 +82,10 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
     }
     if (!tracker.epicLinkField) err("epic-link-field-missing", "tracker.epicLinkField is not in liftoff.yaml: the lead sets the Epic Link field id (Connect skill)");
   }
-  if (secretGuard({ summary, description, labels, fields }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");
+  const po = checkPo(t.po, type?.name ?? str("type"), description);
+  errors.push(...po.errors);
+  warnings.push(...po.warnings);
+  if (secretGuard({ summary, description, labels, fields, po: po.texts }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");
 
   if (type && typeof description === "string" && type.template) {
     const have = new Set(headingTitles(description, true));
@@ -99,5 +104,5 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
     ? [{ tool: "jira_update_issue" as const, args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epicValue } } }]
     : [];
   const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` · ${priority}` : ""}${Array.isArray(labels) && labels.length ? ` · ${labels.join(", ")}` : ""}${typeof epic === "string" ? ` · epic ${epic}` : ""}`, summary ?? ""].join("\n");
-  return { index, ok, errors, warnings, preview, isEpic, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
+  return { index, ok, errors, warnings, preview, isEpic, po: po.status, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
 }

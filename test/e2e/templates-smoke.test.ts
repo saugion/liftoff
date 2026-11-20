@@ -143,10 +143,12 @@ describe("the engineer: clone, apply, then an Epic with a Story and a Bug under 
     const typesOf = s.project === "PROJ" ? cfg.tracker.issueTypes : cfg.streams.items.find((x: any) => x.project === s.project).issueTypes;
     const about = (t: Type) => `${s.id} ${t.toLowerCase()}`;
     const drafts = TYPES.map((t, i) => ({ type: t, summary: `${t} for ${s.id}`, priority: "Medium", labels: [s.module], modules: [s.module],
-      description: fill(typesOf.find((x: any) => x.name === t).template, about(t)), ...(i > 0 && { epic: "#0" }) }));
+      po: { why: `Why ${about(t)}`, outOfScope: `Not ${about(t)}` },
+      description: `Why ${about(t)}. Not ${about(t)}.\n\n${fill(typesOf.find((x: any) => x.name === t).template, about(t))}`, ...(i > 0 && { epic: "#0" }) }));
     write(root, `.liftoff/tmp/${s.id}.json`, JSON.stringify({ project: s.project, tickets: drafts }));
-    const batch = liftoff(root, ["draft-tickets", "--file", `.liftoff/tmp/${s.id}.json`]).body;
-    expect(batch, JSON.stringify(batch.tickets?.filter((t: any) => !t.ok))).toMatchObject({ ok: true, allOk: true, count: 3 });
+    write(root, `.liftoff/tmp/review-${s.id}.json`, JSON.stringify({ tickets: drafts.map((_d, i) => ({ ref: `#${i}`, assumptions: [] })) }));
+    const batch = liftoff(root, ["draft-tickets", "--file", `.liftoff/tmp/${s.id}.json`, "--review", `.liftoff/tmp/review-${s.id}.json`]).body;
+    expect(batch, JSON.stringify(batch.tickets?.filter((t: any) => !t.ok))).toMatchObject({ ok: true, allOk: true, ready: true, count: 3 });
     expect(batch.tickets.flatMap((t: any) => t.warnings)).toEqual([]);
     expect(batch.tickets[0]).toMatchObject({ isEpic: true });
     const keys: string[] = [];

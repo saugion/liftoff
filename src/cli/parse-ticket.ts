@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { brainPaths } from "../brain/paths.js";
 import { connectors, projectsOf } from "../config/index.js";
 import { KEY_RE, buildInfo } from "../plan/build.js";
-import { readTicket, readWithMap } from "../plan/ticket.js";
+import { openPoints, readTicket, readWithMap } from "../plan/ticket.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
 import type { Handler, Outcome } from "./types.js";
 
@@ -44,6 +44,11 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
   if (reading.acceptanceCriteria.source === "none") warnings.push({ code: "no-acceptance-criteria", message: "no acceptance criteria found with the reading map: ask the engineer, do not invent them" });
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
+  const open = openPoints(ticket.description);
+  if (open.length > 0) {
+    const where = [...new Set(open.map((o) => o.section || "(no section)"))].join(", ");
+    warnings.push({ code: "tbd-open-points", message: `the ticket still says _TBD_ in: ${where}. Settle each with the product owner before the outline; do not guess it and do not invent scope` });
+  }
   const tpl = codeHost?.conventions.mrTemplate;
   if (tpl && !existsSync(resolve(root, tpl))) warnings.push({ code: "mr-template-missing", message: `the configured merge request template ${tpl} does not exist in the repo: write a short summary and tell the engineer` });
   for (const id of reading.missing) warnings.push({ code: "field-missing", message: `field ${id} has no value on this ticket` });
@@ -65,6 +70,7 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
       known: type !== undefined,
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
       reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
+      openPoints: open,
       warnings,
       build: { git: read.config.build?.git ?? "assisted", ...buildInfo(ticket, tracker, type, codeHost) },
     },

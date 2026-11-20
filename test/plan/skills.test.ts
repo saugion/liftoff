@@ -102,6 +102,17 @@ describe("liftoff-ticket", () => {
     for (const k of ["allOk", "tickets", "preview", "call", "call.args", "after", "warnings", "errors", "inheritedTypes"].filter((x) => !x.includes("."))) expect(out[k] ?? out.tickets[0][k], k).not.toBeUndefined();
     for (const k of ["allOk", "preview", "call.args", "after", "warnings", "errors", "template-section-missing", "tracker-read-only", "streams", "issueTypes", "template", "epics", "module"]) expect(b(), k).toContain(k);
   });
+  it("the PO decides: the questions, the review file and the ready gate are in the skill and exist in the CLI", () => {
+    for (const x of ["why", "out of scope", "_TBD_", "never write it for them", "assumption", "review-<n>.json", "--review", "ready", "po-decision-missing", "po-text-not-in-description", "assumption-still-in-description", "is never a yes", "only when `ready` is true", "word for word"]) expect(flat(), x).toContain(x);
+    const dir = repo(CONFIG.replace('version: "0.2"', 'version: "0.3"'), { "d.json": JSON.stringify({ tickets: [{ type: "Story", summary: "S", description: "d", po: { why: "w" } }] }) });
+    const out = cli(["draft-tickets", "--root", dir, "--file", "d.json"]).body;
+    for (const k of ["ready", "review", "po"]) expect(out[k] ?? out.tickets[0][k], k).not.toBeUndefined();
+    expect(out.tickets[0].warnings.map((w: any) => w.code)).toEqual(expect.arrayContaining(["po-decision-missing", "po-text-not-in-description"]));
+  });
+  it("Plan stops on an open _TBD_", () => {
+    const plan = load("liftoff-plan").body.replace(/\s+/g, " ");
+    for (const x of ["tbd-open-points", "openPoints", "settle each one with the PO", "never fill it in"]) expect(plan, x).toContain(x);
+  });
   it("the creation tools it names are in the server's allowlist, and no sprint or link tool", () => {
     for (const t of ["jira_create_issue", "jira_update_issue", "jira_get_issue", "jira_search"]) expect(b()).toContain(t);
     expect(b()).not.toMatch(/jira_link_to_epic|jira_add_issues_to_sprint|jira_get_sprints/);

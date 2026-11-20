@@ -75,6 +75,10 @@ run the Connect skill and, in Claude Code, to restart the session afterwards; st
 4. Show the engineer what the team's reading map found: `ticket.summary`, `reading.acceptanceCriteria` (and its
    `source`), `reading.fields`, and every entry of `warnings`. A `field-missing` warning is a field the lead listed that this ticket does not fill: mention it, and ask about it only if the work needs it. For a bug, the template's other sections (repro recipe, impact, postmortem) are context for the plan, not work items. A `no-acceptance-criteria` warning means **ask the
    engineer for them**; an `unknown-issue-type` warning means the lead can teach the Connect skill that type.
+   A `tbd-open-points` warning (and `openPoints`, each with its section) means the ticket still says `_TBD_` where the
+   product owner never answered, usually the why or the out of scope. **Ask the engineer to settle each one with the PO
+   before you write the outline** (or to answer it themselves, if they own it); never fill it in, and never plan work
+   that depends on a scope nobody decided. Name the open points at the top of the plan until they are settled.
 
 ## 3b. Work streams
 

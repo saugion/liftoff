@@ -202,12 +202,14 @@ describe("ACT TWO (engineer) 5. create the batch: draft-tickets checks it, MCP c
     const mine = EXPECTED.filter((e) => e.project === project);
     const tickets = mine.map((e) => ({
       type: e.type, summary: e.summary, priority: "Medium", labels: e.modules.map((m) => NAME[m]), modules: e.modules,
-      description: fillTemplate(typesOf.find((t: any) => t.name === e.type).template, e.summary),
+      po: { why: `Why we do ${e.summary}`, outOfScope: `What we leave out of ${e.summary}` },
+      description: `Why we do ${e.summary}. What we leave out of ${e.summary}.\n\n${fillTemplate(typesOf.find((t: any) => t.name === e.type).template, e.summary)}`,
       ...(project === STREAM_PROJECT && { epic: STREAM_EPIC }),
     }));
     write(root, `.liftoff/tmp/batch-${project}.json`, JSON.stringify({ project, tickets }));
-    const batch = liftoff(root, ["draft-tickets", "--file", `.liftoff/tmp/batch-${project}.json`]).body;
-    expect(batch, JSON.stringify(batch.tickets?.filter((t: any) => !t.ok))).toMatchObject({ ok: true, allOk: true, count: mine.length });
+    write(root, `.liftoff/tmp/review-${project}.json`, JSON.stringify({ tickets: tickets.map((_t, i) => ({ ref: `#${i}`, assumptions: [] })) }));
+    const batch = liftoff(root, ["draft-tickets", "--file", `.liftoff/tmp/batch-${project}.json`, "--review", `.liftoff/tmp/review-${project}.json`]).body;
+    expect(batch, JSON.stringify(batch.tickets?.filter((t: any) => !t.ok))).toMatchObject({ ok: true, allOk: true, ready: true, count: mine.length });
     expect(batch.tickets.flatMap((t: any) => t.warnings)).toEqual([]);
     expect(batch.stream?.id ?? null).toBe(project === STREAM_PROJECT ? "stream-be" : null);
 
