@@ -140,7 +140,7 @@ export function readWithMap(t: Ticket, type: IssueType | undefined): Reading {
   return { acceptanceCriteria, fields: fields.filter((f) => f.value), missing: fields.filter((f) => !f.value).map((f) => f.id) };
 }
 
-// Places where the ticket still says `_TBD_`: the section it sits in (nearest heading above, or "" before any) and the
+// Places where the ticket still says TBD (we write `_TBD_`; Jira may hand it back as italic or bold, or rendered): the section it sits in (nearest heading above, or "" before any) and the
 // line. An answer nobody gave: Plan settles it with the person, never with a guess.
 export function openPoints(text: string): { section: string; line: string }[] {
   const out: { section: string; line: string }[] = [];
@@ -148,7 +148,7 @@ export function openPoints(text: string): { section: string; line: string }[] {
   for (const l of (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/)) {
     const h = headingOf(l);
     if (h) section = h.title.replace(/<[^>]+>/g, "").replace(/[*#]/g, "").trim();
-    if (l.includes("_TBD_")) out.push({ section, line: l.trim() });
+    if (/(^|[^A-Za-z0-9])TBD($|[^A-Za-z0-9])/.test(l)) out.push({ section, line: l.trim() }); // `_TBD_`, `*TBD*` or a bare TBD: Jira's markup may not give back what we wrote
   }
   return out;
 }
