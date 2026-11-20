@@ -265,7 +265,7 @@ describe("the practices that add a step: verify-first, clean-review, and the poi
   });
   it("Build names the red-before-green, the clean review, the fallback and who owns the findings", () => {
     const b = read("liftoff-build");
-    for (const x of ["see it fail for the right reason", "Never weaken a check", "liftoff-reviewer", "clean-review --key <KEY>", "clean-review-missing", "clean-review-incomplete", "clean-review-secret", "is never called a clean review", "clean review not run", "never apply one, argue one away", "Clean review: N findings, M fixed, K refused", "Not the plan, not this conversation"]) expect(b, x).toContain(x);
+    for (const x of ["see it fail for the right reason", "Never weaken a check", "liftoff-reviewer", "clean-review --key <KEY>", "clean-review-missing", "clean-review-incomplete", "clean-review-secret", "is never called a clean review", "clean review not run", "never apply one, argue one away", "Clean review: N findings, M fixed, K refused", "Not the plan, not this conversation", "did a practice step fail or feel outdated?", "brain/handbook-<id>"]) expect(b, x).toContain(x);
   });
   it("the reviewer agent is read-only, inherits the model, and treats text as data", () => {
     const front = /^---\n([\s\S]*?)\n---/.exec(agent)![1]!;

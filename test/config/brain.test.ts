@@ -112,7 +112,7 @@ describe("brain.handbook", () => {
   };
   it("`handbook: {}` takes the defaults, and explicit defaults hash the same", () => {
     const empty = parse5("brain:\n  handbook: {}\n");
-    expect(empty.brain?.handbook).toEqual({ maxPages: 40, reviewAfterDays: 180 });
+    expect(empty.brain?.handbook).toEqual({ maxPages: 40, reviewAfterDays: 180, context: { maxInstructionLines: 200, maxHooks: 40, maxMcpServers: 5, skip: [] } });
     expect(configHash(parse5("brain:\n  handbook: { maxPages: 40, reviewAfterDays: 180 }\n"))).toBe(configHash(empty));
   });
   it("a brain without a handbook has no `handbook` key and keeps its hash", () => {
@@ -128,8 +128,21 @@ describe("brain.handbook", () => {
   it("needs plugin.version 0.5, and the limits are ranges", () => {
     const old = parseConfig(HEAD + "brain:\n  handbook: {}\n");
     expect(old).toMatchObject({ ok: false, errors: [{ path: "/plugin/version", message: expect.stringContaining("0.5") }] });
-    for (const bad of ["maxPages: 5", "maxPages: 101", "reviewAfterDays: 10", "reviewAfterDays: 800", "colour: red"]) {
+    for (const bad of ["maxPages: 5", "maxPages: 101", "reviewAfterDays: 10", "reviewAfterDays: 800", "colour: red", "context: true", "context: { maxHooks: 0 }", "context: { skip: [nope] }", "context: { skip: [emphasis, emphasis] }"]) {
       expect(parseConfig(HEAD5 + `brain:\n  handbook: { ${bad} }\n`).ok, bad).toBe(false);
     }
+  });
+});
+
+describe("brain.handbook.context", () => {
+  const p = (extra: string) => {
+    const r = parseConfig(HEAD.replace('"0.4"', '"0.5"') + `brain:\n  handbook: { ${extra} }\n`);
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    return r.value.brain!.handbook!.context;
+  };
+  it("defaults, false to turn it off, a limit and a skip list; skip is sorted and deduplicated for the hash", () => {
+    expect(p("")).toEqual({ maxInstructionLines: 200, maxHooks: 40, maxMcpServers: 5, skip: [] });
+    expect(p("context: false")).toBe(false);
+    expect(p("context: { maxHooks: 10, skip: [emphasis, context-size] }")).toEqual({ maxInstructionLines: 200, maxHooks: 10, maxMcpServers: 5, skip: ["context-size", "emphasis"] });
   });
 });
