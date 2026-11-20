@@ -1,4 +1,4 @@
-import { type Agent, type Config, type StreamsConfig, connectors } from "../config/index.js";
+import { type Agent, type Config, type StreamsConfig, connectors, resolvedPractices } from "../config/index.js";
 import { keychainCommands, launcher, preflight, TOKEN_ENV } from "./launcher.js";
 import { shQuote } from "./shell.js";
 import { JIRA_TOOLS, TOOLSETS } from "./tools.js";
@@ -60,6 +60,7 @@ export function buildInfo(config: Config, installedVersion: string) {
     tracker: tracker ?? null,
     codeHost: codeHost ?? null,
     modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path })),
+    practices: resolvedPractices(config),
     streams: tracker && config.streams && "items" in config.streams ? (config.streams as StreamsConfig).items : [],
     mcp,
     credential: credential ?? null,

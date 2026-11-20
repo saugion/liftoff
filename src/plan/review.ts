@@ -34,9 +34,10 @@ export interface PoCheck {
   texts: string[]; // the person's answers, for the credential check
 }
 
+// `mode` is the lead's `practices.ticket-po-review`: off asks and judges nothing (the shape and the credential check stay).
 // `po` is what the person said, copied as given: { why, outOfScope }. A question the type asks and the person did not
 // answer (absent, blank or `_TBD_`) is a warning, never a guess: the ticket can still be created and Plan stops on it.
-export function checkPo(po: unknown, typeName: string | undefined, description: string | undefined): PoCheck {
+export function checkPo(po: unknown, typeName: string | undefined, description: string | undefined, mode: "on" | "nudge" | "off" = "on"): PoCheck {
   const errors: Issue[] = [], warnings: Issue[] = [];
   const status: Record<PoField, PoStatus> = { why: "not-asked", outOfScope: "not-asked" };
   const texts: string[] = [];
@@ -49,6 +50,10 @@ export function checkPo(po: unknown, typeName: string | undefined, description: 
   }
   for (const f of PO_FIELDS) {
     const text = typeof given[f] === "string" ? (given[f] as string).trim() : "";
+    if (mode === "off") {
+      if (text !== "") texts.push(text); // the practice is off: nothing is asked or judged, but a credential is still a credential
+      continue;
+    }
     const answered = text !== "" && text.replace(/^[_*\s]+|[_*\s]+$/g, "").toUpperCase() !== "TBD";
     if (answered) {
       status[f] = "answered";

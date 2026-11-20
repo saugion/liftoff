@@ -17,6 +17,17 @@ export interface LessonsConfig { capture: "notify" | "ask" | "off"; promoteAfter
 export interface RawHandbook { maxPages?: number; reviewAfterDays?: number }
 export interface HandbookConfig { maxPages: number; reviewAfterDays: number }
 
+// Practices with a step of their own in a skill, each on | nudge | off (see docs/decisions/handbook.md, rule 20). Only the
+// keys the lead wrote are kept: a default added later never changes the hash of a config already written.
+export const PRACTICE_IDS = ["ticket-po-review", "verify-first", "clean-review"] as const;
+export type PracticeId = (typeof PRACTICE_IDS)[number];
+export type PracticeMode = "on" | "nudge" | "off";
+export const PRACTICE_DEFAULTS: Record<PracticeId, PracticeMode> = { "ticket-po-review": "on", "verify-first": "off", "clean-review": "off" };
+export type RawPractices = { [K in PracticeId]?: PracticeMode } & { required?: boolean };
+export type PracticesConfig = { [K in PracticeId]?: PracticeMode } & { required: boolean };
+export interface RawPilot { metrics?: boolean; required?: boolean }
+export interface PilotConfig { metrics: boolean; required: boolean }
+
 // What the schema accepts: optional sections and optional fields inside them.
 export interface RawConfig {
   liftoff: 1;
@@ -30,6 +41,8 @@ export interface RawConfig {
   codeHost?: Record<string, never> | RawCodeHost;
   streams?: Record<string, never> | RawStreams;
   build?: { git?: "assisted" | "manual"; required?: boolean };
+  practices?: RawPractices;
+  pilot?: RawPilot;
   brain?: { dir?: string; hotMaxLines?: number; afterBuild?: "propose" | "off"; required?: boolean; lessons?: RawLessons; handbook?: RawHandbook };
 }
 
@@ -46,6 +59,8 @@ export interface Config {
   codeHost?: Record<string, never> | CodeHostConfig;
   streams?: Record<string, never> | StreamsConfig;
   build?: { git: "assisted" | "manual"; required: boolean }; // assisted: the agent runs git after an approved dry-run; manual: the engineer runs every git write
+  practices?: PracticesConfig;
+  pilot?: PilotConfig;
   brain?: { dir: string; hotMaxLines: number; afterBuild: "propose" | "off"; required: boolean; lessons?: LessonsConfig; handbook?: HandbookConfig }; // presence of the section is the opt-in
 }
 

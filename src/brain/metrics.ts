@@ -8,7 +8,7 @@ import { parseBlock } from "./lessons-block.js";
 // under the self-ignored .liftoff/, and the summary carries no ticket key, rule, path or name.
 
 export const METRICS_DIR = ".liftoff/metrics";
-export const metricsOn = (config: Config): boolean => config.brain?.lessons?.metrics === true;
+export { metricsOn } from "../config/practices.js";
 
 const h8 = (s: string): string => createHash("sha256").update(s).digest("hex").slice(0, 8);
 
@@ -37,7 +37,9 @@ const eventFile = (date: string): string => `${METRICS_DIR}/${date.slice(0, 7)}.
 
 export type MetricEvent =
   | { e: "plan-approved"; t: string; key: string; sections: number; changed: number; added: number; removed: number; approval: number; afterBuildStart: boolean; brainPages: number; lessonRules: number }
-  | { e: "correction"; t: string; key: string; skill: string; kind: string; brainPages: number; lessonRules: number };
+  | { e: "correction"; t: string; key: string; skill: string; kind: string; brainPages: number; lessonRules: number }
+  // The PO's review of a ticket batch (Ticket skill). No key, no text: counts only. `h` makes it once per batch.
+  | { e: "ticket-reviewed"; t: string; h: string; mode: "on" | "nudge"; tickets: number; questionsAsked: number; questionsAnswered: number; assumptions: number; confirmed: number; changed: number; dropped: number; noEditApproval: boolean };
 
 export function appendEvent(realRoot: string, event: MetricEvent): void {
   const file = join(realRoot, eventFile(event.t));
@@ -54,7 +56,7 @@ export function readEvents(realRoot: string): MetricEvent[] {
       if (line.trim() === "") continue;
       try {
         const e = JSON.parse(line) as MetricEvent;
-        if (e && (e.e === "plan-approved" || e.e === "correction") && typeof e.t === "string") events.push(e);
+        if (e && (e.e === "plan-approved" || e.e === "correction" || e.e === "ticket-reviewed") && typeof e.t === "string") events.push(e);
       } catch {
         // a damaged line is skipped: metrics never break anything
       }
@@ -91,7 +93,8 @@ export interface MonthSummary { month: string; empty: BucketSummary | null; brai
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 // Aggregate by month and bucket. `notesOf(key)` is the number of Note: deviation lines in that ticket's plan today.
-export function summarize(events: MetricEvent[], notesOf: (ticketKey: string) => number): MonthSummary[] {
+export function summarize(all: MetricEvent[], notesOf: (ticketKey: string) => number): MonthSummary[] {
+  const events = all.filter((e): e is Exclude<MetricEvent, { e: "ticket-reviewed" }> => e.e !== "ticket-reviewed");
   const months = [...new Set(events.map((e) => e.t.slice(0, 7)))].sort();
   return months.map((month) => {
     const summaryOf = (bucket: "empty" | "brain"): BucketSummary | null => {
@@ -115,5 +118,34 @@ export function summarize(events: MetricEvent[], notesOf: (ticketKey: string) =>
       };
     };
     return { month, empty: summaryOf("empty"), brain: summaryOf("brain") };
+  });
+}
+
+export interface TicketReviewSummary {
+  month: string;
+  batches: number;
+  tickets: number;
+  questionsAsked: number;
+  questionsAnswered: number;
+  assumptions: number;
+  confirmed: number;
+  changed: number;
+  dropped: number;
+  noEditApprovals: number;
+  noEditShare: number; // noEditApprovals / batches: the alarm for a PO who delegates everything
+}
+
+// By month. `noEditApproval` is an approximation: it does not see edits made to the drafts after the review.
+export function summarizeTicketReviews(events: MetricEvent[]): TicketReviewSummary[] {
+  const mine = events.filter((e): e is Extract<MetricEvent, { e: "ticket-reviewed" }> => e.e === "ticket-reviewed");
+  return [...new Set(mine.map((e) => e.t.slice(0, 7)))].sort().map((month) => {
+    const m = mine.filter((e) => e.t.startsWith(month));
+    const sum = (f: (e: (typeof m)[number]) => number) => m.reduce((n, e) => n + f(e), 0);
+    const noEdit = m.filter((e) => e.noEditApproval).length;
+    return {
+      month, batches: m.length, tickets: sum((e) => e.tickets), questionsAsked: sum((e) => e.questionsAsked), questionsAnswered: sum((e) => e.questionsAnswered),
+      assumptions: sum((e) => e.assumptions), confirmed: sum((e) => e.confirmed), changed: sum((e) => e.changed), dropped: sum((e) => e.dropped),
+      noEditApprovals: noEdit, noEditShare: m.length === 0 ? 0 : round2(noEdit / m.length),
+    };
   });
 }

@@ -570,6 +570,48 @@
           }
         }
       }
+    },
+    "practices": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ticket-po-review": {
+          "enum": [
+            "on",
+            "nudge",
+            "off"
+          ]
+        },
+        "verify-first": {
+          "enum": [
+            "on",
+            "nudge",
+            "off"
+          ]
+        },
+        "clean-review": {
+          "enum": [
+            "on",
+            "nudge",
+            "off"
+          ]
+        },
+        "required": {
+          "$ref": "#/definitions/requiredFlag"
+        }
+      }
+    },
+    "pilot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metrics": {
+          "type": "boolean"
+        },
+        "required": {
+          "$ref": "#/definitions/requiredFlag"
+        }
+      }
     }
   }
 }
