@@ -1,11 +1,11 @@
 # Ticket flow: the PO decides, the agent writes
 
-Status: **CLI checks and skill text built (2026-11-20); not run against a real agent; the metric is not built.** Decided with
+Status: **built (2026-11-20), including the `practices` switch and the metric; exercised by smoke runs with agents, not yet piloted.** Decided with
 the product owner; the numbered rules below are the decisions, the rest is the design that follows from them.
 
-What exists: `draft-tickets` takes a `po` field per ticket and a `--review` file and answers `ready`; `parse-ticket` reports
-`openPoints`; the Ticket and Plan skills say what to do with them; unit and end-to-end tests cover it. What does not: the
-`ticket-reviewed` metric (see "The signal"), and any run with a real agent.
+What exists: `draft-tickets` takes a `po` field per ticket and a `--review` file, answers `practice` and `ready`, and with `--approve`
+records the metric; `parse-ticket` reports `openPoints`; `pilot-metrics` prints the counters; the Ticket and Plan skills say what to do
+with them; unit and end-to-end tests cover it.
 
 ## Why
 
@@ -114,9 +114,10 @@ settles each one with the engineer and the PO before the outline and does not in
 and the out-of-scope, because the CLI cannot know which heading is which in a team's template; any `_TBD_` is a decision
 nobody took. This is what gives the PO's answers weight downstream.
 
-## The signal (not built)
+## The signal
 
-One local event, written only when pilot metrics are on, with no key, text or name:
+One local event, written by `draft-tickets --approve` (once per batch, only when the batch is `ready`, the mode is not `off` and pilot
+metrics are on), with no key, text or name:
 
 ```json
 { "e": "ticket-reviewed", "t": "2026-11-21T09:00:00Z", "tickets": 3, "questionsAsked": 4, "questionsAnswered": 4,
@@ -139,14 +140,20 @@ for delegation. "Show my pilot metrics" gains one row. Nothing is sent anywhere.
 
 ## Open questions
 
-1. ~~Who counts as "the person"?~~ Decided: engineers get the same flow with the lighter table above.
-2. ~~Configurable per team?~~ Decided 2026-11-20: one switch, `practices.ticket-po-review: on | nudge | off` in `liftoff.yaml`
-   (see `handbook.md`, rule 20). Which types ask what stays fixed in the skill and the CLI. Not built yet: today the flow is
-   always on.
-3. **A visible trace in Jira?** The footer line makes the review auditable and costs one line of noise per ticket.
-4. **Metrics without the brain.** Pilot metrics are switched on under `brain.lessons.metrics`, but Ticket works without a
-   brain. Move the switch to a top-level key, or keep this signal tied to the brain?
-5. **Language.** The questions follow the team's ticket language, as the skill already does for the text.
+All decided on 2026-11-20 (the last four by a design review recorded in `DECISIONS.md`).
+
+1. **Who counts as "the person"?** Engineers get the same flow with the lighter table above.
+2. **Configurable per team?** One switch, `practices.ticket-po-review: on | nudge | off` in `liftoff.yaml` (see `handbook.md`, rule 20).
+   `on` is the default and is what this document describes; `nudge` asks the same questions but writes the assumptions in the preview
+   and takes one yes, with the review file optional; `off` goes back to one approval and no questions (the CLI still checks the shape and
+   the credentials of `po`). Which types ask what stays fixed in the skill and the CLI.
+3. **A visible trace in Jira?** No. The footer would claim "written by the PO" without the CLI being able to prove it (the agent fills `po`)
+   and it adds noise to the template. The trace is local, in the metric.
+4. **Metrics without the brain.** A new top-level section `pilot: { metrics }` (needs plugin 0.5). The switch is
+   `pilot.metrics`, else the older `brain.lessons.metrics`, else off; it covers every pilot event.
+5. **Language.** The questions are asked in the language the person writes in. The ticket text and the assumptions follow the language of the
+   team's tickets. The why and the out-of-scope stay in the words and the language they were said in: the agent never translates them and,
+   if that language is not the team's, asks once whether the person wants to reword them.
 
 ## Test plan
 

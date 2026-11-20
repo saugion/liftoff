@@ -93,7 +93,7 @@ whether they want to reword them themselves. The type decides what you ask:
 Epic and Story ask **why** (who is it for, what changes for them) and **out of scope** (what we are not doing); a
 Task asks the why and takes an out-of-scope if the person has one; a Bug asks neither (its steps, expected and actual
 behaviour are the facts below). If the person's first message already answers one, quote it back to them and do not
-ask again. If they do not answer, or say they do not know, that answer is `_TBD_`: **never write it for them**. Say
+ask again. If they do not answer, or say they do not know, that answer is `_TBD_`: **never write it for them**. If they hand it back ("you decide", "put whatever makes sense"), say once that this one is theirs to decide and ask again; a second hand-back is `_TBD_` too. Say
 that the ticket will carry a visible `_TBD_` and that the engineer will be asked to settle it before planning.
 
 - **Epic:** the purpose, who it is for, the journey, how success is measured, in the person's words. Ask for what is
@@ -108,14 +108,18 @@ that the ticket will carry a visible `_TBD_` and that the engineer will be asked
 
 ## 4. Draft
 
+If the type has no `template` in the config, say the lead can teach it with the Connect skill and write plain `h2. Context` and `h2. Acceptance criteria`
+sections, telling the person so. Acceptance criteria are plain bullets or the template's own convention: never tick or cross them
+(`(/)` and `(x)` are check and cross icons in Jira).
+
 For each ticket write the full description from the type's `template` (`tracker.issueTypes[].template` or
 `streams[].issueTypes[].template`): keep its sections, in its order, with the team's checklist and scenario
 conventions. Add `priority`, `labels` and `epic` only when the person gave them (an epic never has an `epic` link); to put
 stories under an epic created **in the same batch**, put the epic first and give the stories `"epic": "#0"` (the index
 of the epic in `tickets`); `fields` carries any picker value
-the team needs beyond the type's `createFields` (those are added for you). Put the person's why and out-of-scope in the description, in the section of the template that fits best (see
-below if it has none), **as they said them**: only the format may change, never the words. Save the batch to
-`.liftoff/tmp/drafts-<n>.json` with your file tools (add `modules`, the ids from `connect-info`'s `modules` the ticket is about, whenever it concerns code; they only route the
+the team needs beyond the type's `createFields` (those are added for you). Put the person's why and out-of-scope in the description, in the section of the template that fits best (if there is none, as
+`Why:` and `Out of scope:` lines at the top of the first section, and say so **before** you draft), **as they said them**: only the format may change, never the words. Save the batch to
+`.liftoff/tmp/drafts-<n>.json` (the next free number: look at what is already there) with your file tools (add `modules`, the ids from `connect-info`'s `modules` the ticket is about, whenever it concerns code; they only route the
 ticket to the right project and are not sent to Jira: put the module names in `labels` if the team labels by module), as
 
 ```json
@@ -141,7 +145,7 @@ promise a section the template does not have.
 
 **First, the assumptions.** Every sentence you added that the person did not say (acceptance criteria you proposed, edge
 cases, defaults, technical constraints you took from `AGENTS.md`) is an assumption. Number them, per ticket, and write
-them to `.liftoff/tmp/review-<n>.json` with your file tools (make sure `.liftoff/.gitignore` holds `*`), one entry per
+them to `.liftoff/tmp/review-<n>.json` (the same number as the drafts) with your file tools (make sure `.liftoff/.gitignore` holds `*`), one entry per
 ticket in the batch, in the order of the drafts, an empty `assumptions` list when you added nothing:
 
 ```json
@@ -163,7 +167,7 @@ Then show the whole batch together: for each ticket its `preview` and its descri
 its name. Say which why or out-of-scope are `_TBD_` (`po` is `missing`), and that the engineer will settle them before
 planning. The person edits any ticket one by one (change the drafts file, run `draft-tickets` again). Say exactly
 what will happen: one `jira_create_issue` per ticket, in order, and where the ticket has an `after` step, one
-`jira_update_issue` to link the epic. **Apply only on the person's explicit yes to the batch, and only when `ready` is true.** If the person changes anything after saying yes (a field like
+`jira_update_issue` to link the epic. **A yes that arrives in the same message as answers or changes to the assumptions is not yet the yes:** apply the answers, run `draft-tickets` again, show the batch as it now is and ask once more. **Apply only on the person's explicit yes to the batch, and only when `ready` is true.** `ready` true can still carry a `_TBD_` by design (the person left the why or the out-of-scope open): say so plainly in what you show, and that the engineer cannot plan that part until someone decides it. If the person changes anything after saying yes (a field like
 priority, a title, a ticket added or dropped, an answer), run `draft-tickets` again and ask for a **fresh yes** to the changed batch.
 If they ask for something this flow never does (move or comment on a ticket it did not create), decline in one line and
 say they do it in the tracker.
@@ -176,7 +180,7 @@ records one local counter per batch (counts only, no ticket key, no text). Do no
 without a fresh yes. If the person asks for their pilot metrics ("show my pilot metrics"), run `pilot-metrics` and show the months
 as they are; it holds no key, text or name and is for them to paste by hand into the pilot results.
 
-For each ticket in order, call `jira_create_issue` with `call.args` exactly as returned. For each `after` entry call
+For each ticket in order, call `jira_create_issue` with `call.args` exactly as returned. Take `call.args` out of the CLI's JSON with your file tools (or a one-line `node -e`), never by retyping it. To read a ticket back, `jira_get_issue` takes `issue_key`. For each `after` entry call
 `jira_update_issue` with `args`, the real key in place of `<created key>` and, where the link is
 `<key of ticket N>`, the key that ticket N got, then verify the link with `jira_get_issue`. If a call fails, stop: list what was created and what was not, show the error, and ask. Before any
 retry of a creation, check that the ticket does not exist yet (`jira_search` in that project; if the search does not honour the

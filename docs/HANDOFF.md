@@ -1,6 +1,6 @@
 # LiftOff: handoff
 
-Repo: https://github.com/saugion/liftoff · Last update: 2026-11-19 · Released: **`v0.4.0`** (the project brain and the lessons loop; tag pushed with `main`). The pilot stays pinned to `#v0.3.0` until the group chooses to move; the brain and lessons are opt-in and have not been piloted.
+Repo: https://github.com/saugion/liftoff · Last update: 2026-11-20 · Released: **`v0.4.0`** (and `0.5.0` is on `main`, untagged: see below) (the project brain and the lessons loop; tag pushed with `main`). The pilot stays pinned to `#v0.3.0` until the group chooses to move; the brain and lessons are opt-in and have not been piloted.
 
 ## Where we are
 
@@ -16,6 +16,16 @@ git remote. **Nothing has run against a real Jira Data Center, a real GitLab or 
 | Shipped CLI bundle (committed, must equal a fresh build) | `plugin/bin/liftoff.mjs` |
 | Reasoning behind the design | `docs/design-notes.md` (the per-module specs were removed; they are in git history up to commit 79ab5e3) |
 | Decisions the agent took alone, to review | `docs/decisions/DECISIONS.md` |
+
+## v0.5 (on `main`, untagged, unpiloted)
+
+The PO's review of tickets, the `practices` and `pilot` sections, the living handbook (opt-in `brain.handbook`), `verify-first`, `clean-review`
+(a read-only subagent) and the context-hygiene warnings. Designs and decisions: `docs/decisions/ticket-po-review.md`, `handbook.md`,
+`handbook-practice-context-hygiene.md`, and `DECISIONS.md` 44-57. Everything that adds a step to Plan or Build is off by default (the pilot rule).
+New CLI commands: `handbook-init|status|update|retire|seen`, `clean-review`, `pilot-metrics`; `draft-tickets` takes `--review` and `--approve`.
+Smoke runs with agents covered the Ticket flow (a PO who answers and one who delegates) and Plan and Build with `verify-first` and
+`clean-review` (see `DECISIONS.md`). **Not checked:** a real Jira (does `_TBD_` survive its markup?), VS Code Copilot (the reviewer fallback, the
+hooks, the commands the pages mention), a real GitLab. Release: `npm run release 0.5.0` when the owner decides; nothing is tagged.
 
 ## v0.4 project brain (released as v0.4.0)
 
