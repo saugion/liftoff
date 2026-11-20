@@ -2,7 +2,7 @@
 
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 
-## 0.5.0 (unreleased, on `main`)
+## 0.5.0 (2026-11-20)
 
 ### The PO decides, the agent writes (Ticket)
 
