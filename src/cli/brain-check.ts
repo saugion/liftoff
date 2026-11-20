@@ -39,6 +39,8 @@ export const brainCheck: Handler = ({ root }) => {
         installedVersion: INSTALLED_VERSION,
         moduleIds: (modules?.items ?? []).map((m) => m.id),
         today: today(),
+        context: brain.handbook.context,
+        instructionFiles: ["CLAUDE.md", "AGENTS.md", ...(modules?.items ?? []).map((m) => `${m.path.replace(/\/+$/, "")}/AGENTS.md`), read.config.constraints?.file ?? "CONSTRAINTS.md"],
       },
     }),
   });

@@ -14,8 +14,11 @@ export interface RawLessons { capture?: "notify" | "ask" | "off"; promoteAfter?:
 export interface LessonsConfig { capture: "notify" | "ask" | "off"; promoteAfter: number; maxRules: number; reviewAfterDays: number; metrics: boolean }
 
 // The living handbook (opt-in inside `brain`): presence of `handbook` turns it on.
-export interface RawHandbook { maxPages?: number; reviewAfterDays?: number }
-export interface HandbookConfig { maxPages: number; reviewAfterDays: number }
+// `context` (the context-hygiene warnings of brain-check): false turns them off, an object changes a limit or skips a code.
+export interface RawContext { maxInstructionLines?: number; maxHooks?: number; maxMcpServers?: number; skip?: string[] }
+export interface RawHandbook { maxPages?: number; reviewAfterDays?: number; context?: false | RawContext }
+export interface ContextConfig { maxInstructionLines: number; maxHooks: number; maxMcpServers: number; skip: string[] }
+export interface HandbookConfig { maxPages: number; reviewAfterDays: number; context: false | ContextConfig }
 
 // Practices with a step of their own in a skill, each on | nudge | off (see docs/decisions/handbook.md, rule 20). Only the
 // keys the lead wrote are kept: a default added later never changes the hash of a config already written.

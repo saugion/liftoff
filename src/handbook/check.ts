@@ -14,6 +14,7 @@ import { PAGE_ID, type HandbookPaths } from "./paths.js";
 import { parseRetired } from "./retired.js";
 import { drift, statusOf, type StatusRow } from "./status.js";
 import { CATALOG } from "./catalog.js";
+import { type ContextSettings, checkContext } from "./context.js";
 
 export interface HandbookCheckInput {
   realRoot: string;
@@ -24,6 +25,8 @@ export interface HandbookCheckInput {
   installedVersion: string;
   moduleIds: string[];
   today: string; // YYYY-MM-DD
+  context: false | ContextSettings; // the context-hygiene warnings, or false for none
+  instructionFiles: string[]; // CLAUDE.md, AGENTS.md, module AGENTS.md, CONSTRAINTS.md (relative to the root)
 }
 
 const MIN_QUOTE = 12;
@@ -37,6 +40,7 @@ export function checkHandbook(i: HandbookCheckInput): { findings: Finding[]; pag
   const rel = (n: string) => `${i.paths.dir}/${n}`;
   if (!existsSync(dirAbs)) {
     add("warning", "handbook-missing", i.paths.dir, `${i.paths.dir} not found: run handbook-init`);
+    if (i.context) findings.push(...checkContext({ realRoot: i.realRoot, settings: i.context, instructionFiles: i.instructionFiles }));
     return { findings, pages: 0, rows: [] };
   }
 
@@ -127,6 +131,7 @@ export function checkHandbook(i: HandbookCheckInput): { findings: Finding[]; pag
     const parts = [d.newPractices.length ? `${d.newPractices.length} new (${d.newPractices.join(", ")})` : "", d.updates.length ? `${d.updates.length} with an update (${d.updates.join(", ")})` : "", d.conflicts.length ? `${d.conflicts.length} changed by both (${d.conflicts.join(", ")})` : ""].filter(Boolean);
     add("warning", "handbook-drift", i.paths.dir, `${behind} shipped pages differ from yours: ${parts.join("; ")}. Run handbook-status; take what the team wants, one page at a time`);
   }
+  if (i.context) findings.push(...checkContext({ realRoot: i.realRoot, settings: i.context, instructionFiles: i.instructionFiles }));
   return { findings, pages: texts.size, rows };
 }
 

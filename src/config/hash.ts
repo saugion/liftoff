@@ -48,7 +48,16 @@ export function normalize(raw: RawConfig): Config {
         }),
         // Same for the handbook: a brain without one keeps the hash it had before the handbook existed.
         ...(raw.brain.handbook && {
-          handbook: { maxPages: raw.brain.handbook.maxPages ?? 40, reviewAfterDays: raw.brain.handbook.reviewAfterDays ?? 180 },
+          handbook: {
+            maxPages: raw.brain.handbook.maxPages ?? 40,
+            reviewAfterDays: raw.brain.handbook.reviewAfterDays ?? 180,
+            context: raw.brain.handbook.context === false ? false : {
+              maxInstructionLines: raw.brain.handbook.context?.maxInstructionLines ?? 200,
+              maxHooks: raw.brain.handbook.context?.maxHooks ?? 40,
+              maxMcpServers: raw.brain.handbook.context?.maxMcpServers ?? 5,
+              skip: [...new Set(raw.brain.handbook.context?.skip ?? [])].sort(),
+            },
+          },
         }),
       },
     }),
