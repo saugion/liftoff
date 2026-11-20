@@ -73,8 +73,12 @@ To confirm (decided here, because the design needed them):
     names a page. This is for tokens and for noise: an always-read handbook is an `AGENTS.md` that grew.
 19. **Updates ship per page revision.** The plugin bundles every revision of every base page (small text) so the original that a
     team started from can be recovered, which is what makes the three-way diff possible without relying on git history.
-20. **Switches come with the first nudge** that needs one: `practices: { <id>: on | nudge | off }` in `liftoff.yaml`, the lead's
-    choice and `required` like the other sections. Not before; until then the pages only explain.
+20. **The `practices` switch exists from the first release** (decided 2026-11-20, replacing "with the first nudge"):
+    `practices: { <id>: on | nudge | off }` in `liftoff.yaml`, the lead's choice and `required` like the other sections. It is not
+    empty config because its first entry is a behaviour that already exists, the Ticket flow's PO review
+    (`ticket-po-review`, see `ticket-po-review.md`): `off` means the Ticket skill does not ask the why and out-of-scope questions
+    and does not require a review file. Every later practice with a step of its own adds its id here; a page without a step
+    needs none, because a page is guidance and never a switch.
 
 ## What ships in the base
 
@@ -162,11 +166,12 @@ and `brain.handbook` joins the `brain` section's hash only when present, so a br
 The README's pilot rule stands: if fewer than half of the pilot group use Build after four weeks, the product is revisited before
 anything is added. The handbook must not add a step to Plan or Build before that is known. Proposed order:
 
-1. **Phase A, pages only (ship with the next release, opt-in, no new step in any skill).** The format, `origin`/`base`,
+1. **Phase A, pages only (ship with the next release, opt-in, no new step in any skill).** The `practices` switch with its first
+   entry (`ticket-po-review`), the format, `origin`/`base`,
    `handbook-init`, `handbook-status`, the `brain-check` findings, the index, and Query reading the handbook. The base ships with its
    provenance from day one, because adding fingerprints later cannot be done retroactively. No nudges, no updates.
 2. **Phase B, nudges.** Each practice's skill step (the Ticket flow's questions, `verify-first`, `clean-review`) arrives with its page
-   and the one-line pointer, and with the `practices` switch the first time one is needed (rule 20).
+   and the one-line pointer, each with its own id in `practices` (rule 20).
 3. **Phase C, the loop.** `handbook-update`, `handbook-retire`, drift in the health check, the after-Build question, the lessons target.
 4. **Later:** a line-based merge for `both-changed`, a shared company-level base that repos inherit (already on the README's
    "Not yet" list), metrics on which practices are read.
@@ -192,20 +197,29 @@ Phase A is cheap and unblocks everything; B and C depend on what the pilot shows
 
 ## Open questions
 
-1. **Language of the base.** English only (the skills and the rest of the repo are English), or also Italian pages for Italian teams?
-   Recommended: English only, and the team may write its own pages in its language; translating the base doubles the update work.
-2. **Standalone or inside the brain?** Recommended: inside (`brain.handbook`), as decided in rule 11, so it reuses the folder, check,
-   index and lessons. The cost is that a team that wants only the handbook gets a brain section too (`brain: { handbook: {} }`).
-3. **The `practices` switch now or with the first nudge?** Recommended: with the first nudge (rule 20), so Phase A adds nothing to
-   `liftoff.yaml` beyond `handbook`.
-4. **Bundle every revision of a page, or only hashes plus a two-way diff?** Recommended: every revision (rule 19); the text is small
-   and the three-way diff is the point of the copy-into-repo choice.
-5. **The convention stubs.** Ship `how-we-test` and `how-we-review` empty, or leave conventions entirely to the team? Recommended: ship
-   the two stubs, because an empty template gets filled and an absent one does not.
-6. **Nudge state.** A personal "seen" count per page is one more file; the alternative is a fixed one-line pointer every time.
-   Recommended: the personal count, kept off the repo.
-7. **Who may retire a base page?** The lead only (as for `liftoff.yaml`), or any engineer through a merge request? Recommended: any
-   merge request, reviewed like code; the tool decides nothing about roles.
+All seven were decided with the product owner on 2026-11-20.
+
+1. **Language of the base.** *English only.* The skills and the rest of the repo are English; a team may write its own pages in its
+   language, but translating the base would double the update work.
+2. **Standalone or inside the brain?** *Inside* (`brain.handbook`, rule 11): it reuses the folder, the check, the index and the
+   lessons. The cost is that a team that wants only the handbook also gets a brain section (`brain: { handbook: {} }`). The
+   handbook inherits the brain's lack of a pilot, which is why Phase A adds no step to Plan or Build.
+3. **The `practices` switch now or with the first nudge?** *Now*, with `ticket-po-review` as its first entry so it is not empty
+   config (rule 20). Cost: one more field in the schema and in the hash of `liftoff.yaml`. This also answers open question 2 of
+   `ticket-po-review.md` (configurable per team).
+4. **Bundle every revision of a page, or only hashes?** *Every revision* (rule 19): without the original text the three-way diff
+   is impossible and a two-way diff mixes the team's edits with liftoff's. Growth is bounded by keeping the last N revisions of
+   a page (N to be fixed when `handbook-update` is built); a page whose recorded `base` is older than that falls back to a
+   two-way diff and says so.
+5. **The convention stubs.** *Ship `how-we-test` and `how-we-review`*, marked as not yet filled in: agents skip a stub, and the
+   health check lists it as "to fill in" until the team writes it. An empty template with questions gets completed; an absent one
+   does not. The marking must be checked against the page format when `handbook-init` is built.
+6. **Nudge state.** *A personal count* per page, in a file under `.liftoff/brain/` that is never committed (rule 17): the line
+   teaches the first two times and then shrinks to the id. Each machine counts for itself, which is harmless.
+7. **Who may retire a base page?** *Any developer, through a merge request that the team's reviewer must accept.* The tool decides
+   nothing about roles. A lead who wants to bind it can add a code-owners rule on `<brain.dir>/handbook/` in the code host (liftoff
+   may propose the line, never enforces it). The same review applies to editing `How here`, which is a vector for instructions
+   like `AGENTS.md`.
 
 ## Test plan
 
