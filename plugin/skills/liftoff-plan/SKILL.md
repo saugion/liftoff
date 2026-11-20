@@ -55,7 +55,7 @@ newer. Run `check-config` and branch on `status` and every `reasons[].code`:
 | exit 2, `usage`, `internal`, or stdout that is not JSON | Show `message` or stderr. Stop. |
 | `plugin-outdated` | Stop. Tell the user to update the plugin (*Claude Code: `/reload-plugins` or `/plugin marketplace update liftoff`; VS Code: update or reload the plugin*). |
 | `config-missing`, `config-invalid` | Suggest the Init skill (or show `errors`). Stop. |
-| `not-applied`, `required-changed` | Say the Init skill applies the team config; go on. |
+| `not-applied`, `required-changed` | Say the Init skill applies the team config; go on. The overall `status` can then read `blocked`: it only means this machine has not applied the team config yet, and Plan's commands still work (Build stops on it at its own step 1). |
 | anything else | Go on. |
 
 ## 2. Pick the ticket

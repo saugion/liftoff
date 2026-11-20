@@ -261,7 +261,7 @@ describe("the practices that add a step: verify-first, clean-review, and the poi
   const read = (n: string) => readFileSync(join(ROOT, "plugin", "skills", n, "SKILL.md"), "utf8").replace(/\s+/g, " ");
   const agent = readFileSync(join(ROOT, "plugin", "agents", "liftoff-reviewer.md"), "utf8");
   it("Plan names verify-first, the check item shape, the refusal and the numbered criteria", () => {
-    for (const x of ["verify-first", "verify AC2: <command> (red first)", "verify repro:", "criterion-unverified", "uncovered", "AC1, AC2", "reading.acceptanceCriteria.items", "never skip it and never invent a command", "handbook-seen --page <id>"]) expect(read("liftoff-plan"), x).toContain(x);
+    for (const x of ["verify-first", "verify AC2: <command> (red first)", "verify repro:", "criterion-unverified", "uncovered", "AC1, AC2", "reading.acceptanceCriteria.items", "never skip it and never invent a command", "handbook-seen --page <id>", "Plan's commands still work"]) expect(read("liftoff-plan"), x).toContain(x);
   });
   it("Build names the red-before-green, the clean review, the fallback and who owns the findings", () => {
     const b = read("liftoff-build");
