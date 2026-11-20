@@ -103,7 +103,7 @@ describe("liftoff-ticket", () => {
     for (const k of ["allOk", "preview", "call.args", "after", "warnings", "errors", "template-section-missing", "tracker-read-only", "streams", "issueTypes", "template", "epics", "module"]) expect(b(), k).toContain(k);
   });
   it("the PO decides: the questions, the review file and the ready gate are in the skill and exist in the CLI", () => {
-    for (const x of ["why", "out of scope", "_TBD_", "never write it for them", "assumption", "review-<n>.json", "--review", "ready", "po-decision-missing", "po-text-not-in-description", "assumption-still-in-description", "is never a yes", "only when `ready` is true", "word for word"]) expect(flat(), x).toContain(x);
+    for (const x of ["why", "out of scope", "_TBD_", "never write it for them", "assumption", "review-<n>.json", "--review", "ready", "po-decision-missing", "po-text-not-in-description", "assumption-still-in-description", "is never a yes", "only when `ready` is true", "word for word", "practices.ticket-po-review", "nudge", "review-skipped", "--approve", "pilot-metrics", "never translate them"]) expect(flat(), x).toContain(x);
     const dir = repo(CONFIG.replace('version: "0.2"', 'version: "0.3"'), { "d.json": JSON.stringify({ tickets: [{ type: "Story", summary: "S", description: "d", po: { why: "w" } }] }) });
     const out = cli(["draft-tickets", "--root", dir, "--file", "d.json"]).body;
     for (const k of ["ready", "review", "po"]) expect(out[k] ?? out.tickets[0][k], k).not.toBeUndefined();

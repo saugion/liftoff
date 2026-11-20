@@ -7,6 +7,7 @@ export const MIN_STREAMS_PLUGIN = "0.3";
 export const MIN_BUILD_PLUGIN = "0.3";
 export const MIN_BRAIN_PLUGIN = "0.4";
 export const MIN_HANDBOOK_PLUGIN = "0.5";
+export const MIN_PRACTICES_PLUGIN = "0.5";
 
 export type Transition = { name: string; fields?: Record<string, unknown> };
 export type IssueType = {
@@ -166,6 +167,11 @@ export function connectorErrors(raw: RawConfig): ConfigError[] {
   }
   if (raw.build && (compareVersions(raw.plugin.version, MIN_BUILD_PLUGIN) ?? -1) < 0) {
     errors.push({ path: "/plugin/version", message: `the build section needs plugin.version ${MIN_BUILD_PLUGIN} or newer` });
+  }
+  for (const section of ["practices", "pilot"] as const) {
+    if (raw[section] && (compareVersions(raw.plugin.version, MIN_PRACTICES_PLUGIN) ?? -1) < 0) {
+      errors.push({ path: "/plugin/version", message: `the ${section} section needs plugin.version ${MIN_PRACTICES_PLUGIN} or newer` });
+    }
   }
   if (raw.brain) {
     if ((compareVersions(raw.plugin.version, MIN_BRAIN_PLUGIN) ?? -1) < 0) {

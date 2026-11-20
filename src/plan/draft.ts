@@ -30,7 +30,7 @@ const isEpicType = (name: unknown) => typeof name === "string" && name.toLowerCa
 // What the module check needs from the config: the module ids, and which module each stream feeds.
 export interface ModuleContext { modules: Set<string>; streamOf: Map<string, string> }
 
-export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig, info: ProjectInfo, mods: ModuleContext = { modules: new Set(), streamOf: new Map() }, batch: unknown[] = []): DraftResult {
+export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig, info: ProjectInfo, mods: ModuleContext = { modules: new Set(), streamOf: new Map() }, batch: unknown[] = [], poMode: "on" | "nudge" | "off" = "on"): DraftResult {
   const errors: DraftIssue[] = [], warnings: DraftIssue[] = [];
   const err = (code: string, message: string) => errors.push({ code, message });
   const t = isObj(raw) ? raw : {};
@@ -82,7 +82,7 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
     }
     if (!tracker.epicLinkField) err("epic-link-field-missing", "tracker.epicLinkField is not in liftoff.yaml: the lead sets the Epic Link field id (Connect skill)");
   }
-  const po = checkPo(t.po, type?.name ?? str("type"), description);
+  const po = checkPo(t.po, type?.name ?? str("type"), description, poMode);
   errors.push(...po.errors);
   warnings.push(...po.warnings);
   if (secretGuard({ summary, description, labels, fields, po: po.texts }).length > 0) err("credential-like", "the ticket text looks like a credential; credentials never go in a ticket");

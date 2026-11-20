@@ -98,10 +98,10 @@ const SECTIONS = [
   { id: 4, label: "Code host", sub: "GitLab and branches", keys: ["host", "tb", "bp", "tpat", "mrt", "labels", "revs", "git"] },
   { id: 5, label: "Work streams", sub: "Kanban side projects", keys: ["streams"] },
   { id: 6, label: "Constraints", sub: "The quality bar", keys: ["cfile", "ctext"] },
-  { id: 7, label: "Brain", sub: "What the project learns", keys: ["brain", "cap", "metrics"] },
+  { id: 7, label: "Brain", sub: "What the project learns", keys: ["brain", "cap", "metrics", "po"] },
 ];
 const REVIEW = 8;
-const LAB = { name: "Project name", kind: "Project kind", targets: "Agents", langs: "Languages", fw: "Frameworks", mods: "Modules", tver: "Jira version", turl: "Jira URL", tkey: "Project key", readOnly: "Read-only access", ssl: "Verify SSL", elf: "Epic link field", enf: "Epic name field", its: "Issue types", host: "GitLab host", tb: "Target branch", bp: "Branch pattern", tpat: "MR title pattern", mrt: "MR template", labels: "MR labels", revs: "Reviewers", git: "Git during Build", streams: "Work streams", cfile: "Constraints file", ctext: "Constraints text", brain: "Project brain", cap: "Correction capture", metrics: "Pilot metrics" };
+const LAB = { name: "Project name", kind: "Project kind", targets: "Agents", langs: "Languages", fw: "Frameworks", mods: "Modules", tver: "Jira version", turl: "Jira URL", tkey: "Project key", readOnly: "Read-only access", ssl: "Verify SSL", elf: "Epic link field", enf: "Epic name field", its: "Issue types", host: "GitLab host", tb: "Target branch", bp: "Branch pattern", tpat: "MR title pattern", mrt: "MR template", labels: "MR labels", revs: "Reviewers", git: "Git during Build", streams: "Work streams", cfile: "Constraints file", ctext: "Constraints text", brain: "Project brain", cap: "Correction capture", metrics: "Pilot metrics", po: "PO review of tickets" };
 
 let S = null; // server state
 let O = {};   // the config as saved
@@ -127,7 +127,7 @@ function fromConfig(c, constraints) {
     host: h.host || "", tb: cv.targetBranch || "", bp: cv.branchPattern || "", tpat: cv.titlePattern || "", mrt: cv.mrTemplate || "", labels: csvOf(cv.labels), revs: csvOf(cv.reviewers), git: c.build?.git || "assisted",
     streams: (c.streams?.items || []).map((x) => ({ id: x.id, project: x.project, module: x.module || "", epics: csvOf(x.epics), was: x.id })),
     cfile: c.constraints?.file || constraints.file || "CONSTRAINTS.md", ctext: constraints.text || "",
-    brain: !!c.brain, cap: c.brain?.lessons?.capture || "ask", metrics: c.brain?.lessons?.metrics ?? true,
+    brain: !!c.brain, cap: c.brain?.lessons?.capture || "ask", metrics: c.pilot?.metrics ?? c.brain?.lessons?.metrics ?? true, po: c.practices?.["ticket-po-review"] || "on",
   };
 }
 
@@ -172,6 +172,8 @@ function toPatch() {
   if (ch("cfile") && (F.cfile !== "CONSTRAINTS.md" || O.constraints || F.ctext.trim())) set("constraints", "file", F.cfile);
   if (F.brain && (ch("brain") || ch("cap") || ch("metrics"))) p.brain = Object.assign(O.brain ? {} : { afterBuild: "propose" }, { lessons: { capture: F.cap, metrics: F.metrics } });
   if (!F.brain && O.brain) p.brain = null;
+  // Practices and pilot metrics (plugin.version 0.5): written only when the lead changed them from what is saved.
+  if (ch("po") && (!fresh || F.po !== "on")) { set("practices", "ticket-po-review", F.po); set("plugin", "version", "0.5"); }
   return p;
 }
 
@@ -184,7 +186,7 @@ const MAP = [
   [/^\/codeHost\/host/, 4, "host"], [/^\/codeHost\/conventions\/targetBranch/, 4, "tb"], [/^\/codeHost\/conventions\/branchPattern/, 4, "bp"], [/^\/codeHost\/conventions\/titlePattern/, 4, "tpat"],
   [/^\/codeHost\/conventions\/mrTemplate/, 4, "mrt"], [/^\/codeHost\/conventions\/labels/, 4, "labels"], [/^\/codeHost\/conventions\/reviewers/, 4, "revs"], [/^\/codeHost/, 4, "codehost"], [/^\/build/, 4, "git"],
   [/^\/streams\/items\/(\d+)\/(id|project|module|epics)/, 5, "streams.$1.$2"], [/^\/streams/, 5, "streams"],
-  [/^\/constraints/, 6, "cfile"], [/^\/brain/, 7, "brain"],
+  [/^\/constraints/, 6, "cfile"], [/^\/brain/, 7, "brain"], [/^\/practices/, 7, "po"],
 ];
 function locate(e) {
   for (const [re, sec, key] of MAP) { const m = re.exec(e.path); if (m) return { sec, key: key.replace(/\$(\d)/g, (_, i) => m[i]), message: e.message }; }
@@ -264,6 +266,7 @@ ${rowIn("streams", i, "epics", "Epics <small>· comma separated, optional</small
   7: () => `${tog("brain", "Project brain", "After each Build, LiftOff proposes what the project learned. You approve before anything is saved.")}
 <div class="f"><span class="lab">When a human corrects the agent</span>${segs("cap", [["ask", "Ask me"], ["notify", "Tell me"], ["off", "Ignore"]])}</div>
 ${tog("metrics", "Pilot metrics", "Counts only, stored locally. No ticket keys, rules, paths or names.")}
+<div class="f"><span class="lab">PO review of tickets</span>${segs("po", [["on", "Ask and review (default)"], ["nudge", "Ask, one yes"], ["off", "Off"]])}<div class="hint">${F.po === "on" ? "The agent asks the why and the out-of-scope and lists its assumptions; the PO answers each." : F.po === "nudge" ? "The same questions, but one yes approves the assumptions." : "One approval for the batch, as before."}</div></div>
 ${F.brain && !O.brain ? '<div class="note n-warn">Turning the brain on writes its settings. Run the Brain skill once to create the wiki folder.</div>' : ""}`,
 };
 const adv = (n, inner) => `<button class="btn sm" style="align-self:flex-start" data-a="adv" data-n="${n}" aria-expanded="${advOpen[n] || advHasErr(n)}">${advOpen[n] || advHasErr(n) ? "Hide" : "Show"} advanced settings</button>${advOpen[n] || advHasErr(n) ? `<div class="adv">${inner}</div>` : ""}`;

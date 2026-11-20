@@ -8,6 +8,11 @@
   "tracker": null,
   "codeHost": null,
   "modules": [],
+  "practices": {
+    "ticket-po-review": "on",
+    "verify-first": "off",
+    "clean-review": "off"
+  },
   "streams": [],
   "mcp": [],
   "credential": null,

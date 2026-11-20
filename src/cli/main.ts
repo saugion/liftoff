@@ -8,6 +8,7 @@ import { brainIndex } from "./brain-index.js";
 import { brainSource } from "./brain-source.js";
 import { lessonAdd } from "./lesson-add.js";
 import { lessonList } from "./lesson-list.js";
+import { pilotMetrics } from "./pilot-metrics.js";
 import { lessonMetrics } from "./lesson-metrics.js";
 import { lessonPromote } from "./lesson-promote.js";
 import { brainInit } from "./brain-init.js";
@@ -21,7 +22,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--approve] [--write] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics|pilot-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -40,6 +41,7 @@ export const handlers: Record<string, Handler> = {
   "lesson-list": lessonList,
   "lesson-promote": lessonPromote,
   "lesson-metrics": lessonMetrics,
+  "pilot-metrics": pilotMetrics,
 };
 
 // Commands that can write into the brain; --write is refused everywhere else.

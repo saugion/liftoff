@@ -61,4 +61,13 @@ describe("applyPatch", () => {
   it("deletes a whole section with null", () => {
     expect(run({ tracker: null }).js.tracker).toBeUndefined();
   });
+
+  it("the practices and the plugin pin: a new section is added, `off` is kept as the word, the rest stays", () => {
+    const { text, js } = run({ practices: { "ticket-po-review": "off" }, plugin: { version: "0.5" } });
+    expect(js.practices).toEqual({ "ticket-po-review": "off" });
+    expect(js.plugin).toEqual({ version: "0.5" });
+    expect(text).toContain("# team config");
+    expect(text).toContain("keep me");
+    expect(parseDocument(text).toJS().practices["ticket-po-review"]).toBe("off");
+  });
 });

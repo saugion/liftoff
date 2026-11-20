@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { brainPaths } from "../brain/paths.js";
-import { connectors, projectsOf } from "../config/index.js";
+import { connectors, projectsOf, resolvedPractices } from "../config/index.js";
 import { KEY_RE, buildInfo } from "../plan/build.js";
 import { openPoints, readTicket, readWithMap } from "../plan/ticket.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
@@ -66,6 +66,7 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
     body: {
       ok: true,
       brain: brain ?? null,
+      practices: resolvedPractices(read.config),
       ticket: { key: ticket.key, url: `${tracker.url}/browse/${ticket.key}`, summary: ticket.summary, issueType: ticket.issueType, ...(ticket.status && { status: ticket.status }), description: ticket.description },
       known: type !== undefined,
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,

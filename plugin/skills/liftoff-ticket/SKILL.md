@@ -20,6 +20,15 @@ do **not** do (out of scope). You ask for them, write them down in the person's 
 the person does not answer. Everything else you add on your own is an **assumption**, and the person answers each one.
 This is what stops a ticket from being approved with a hurried yes while the decisions were the agent's.
 
+The lead can change how strict this is, in `practices.ticket-po-review` of `liftoff.yaml`. `connect-info` and `draft-tickets` tell
+you which one applies (`practices["ticket-po-review"]`, and `practice` in the `draft-tickets` answer):
+
+- **`on`** (the default): everything below, and a batch is created only when `ready` is true.
+- **`nudge`**: ask the same questions, but write the assumptions numbered into the preview and let one yes approve them; the
+  review file is optional (without it `draft-tickets` says `review-skipped`). A review file you do write must be complete.
+- **`off`**: do not ask the why and the out-of-scope questions, do not list assumptions, write no review file; the batch is
+  shown and approved once, as before. Still never invent facts, and still leave what you do not know as `_TBD_`.
+
 You are the instructions; the `liftoff` CLI decides everything deterministic: `connect-info` gives the project's
 issue types, templates and modules, `draft-tickets` checks the batch and returns the exact creation calls. **Create tickets
 with the calls it returns, as given.**
@@ -44,7 +53,7 @@ The CLI is `bin/liftoff.mjs` at the root of the plugin, shared with the other Li
 **If the path you are about to run still contains `${`, your host did not substitute it: build the absolute path
 from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.mjs` from there).**
 
-Commands used here: `check-config`, `connect-info`, `parse-ticket --file <path>`, `draft-tickets --file <path> [--review <path>]`.
+Commands used here: `check-config`, `connect-info`, `parse-ticket --file <path>`, `draft-tickets --file <path> [--review <path>] [--approve]`, `pilot-metrics`.
 Stdout is always **one JSON document**; read it whatever the exit code. Exit 2 or stdout that is not JSON means
 something is wrong with the environment: show `message` or stderr and stop. Ask with your structured question tool
 if you have one. Do file work with your **file tools**. Quote every path.
@@ -75,7 +84,10 @@ ticket, from the team's template for the type `Epic` (if the config has no such 
 the Connect skill, and stop for that part). The person may want an epic **and** its stories in one go: that is one
 batch.
 
-**Ask the two decisions first, in one round, with the content questions.** The type decides what you ask:
+**Ask the two decisions first, in one round, with the content questions** (not when the practice is `off`). Ask in the language
+the person writes in; the ticket text and the assumptions follow the language of the team's tickets. The person's why and
+out-of-scope stay in the words and the language they used: never translate them, and if that language is not the team's, ask once
+whether they want to reword them themselves. The type decides what you ask:
 Epic and Story ask **why** (who is it for, what changes for them) and **out of scope** (what we are not doing); a
 Task asks the why and takes an out-of-scope if the person has one; a Bug asks neither (its steps, expected and actual
 behaviour are the facts below). If the person's first message already answers one, quote it back to them and do not
@@ -155,6 +167,12 @@ If they ask for something this flow never does (move or comment on a ticket it d
 say they do it in the tracker.
 
 ## 6. Create
+
+First, **right after the yes and before the first creation**, run `draft-tickets --file <drafts> [--review <review>] --approve`
+once more. It fails when the batch is not ready, so nothing is created that was not reviewed, and with pilot metrics on it
+records one local counter per batch (counts only, no ticket key, no text). Do not skip it, do not run it twice for a changed batch
+without a fresh yes. If the person asks for their pilot metrics ("show my pilot metrics"), run `pilot-metrics` and show the months
+as they are; it holds no key, text or name and is for them to paste by hand into the pilot results.
 
 For each ticket in order, call `jira_create_issue` with `call.args` exactly as returned. For each `after` entry call
 `jira_update_issue` with `args`, the real key in place of `<created key>` and, where the link is

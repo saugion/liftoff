@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
 import { normalizeCodeHost, normalizeStreams, normalizeTracker, type RawCodeHost, type RawStreams, type RawTracker } from "./connectors.js";
-import type { Config, RawConfig } from "./types.js";
+import { PRACTICE_IDS, type Config, type PracticesConfig, type RawConfig } from "./types.js";
+
+// Only the practices the lead wrote: the defaults live in code (`practiceMode`), so adding one later never moves a hash.
+function normalizePractices(raw: NonNullable<RawConfig["practices"]>): PracticesConfig {
+  const out: PracticesConfig = { required: raw.required ?? false };
+  for (const id of PRACTICE_IDS) if (raw[id] !== undefined) out[id] = raw[id];
+  return out;
+}
 
 // Applies the defaults inside every section that is present. An absent section stays absent
 // (sectionHashes has no key for it).
@@ -20,6 +27,8 @@ export function normalize(raw: RawConfig): Config {
       constraints: { file: raw.constraints.file ?? "CONSTRAINTS.md", required: raw.constraints.required ?? false },
     }),
     ...(raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker as RawTracker) }),
+    ...(raw.practices && { practices: normalizePractices(raw.practices) }),
+    ...(raw.pilot && { pilot: { metrics: raw.pilot.metrics ?? true, required: raw.pilot.required ?? false } }),
     ...(raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } }),
     ...(raw.brain && {
       brain: {
