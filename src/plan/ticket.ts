@@ -67,7 +67,7 @@ export function fieldText(t: Ticket, id: string): string {
 const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&nbsp;": " " };
 
 // Rendered HTML to lines of Markdown-ish text, so one heading scanner serves all three formats.
-function fromHtml(s: string): string {
+export function fromHtml(s: string): string {
   return s
     .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_m, n: string, t: string) => `\n${"#".repeat(Number(n))} ${t}\n`)
     .replace(/<li[^>]*>/gi, "\n- ")

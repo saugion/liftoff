@@ -8,7 +8,8 @@ import { brainIndex } from "./brain-index.js";
 import { brainSource } from "./brain-source.js";
 import { lessonAdd } from "./lesson-add.js";
 import { lessonList } from "./lesson-list.js";
-import { handbookInit, handbookRetire, handbookStatus, handbookUpdate } from "./handbook.js";
+import { cleanReviewCommand } from "./clean-review.js";
+import { handbookInit, handbookRetire, handbookSeen, handbookStatus, handbookUpdate } from "./handbook.js";
 import { pilotMetrics } from "./pilot-metrics.js";
 import { lessonMetrics } from "./lesson-metrics.js";
 import { lessonPromote } from "./lesson-promote.js";
@@ -23,7 +24,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics|pilot-metrics|handbook-init|handbook-status|handbook-update|handbook-retire> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--page <id>] [--reason <text>] [--approve] [--write] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics|pilot-metrics|handbook-init|handbook-status|handbook-update|handbook-retire|handbook-seen|clean-review> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--page <id>] [--reason <text>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -47,10 +48,12 @@ export const handlers: Record<string, Handler> = {
   "handbook-status": handbookStatus,
   "handbook-update": handbookUpdate,
   "handbook-retire": handbookRetire,
+  "handbook-seen": handbookSeen,
+  "clean-review": cleanReviewCommand,
 };
 
 // Commands that can write into the brain; --write is refused everywhere else.
-const WRITE_COMMANDS = new Set(["brain-init", "brain-index", "brain-source", "lesson-add", "lesson-promote", "handbook-init", "handbook-update", "handbook-retire"]);
+const WRITE_COMMANDS = new Set(["handbook-seen", "brain-init", "brain-index", "brain-source", "lesson-add", "lesson-promote", "handbook-init", "handbook-update", "handbook-retire"]);
 
 function json(root: string, exitCode: RunResult["exitCode"], body: Record<string, unknown>, stderr = ""): RunResult {
   return { stdout: JSON.stringify({ root, ...body }) + "\n", stderr, exitCode };
@@ -103,7 +106,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
       return usageError(root, "--review is only valid for draft-tickets");
     }
     if (values.write && !WRITE_COMMANDS.has(command)) {
-      return usageError(root, "--write is only valid for brain-init, brain-index, brain-source, lesson-add, lesson-promote, handbook-init, handbook-update and handbook-retire");
+      return usageError(root, "--write is only valid for handbook-seen, brain-init, brain-index, brain-source, lesson-add, lesson-promote, handbook-init, handbook-update and handbook-retire");
     }
     let isDir = false;
     try {

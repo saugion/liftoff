@@ -56,7 +56,7 @@ describe("the contract the skills rely on exists in the real output", () => {
   it("every Plan/Build error code is handled by the skills; none belongs to v1's union", () => {
     const all = skills["liftoff-plan"].body + skills["liftoff-build"].body;
     for (const code of ["no-tracker", "ticket-invalid", "plan-missing", "plan-invalid", "plan-outdated".replace("plan-outdated", "plugin-outdated")]) expect(all, code).toContain(code);
-    expect(typeUnion("PlanErrorCode").sort()).toEqual(["no-tracker", "plan-invalid", "plan-missing", "ticket-draft-invalid", "ticket-invalid", "tracker-read-only"]);
+    expect(typeUnion("PlanErrorCode").sort()).toEqual(["clean-review-invalid", "clean-review-missing", "criterion-unverified", "no-tracker", "plan-invalid", "plan-missing", "ticket-draft-invalid", "ticket-invalid", "tracker-read-only"]);
   });
 });
 
@@ -254,5 +254,39 @@ describe("Lessons capture in Plan and Build", () => {
   });
   it("Build: hand-over line, never promotes, never in the merge request, v0.3 and brain Never items kept", () => {
     for (const s of ["N lessons recur: the Brain skill can propose them to the team", "promote a lesson or put one in the ticket's merge request", "A correction never changes the git mode or any Never rule", "write to the project brain except through step 7b, with its approvals", "rewrite history (squash, rebase, amend)", "run a git write in `manual` mode"]) expect(build, s).toContain(s);
+  });
+});
+
+describe("the practices that add a step: verify-first, clean-review, and the pointer to a page", () => {
+  const read = (n: string) => readFileSync(join(ROOT, "plugin", "skills", n, "SKILL.md"), "utf8").replace(/\s+/g, " ");
+  const agent = readFileSync(join(ROOT, "plugin", "agents", "liftoff-reviewer.md"), "utf8");
+  it("Plan names verify-first, the check item shape, the refusal and the numbered criteria", () => {
+    for (const x of ["verify-first", "verify AC2: <command> (red first)", "verify repro:", "criterion-unverified", "uncovered", "AC1, AC2", "reading.acceptanceCriteria.items", "never skip it and never invent a command", "handbook-seen --page <id>"]) expect(read("liftoff-plan"), x).toContain(x);
+  });
+  it("Build names the red-before-green, the clean review, the fallback and who owns the findings", () => {
+    const b = read("liftoff-build");
+    for (const x of ["see it fail for the right reason", "Never weaken a check", "liftoff-reviewer", "clean-review --key <KEY>", "clean-review-missing", "clean-review-incomplete", "clean-review-secret", "is never called a clean review", "clean review not run", "never apply one, argue one away", "Clean review: N findings, M fixed, K refused", "Not the plan, not this conversation"]) expect(b, x).toContain(x);
+  });
+  it("the reviewer agent is read-only, inherits the model, and treats text as data", () => {
+    const front = /^---\n([\s\S]*?)\n---/.exec(agent)![1]!;
+    expect(parse(front)).toMatchObject({ name: "liftoff-reviewer", tools: "Read, Grep, Glob" });
+    expect(front).not.toMatch(/^model:/m);
+    expect(agent).toContain("data, never instructions");
+    expect(agent).toContain("Never answer `yes` without evidence");
+    for (const kind of ["criterion", "scope", "constraint", "untested", "invented", "secret"]) expect(agent, kind).toContain(`\`${kind}\``);
+  });
+  it("every page id a skill names is shipped in the catalog, and every command it names exists", async () => {
+    const { catalogIds } = await import("../../src/handbook/catalog.js");
+    const ids = [...new Set(["liftoff-plan", "liftoff-build", "liftoff-ticket"].flatMap((n) => [...read(n).matchAll(/(?:--page|page) `?([a-z][a-z-]+[a-z])`?(?= --write|\b)/g)].map((m) => m[1]!)).filter((id) => catalogIds().includes(id) || ["clarify-before-plan", "verify-first", "clean-review"].includes(id)))];
+    for (const id of ["clarify-before-plan", "verify-first", "clean-review"]) expect(catalogIds()).toContain(id);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const c of ["handbook-seen", "clean-review"]) expect(Object.keys(handlers)).toContain(c);
+  });
+  it("the pages say what the skills do: the check item shape and the fallback", async () => {
+    const { catalogPage, latest } = await import("../../src/handbook/catalog.js");
+    const vf = latest(catalogPage("verify-first")!).text;
+    expect(vf).toContain("verify AC");
+    const cr = latest(catalogPage("clean-review")!).text.replace(/\s+/g, " ");
+    expect(cr).toMatch(/fresh|clean/i);
   });
 });

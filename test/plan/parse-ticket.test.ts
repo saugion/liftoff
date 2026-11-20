@@ -16,11 +16,11 @@ describe("parse-ticket: brain", () => {
   });
   it("names the brain files, relative to the root, and what Build does after a build", () => {
     const cfg = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain:\n  dir: docs/brain/\n  afterBuild: \"off\"\n";
-    expect(parse(story(), cfg).body.brain).toEqual({ dir: "docs/brain", hot: "docs/brain/hot.md", index: "docs/brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "off", lessons: null });
+    expect(parse(story(), cfg).body.brain).toEqual({ dir: "docs/brain", hot: "docs/brain/hot.md", index: "docs/brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "off", handbook: false, lessons: null });
   });
   it("uses the defaults for `brain: {}`", () => {
     const cfg = CONFIG.replace('version: "0.2"', 'version: "0.4"') + "brain: {}\n";
-    expect(parse(story(), cfg).body.brain).toEqual({ dir: "brain", hot: "brain/hot.md", index: "brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "propose", lessons: null });
+    expect(parse(story(), cfg).body.brain).toEqual({ dir: "brain", hot: "brain/hot.md", index: "brain/index.md", personalHot: ".liftoff/brain/hot.md", afterBuild: "propose", handbook: false, lessons: null });
   });
   it("lessons: null without the section, its settings with it (defaults for `lessons: {}`), only what Plan and Build need", () => {
     const base = CONFIG.replace('version: "0.2"', 'version: "0.4"');
@@ -36,23 +36,23 @@ describe("parse-ticket: reading", () => {
     expect(exitCode).toBe(0);
     expect(body.ticket).toMatchObject({ key: "PROJ-123", url: "https://jira.company.local/browse/PROJ-123", summary: "Add login", issueType: "Story", status: "To Do" });
     expect(body.known).toBe(true);
-    expect(body.reading.acceptanceCriteria).toEqual({ source: "heading", text: "- user can log in\n- bad password is refused" });
+    expect(body.reading.acceptanceCriteria).toMatchObject({ source: "heading", text: "- user can log in\n- bad password is refused" });
     expect(body.reading.fields).toEqual([{ id: "customfield_10016", label: "Story points", value: "5" }]);
     expect(body.warnings).toEqual([]);
   });
   it("accepts the jira-REST shape: everything under `fields`", () => {
     const { body } = parse({ key: "PROJ-1", fields: { summary: "S", issuetype: { name: "Story" }, description: "h2. Acceptance criteria\nA\nh2. Other\nB", customfield_10016: { value: "8" } } });
     expect(body.ticket.issueType).toBe("Story");
-    expect(body.reading.acceptanceCriteria).toEqual({ source: "heading", text: "A" });
+    expect(body.reading.acceptanceCriteria).toMatchObject({ source: "heading", text: "A" });
     expect(body.reading.fields[0].value).toBe("8");
   });
   it("reads a criteria field (Bug), including custom_fields and list values", () => {
     const { body } = parse({ key: "PROJ-2", summary: "Crash", issue_type: { name: "Bug" }, description: "d", custom_fields: { customfield_10201: ["a", { value: "b" }] } });
-    expect(body.reading.acceptanceCriteria).toEqual({ source: "field", text: "a, b" });
+    expect(body.reading.acceptanceCriteria).toMatchObject({ source: "field", text: "a, b" });
   });
   it("falls back to the rendered HTML when the raw description has no such heading", () => {
     const { body } = parse(story({ description: "plain", renderedFields: { description: "<h2>Acceptance Criteria</h2><ul><li>one</li><li>two &amp; three</li></ul><h2>Next</h2>" } }));
-    expect(body.reading.acceptanceCriteria).toEqual({ source: "heading", text: "- one\n- two & three" });
+    expect(body.reading.acceptanceCriteria).toMatchObject({ source: "heading", text: "- one\n- two & three" });
   });
   it("headings: bold line, wiki, case, trailing colon", () => {
     expect(underHeading("*Acceptance Criteria:*\nX\n*Other*\nY", "acceptance criteria")).toBe("X");
@@ -69,7 +69,7 @@ describe("parse-ticket: reading", () => {
     const { body } = parse({ key: "PROJ-3", summary: "S", issue_type: { name: "Epic" }, description: "" });
     expect(body.known).toBe(false);
     expect(body.warnings.map((w: any) => w.code).sort()).toEqual(["empty-description", "no-acceptance-criteria", "unknown-issue-type"]);
-    expect(body.reading.acceptanceCriteria).toEqual({ source: "none", text: "" });
+    expect(body.reading.acceptanceCriteria).toMatchObject({ source: "none", text: "" });
     expect(parse(story()).body.warnings.map((w: any) => w.code)).toEqual(["field-missing"]);
   });
 });

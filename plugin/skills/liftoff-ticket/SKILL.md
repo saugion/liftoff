@@ -53,7 +53,7 @@ The CLI is `bin/liftoff.mjs` at the root of the plugin, shared with the other Li
 **If the path you are about to run still contains `${`, your host did not substitute it: build the absolute path
 from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.mjs` from there).**
 
-Commands used here: `check-config`, `connect-info`, `parse-ticket --file <path>`, `draft-tickets --file <path> [--review <path>] [--approve]`, `pilot-metrics`.
+Commands used here: `check-config`, `connect-info`, `parse-ticket --file <path>`, `draft-tickets --file <path> [--review <path>] [--approve]`, `pilot-metrics`, and, only when `connect-info` answers `handbook` true, `handbook-seen --page <id> [--write]`.
 Stdout is always **one JSON document**; read it whatever the exit code. Exit 2 or stdout that is not JSON means
 something is wrong with the environment: show `message` or stderr and stop. Ask with your structured question tool
 if you have one. Do file work with your **file tools**. Quote every path.
@@ -83,6 +83,8 @@ content. Otherwise ask (one round): a bug, a task, a story, an **epic**, or **br
 ticket, from the team's template for the type `Epic` (if the config has no such type, say the lead can teach it with
 the Connect skill, and stop for that part). The person may want an epic **and** its stories in one go: that is one
 batch.
+
+When `connect-info` answers `handbook` true and you ask these questions, say once, in one line, what you did and why, as the Plan skill's "Pointing at a practice" says (`handbook-seen --page clarify-before-plan --write`).
 
 **Ask the two decisions first, in one round, with the content questions** (not when the practice is `off`). Ask in the language
 the person writes in; the ticket text and the assumptions follow the language of the team's tickets. The person's why and

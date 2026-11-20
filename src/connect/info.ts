@@ -61,6 +61,7 @@ export function buildInfo(config: Config, installedVersion: string) {
     codeHost: codeHost ?? null,
     modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path })),
     practices: resolvedPractices(config),
+    handbook: config.brain?.handbook !== undefined, // the living handbook is on: skills may point at a page when they apply a practice
     streams: tracker && config.streams && "items" in config.streams ? (config.streams as StreamsConfig).items : [],
     mcp,
     credential: credential ?? null,

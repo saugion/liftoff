@@ -7,7 +7,9 @@ import { CATALOG, catalogPage, latest, revisionOf } from "../handbook/catalog.js
 import { buildHandbookIndex } from "../handbook/index.js";
 import { PAGE_ID, type HandbookPaths, handbookPaths, pageFile } from "../handbook/paths.js";
 import { parseRetired, retiredLine } from "../handbook/retired.js";
+import { parseHandbookPage } from "../handbook/page.js";
 import { type StatusRow, drift, statusOf } from "../handbook/status.js";
+import { ensureSelfIgnore } from "./state.js";
 import { atomicWrite, resolveReal } from "./fsutil.js";
 import { today } from "./lesson-add.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
@@ -136,4 +138,26 @@ export const handbookRetire: Handler = ({ root, page, reason, write }) => {
     atomicWrite(join(h.realRoot, h.paths.index), indexOf(h.teamText));
   }
   return { exitCode: 0, body: { ok: true, written: write === true, page, tombstone: already ? null : line, deletes: hadFile ? file : null, alreadyRetired: already } };
+};
+
+// How a skill points at a page (`I did <what> because <summary> (handbook: <id>)`): the first SEEN_FULL times in full, then the id
+// alone. The count is personal (never committed), per page, per machine. A page that is absent, invalid or still a stub is never
+// pointed at: `form: "none"`.
+const SEEN_FULL = 2;
+export const handbookSeen: Handler = ({ root, page, write }) => {
+  if (!page || !PAGE_ID.test(page)) return fail("usage", "handbook-seen needs --page <id>", {}, 2);
+  const h = load(root);
+  if ("fail" in h) return h.fail;
+  const text = h.teamText.get(page);
+  const parsed = text === undefined ? undefined : parseHandbookPage(text);
+  if (!parsed || !parsed.ok || parsed.front.status === "stub") return { exitCode: 0, body: { ok: true, page, form: "none", seen: 0, summary: null } };
+  const file = join(h.realRoot, h.paths.personalSeen);
+  let counts: Record<string, number> = {};
+  try { counts = JSON.parse(readFileSync(file, "utf8")) as Record<string, number>; } catch { /* a missing or damaged file starts again */ }
+  const seen = Number.isInteger(counts[page]) && counts[page]! >= 0 ? counts[page]! : 0;
+  if (write) {
+    ensureSelfIgnore(h.realRoot);
+    atomicWrite(file, JSON.stringify({ ...counts, [page]: seen + 1 }) + "\n");
+  }
+  return { exitCode: 0, body: { ok: true, page, form: seen < SEEN_FULL ? "full" : "id", seen: write ? seen + 1 : seen, summary: parsed.front.summary, title: parsed.front.title } };
 };
