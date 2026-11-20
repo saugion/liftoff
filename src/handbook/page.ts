@@ -46,7 +46,7 @@ export function frontErrors(raw: unknown): string[] {
   if (!oneLine(f.summary, 160)) errors.push("summary must be one line of 1-160 characters");
   const liftoff = typeof f.origin === "string" && ORIGIN_LIFTOFF.test(f.origin);
   if (f.origin !== "team" && !liftoff) errors.push("origin must be 'team' or 'liftoff@<version>', for example liftoff@0.5");
-  else if (liftoff && !(typeof f.base === "string" && /^[0-9a-f]{12}$/.test(f.base))) errors.push("a LiftOff page needs base: 12 hex digits (the fingerprint of the text LiftOff shipped)");
+  else if (liftoff && !(typeof f.base === "string" && /^[0-9a-f]{12}$/.test(f.base))) errors.push("a LiftOff page needs base: 12 hex digits in quotes (the fingerprint of the text LiftOff shipped)");
   else if (f.origin === "team" && f.base !== undefined) errors.push("a team page has no base: remove it (origin: team ends all updates for the page)");
   if (f.status !== undefined && f.status !== "stub") errors.push("status can only be 'stub'");
   if (f.sources !== undefined && (!Array.isArray(f.sources) || f.sources.length === 0 || !f.sources.every((s) => typeof s === "string" && s !== ""))) errors.push("sources must be a non-empty list of paths");

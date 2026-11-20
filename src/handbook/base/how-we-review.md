@@ -2,7 +2,7 @@
 title: How we review
 type: convention
 updated: 2026-11-20
-summary: The team's own review conventions: who reviews, what a good merge request description holds, to be filled in by the team.
+summary: "The team's own review conventions: who reviews, what a good merge request description holds, to be filled in by the team."
 status: stub
 ---
 

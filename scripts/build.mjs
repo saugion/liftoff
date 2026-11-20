@@ -2,6 +2,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSy
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
+import { buildCatalog } from "./build-catalog.mjs";
 
 const SKILL_SCRIPT = "plugin/bin/liftoff.mjs";
 const DEFAULTS_OUT = "plugin/skills/liftoff-connect/assets/defaults.json";
@@ -95,6 +96,7 @@ export async function buildPlugin() {
     throw new Error(`plugin.json version ${manifest.version} differs from package.json ${version}: bump both together`);
   }
 
+  buildCatalog({ version, write: true }); // src/handbook/catalog.json, bundled below
   const metafile = await bundle("dist/liftoff.mjs");
   mkdirSync(dirname(SKILL_SCRIPT), { recursive: true });
   copyFileSync("dist/liftoff.mjs", SKILL_SCRIPT);

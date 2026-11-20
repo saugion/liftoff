@@ -8,6 +8,7 @@ import { brainIndex } from "./brain-index.js";
 import { brainSource } from "./brain-source.js";
 import { lessonAdd } from "./lesson-add.js";
 import { lessonList } from "./lesson-list.js";
+import { handbookInit, handbookRetire, handbookStatus, handbookUpdate } from "./handbook.js";
 import { pilotMetrics } from "./pilot-metrics.js";
 import { lessonMetrics } from "./lesson-metrics.js";
 import { lessonPromote } from "./lesson-promote.js";
@@ -22,7 +23,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics|pilot-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--approve] [--write] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics|pilot-metrics|handbook-init|handbook-status|handbook-update|handbook-retire> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--page <id>] [--reason <text>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -42,10 +43,14 @@ export const handlers: Record<string, Handler> = {
   "lesson-promote": lessonPromote,
   "lesson-metrics": lessonMetrics,
   "pilot-metrics": pilotMetrics,
+  "handbook-init": handbookInit,
+  "handbook-status": handbookStatus,
+  "handbook-update": handbookUpdate,
+  "handbook-retire": handbookRetire,
 };
 
 // Commands that can write into the brain; --write is refused everywhere else.
-const WRITE_COMMANDS = new Set(["brain-init", "brain-index", "brain-source", "lesson-add", "lesson-promote"]);
+const WRITE_COMMANDS = new Set(["brain-init", "brain-index", "brain-source", "lesson-add", "lesson-promote", "handbook-init", "handbook-update", "handbook-retire"]);
 
 function json(root: string, exitCode: RunResult["exitCode"], body: Record<string, unknown>, stderr = ""): RunResult {
   return { stdout: JSON.stringify({ root, ...body }) + "\n", stderr, exitCode };
@@ -68,6 +73,8 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
           overwrite: { type: "string", multiple: true },
           file: { type: "string" },
           review: { type: "string" },
+          page: { type: "string" },
+          reason: { type: "string" },
           key: { type: "string" },
           approve: { type: "boolean" },
           write: { type: "boolean" },
@@ -89,11 +96,14 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
     if (values.overwrite && command !== "render") {
       return usageError(root, "--overwrite is only valid for render");
     }
+    if ((values.page !== undefined || values.reason !== undefined) && !command.startsWith("handbook-")) {
+      return usageError(root, "--page and --reason are only valid for the handbook commands");
+    }
     if (values.review && command !== "draft-tickets") {
       return usageError(root, "--review is only valid for draft-tickets");
     }
     if (values.write && !WRITE_COMMANDS.has(command)) {
-      return usageError(root, "--write is only valid for brain-init, brain-index, brain-source, lesson-add and lesson-promote");
+      return usageError(root, "--write is only valid for brain-init, brain-index, brain-source, lesson-add, lesson-promote, handbook-init, handbook-update and handbook-retire");
     }
     let isDir = false;
     try {
@@ -103,7 +113,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
 
-    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, review: values.review, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
+    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, review: values.review, page: values.page, reason: values.reason, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
