@@ -39,6 +39,8 @@ export interface Context {
   overwrite: string[];
   file?: string; // parse-ticket, draft-tickets
   review?: string; // draft-tickets
+  page?: string; // handbook-status, handbook-update, handbook-retire
+  reason?: string; // handbook-retire
   key?: string; // plan
   approve?: boolean; // plan
   kind?: string; // brain-source

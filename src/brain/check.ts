@@ -8,6 +8,7 @@ import { type LessonsCheckInput, checkLessons } from "./check-lessons.js";
 import { instructionLike } from "./guards.js";
 import { HEADER_RE, sha256Hex } from "./source.js";
 import { secretGuard } from "../config/secrets.js";
+import { type HandbookCheckInput, checkHandbook } from "../handbook/check.js";
 
 export interface Finding {
   code: string;
@@ -19,7 +20,7 @@ export interface Finding {
 export interface CheckResult {
   errors: Finding[];
   warnings: Finding[];
-  stats: { pages: number; raw: number; logs: number };
+  stats: { pages: number; raw: number; logs: number; handbookPages?: number };
   bySource: Record<string, string[]>; // raw file -> pages that list it in `sources`
 }
 export interface CheckInput {
@@ -28,6 +29,7 @@ export interface CheckInput {
   hotMaxLines: number;
   moduleIds: string[];
   lessons?: Omit<LessonsCheckInput, "realRoot">; // only when brain.lessons is set
+  handbook?: Omit<HandbookCheckInput, "realRoot" | "brainDir">; // only when brain.handbook is set
 }
 
 const PAGE_NAME = /^[a-z0-9][a-z0-9-]*\.md$/;
@@ -67,7 +69,7 @@ const read = (abs: string): string => readFileSync(abs, "utf8");
 const nonEmpty = (text: string): number => text.split(/\r?\n/).filter((l) => l.trim() !== "").length;
 
 // Read-only. Every rule of the plan's table that does not need the raw bodies or the quotes (those are added next).
-export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds, lessons }: CheckInput): CheckResult {
+export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds, lessons, handbook }: CheckInput): CheckResult {
   const findings: Finding[] = [];
   const add = (level: Finding["level"], code: string, file: string, message: string, line?: number) =>
     findings.push({ code, level, file, message, ...(line !== undefined && { line }) });
@@ -247,5 +249,13 @@ export function checkBrain({ realRoot, paths, hotMaxLines, moduleIds, lessons }:
     });
   }
   if (lessons) findings.push(...checkLessons({ realRoot, ...lessons }));
-  return result(pages.length, rawFiles.length, logs.length, bySource);
+  let handbookPages: number | undefined;
+  if (handbook) {
+    const h = checkHandbook({ realRoot, brainDir: paths.dir, ...handbook });
+    findings.push(...h.findings);
+    handbookPages = h.pages;
+  }
+  const out = result(pages.length, rawFiles.length, logs.length, bySource);
+  if (handbookPages !== undefined) out.stats.handbookPages = handbookPages;
+  return out;
 }

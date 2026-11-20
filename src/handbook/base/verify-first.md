@@ -24,7 +24,7 @@ with an existing test suite: say so in the plan and move on.
 - **Build runs the checks** of a section after its code and again at the end, with the repo's own commands from
   `CONSTRAINTS.md`. It shows the real output. It never reports a criterion as met without a run that shows it.
 - **If a criterion cannot be checked by a machine** ("the page feels fast", "the wording is friendly"), say so in the plan and
-  ask the engineer how it will be verified (a number, a manual step, a person). Do not skip it and do not invent a check that
+  ask the engineer how it will be verified (a number, a manual step, a person). Do not leave it out and do not invent a check that
   proves something else.
 - **Never weaken a check to make it pass**: no deleted assertion, no skipped test, no looser threshold. If a check is wrong,
   say why and ask.

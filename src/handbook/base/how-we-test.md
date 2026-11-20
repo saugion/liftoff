@@ -2,7 +2,7 @@
 title: How we test
 type: convention
 updated: 2026-11-20
-summary: The team's own testing conventions: commands, layers and what must never be skipped, to be filled in by the team.
+summary: "The team's own testing conventions: commands, layers and what must never be skipped, to be filled in by the team."
 status: stub
 ---
 

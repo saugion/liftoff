@@ -1,5 +1,7 @@
 import { checkBrain } from "../brain/check.js";
 import { brainPaths } from "../brain/paths.js";
+import { handbookPaths } from "../handbook/paths.js";
+import { INSTALLED_VERSION } from "./version.js";
 import { NO_BRAIN, brainFail } from "./brain-init.js";
 import { resolveReal } from "./fsutil.js";
 import { today } from "./lesson-add.js";
@@ -26,6 +28,16 @@ export const brainCheck: Handler = ({ root }) => {
         ],
         maxRules: brain.lessons.maxRules,
         reviewAfterDays: brain.lessons.reviewAfterDays,
+        today: today(),
+      },
+    }),
+    ...(brain.handbook && {
+      handbook: {
+        paths: handbookPaths(brain.dir),
+        maxPages: brain.handbook.maxPages,
+        reviewAfterDays: brain.handbook.reviewAfterDays,
+        installedVersion: INSTALLED_VERSION,
+        moduleIds: (modules?.items ?? []).map((m) => m.id),
         today: today(),
       },
     }),

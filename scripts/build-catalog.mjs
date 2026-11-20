@@ -34,12 +34,13 @@ export function splitPage(text) {
   return { front, frontLines, body: lines.slice(end + 1).join("\n") };
 }
 
-// The file a team gets: the source front matter plus origin and base, then the body.
+// The file a team gets: the source front matter plus origin and base, then the body. `base` is quoted: twelve digits with no
+// letter would be read as a number (and `12e3456…` as a float).
 export function shippedText(source, since) {
   const { front, frontLines, body } = splitPage(source);
   for (const k of ["origin", "base"]) if (k in front) throw new Error(`a base page does not carry '${k}': the generator adds it`);
   const origin = `liftoff@${since.split(".").slice(0, 2).join(".")}`;
-  return `---\n${frontLines.join("\n")}\norigin: ${origin}\nbase: ${fingerprint(front, body)}\n---\n${body}`;
+  return `---\n${frontLines.join("\n")}\norigin: ${origin}\nbase: "${fingerprint(front, body)}"\n---\n${body}`;
 }
 
 export function buildCatalog({ cwd = process.cwd(), version, write = false, max = MAX_REVISIONS } = {}) {
@@ -56,8 +57,13 @@ export function buildCatalog({ cwd = process.cwd(), version, write = false, max 
     const prev = byId.get(id);
     const revisions = prev ? [...prev.revisions] : [];
     const last = revisions[revisions.length - 1];
-    if (!last || last.base !== fp) {
-      revisions.push({ rev: (last?.rev ?? 0) + 1, since: version, base: fp, text: shippedText(source, version) });
+    if (!last) revisions.push({ rev: 1, since: version, base: fp, text: shippedText(source, version) });
+    else if (last.base !== fp) {
+      // A text that changed while its version is still the one in development has not reached any team: replace it. From the
+      // next version on a change is a new revision and the old one stays (bump the version before the first change after a tag).
+      const rev = { rev: last.since === version ? last.rev : last.rev + 1, since: version, base: fp, text: shippedText(source, version) };
+      if (last.since === version) revisions[revisions.length - 1] = rev;
+      else revisions.push(rev);
     }
     return { id, type: front.type, ...(front.status && { status: front.status }), revisions: revisions.slice(-max) };
   });

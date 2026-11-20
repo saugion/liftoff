@@ -97,6 +97,13 @@ function scan(lines: string[], from: number): { links: Link[]; quotes: Quote[] }
 // Relative links of any Markdown text (no front matter needed): hot.md, README.md and the like.
 export const scanLinks = (text: string): Link[] => scan(text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n"), 0).links;
 
+// Quote blocks of a Markdown file that starts with front matter (any keys): for pages with their own front matter validator.
+export function quotesOf(text: string): Quote[] {
+  const lines = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
+  const end = lines[0] === "---" ? lines.indexOf("---", 1) : -1;
+  return scan(lines, end + 1).quotes;
+}
+
 export function parsePage(text: string): Page {
   const lines = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n").split("\n");
   if (lines[0] !== "---") return { ok: false, errors: ["no front matter: the file must start with a --- line"] };
