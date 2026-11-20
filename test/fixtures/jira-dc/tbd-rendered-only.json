@@ -1,0 +1,16 @@
+{
+  "key": "PROJ-9",
+  "fields": {
+    "summary": "S",
+    "issuetype": {
+      "name": "Story"
+    },
+    "status": {
+      "name": "To Do"
+    },
+    "description": "h2. Context\nWhy.\n\nh2. Acceptance criteria\n* a"
+  },
+  "renderedFields": {
+    "description": "<h2>Context</h2><p>Out of scope: <em>TBD</em></p><h2>Acceptance criteria</h2><ul><li>a</li></ul>"
+  }
+}

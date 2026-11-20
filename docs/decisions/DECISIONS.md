@@ -209,4 +209,9 @@ the Brain skill's handbook Setup (Nina) and a handbook update with one page take
     executor of Plan and Build committed two sections on a standing approval without a preview, which the coordinator told it was a deviation.
 61. **Not exercised:** a real Jira (does `_TBD_` survive its markup, what does `jira_get_issue` return for a description with `*TBD*`), VS Code
     Copilot (the reviewer fallback, the commands, the hooks), a real GitLab. They are items of `docs/pilot-checklist.md`, not open decisions.
+62. **The three real-world checks are verifications, not open decisions** (Opus review, with no machine of the owner's attached to this session): for
+    each, the expected result and the fix if it differs are written (`docs/pilot-checklist.md`). `_TBD_` detection does not depend on Jira's
+    markup (any `TBD` word, in the description or, failing that, the rendered HTML); four shapes are fixtures in `test/fixtures/jira-dc/`, and the
+    real response, once someone has it, is dropped there as `tbd-real.json` and becomes a regression test. VS Code Copilot has a written fallback
+    for every missing piece; the fake `glab` covers the GitLab flow until a real one is tried.
 

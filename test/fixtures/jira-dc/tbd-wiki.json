@@ -1,0 +1,13 @@
+{
+  "key": "PROJ-9",
+  "fields": {
+    "summary": "S",
+    "issuetype": {
+      "name": "Story"
+    },
+    "status": {
+      "name": "To Do"
+    },
+    "description": "h2. Context\n\nWhy we do it.\n\nOut of scope: _TBD_\n\nh2. Acceptance criteria\n* a"
+  }
+}

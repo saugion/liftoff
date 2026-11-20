@@ -314,7 +314,7 @@ epics), work streams, and the optional project brain (shared wiki, personal laye
 **Supported:** Jira Server/Data Center through the community MCP server `mcp-atlassian`, one Jira project per repo.
 GitLab through `glab`. macOS. Claude Code and GitHub Copilot in VS Code.
 
-**Tested:** 1,900 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 1,906 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote, with a scripted stand-in for the agent. **Nothing has run yet against a real Jira Data Center, a real GitLab or
 a real agent following the skills** apart from scripted runs where an agent followed the brain and lessons skills against fakes. **The brain and the lessons loop have not been piloted.** Nothing has been measured. The control panel's server is tested end to end; its page has no automated browser test yet.
 
