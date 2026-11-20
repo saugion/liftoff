@@ -102,3 +102,34 @@ describe("brain.lessons", () => {
     expect(parseConfig(HEAD + `brain:\n  lessons:${body}\n`).ok).toBe(false);
   });
 });
+
+describe("brain.handbook", () => {
+  const HEAD5 = HEAD.replace('"0.4"', '"0.5"');
+  const parse5 = (extra: string) => {
+    const r = parseConfig(HEAD5 + extra);
+    if (!r.ok) throw new Error(JSON.stringify(r.errors));
+    return r.value;
+  };
+  it("`handbook: {}` takes the defaults, and explicit defaults hash the same", () => {
+    const empty = parse5("brain:\n  handbook: {}\n");
+    expect(empty.brain?.handbook).toEqual({ maxPages: 40, reviewAfterDays: 180 });
+    expect(configHash(parse5("brain:\n  handbook: { maxPages: 40, reviewAfterDays: 180 }\n"))).toBe(configHash(empty));
+  });
+  it("a brain without a handbook has no `handbook` key and keeps its hash", () => {
+    const plain = parse5("brain: {}\n");
+    expect("handbook" in plain.brain!).toBe(false);
+    expect(sectionHashes(plain).brain).toBe(sectionHashes(parse("brain: {}\n")).brain);
+  });
+  it("adding or changing the handbook changes only `brain`", () => {
+    const [a, b, c] = [parse5("brain: {}\n"), parse5("brain:\n  handbook: {}\n"), parse5("brain:\n  handbook: { maxPages: 20 }\n")];
+    expect(differing(a, b)).toEqual(["brain", "plugin"].filter((k) => k === "brain"));
+    expect(differing(b, c)).toEqual(["brain"]);
+  });
+  it("needs plugin.version 0.5, and the limits are ranges", () => {
+    const old = parseConfig(HEAD + "brain:\n  handbook: {}\n");
+    expect(old).toMatchObject({ ok: false, errors: [{ path: "/plugin/version", message: expect.stringContaining("0.5") }] });
+    for (const bad of ["maxPages: 5", "maxPages: 101", "reviewAfterDays: 10", "reviewAfterDays: 800", "colour: red"]) {
+      expect(parseConfig(HEAD5 + `brain:\n  handbook: { ${bad} }\n`).ok, bad).toBe(false);
+    }
+  });
+});

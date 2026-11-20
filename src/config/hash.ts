@@ -37,6 +37,10 @@ export function normalize(raw: RawConfig): Config {
             metrics: raw.brain.lessons.metrics ?? true,
           },
         }),
+        // Same for the handbook: a brain without one keeps the hash it had before the handbook existed.
+        ...(raw.brain.handbook && {
+          handbook: { maxPages: raw.brain.handbook.maxPages ?? 40, reviewAfterDays: raw.brain.handbook.reviewAfterDays ?? 180 },
+        }),
       },
     }),
     ...(raw.streams && { streams: Object.keys(raw.streams).length === 0 ? {} : normalizeStreams(raw.streams as RawStreams) }),

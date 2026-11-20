@@ -14302,6 +14302,7 @@ var MIN_JIRA_SERVER_VERSION = "0.22.0";
 var MIN_STREAMS_PLUGIN = "0.3";
 var MIN_BUILD_PLUGIN = "0.3";
 var MIN_BRAIN_PLUGIN = "0.4";
+var MIN_HANDBOOK_PLUGIN = "0.5";
 function projectsOf(config) {
   const { tracker } = connectors(config);
   if (!tracker) return [];
@@ -14410,6 +14411,9 @@ function connectorErrors(raw) {
     if ((compareVersions(raw.plugin.version, MIN_BRAIN_PLUGIN) ?? -1) < 0) {
       errors.push({ path: "/plugin/version", message: `the brain section needs plugin.version ${MIN_BRAIN_PLUGIN} or newer` });
     }
+    if (raw.brain.handbook && (compareVersions(raw.plugin.version, MIN_HANDBOOK_PLUGIN) ?? -1) < 0) {
+      errors.push({ path: "/plugin/version", message: `brain.handbook needs plugin.version ${MIN_HANDBOOK_PLUGIN} or newer` });
+    }
     const dir = (raw.brain.dir ?? "brain").split(/[\\/]/).filter((seg) => seg !== "" && seg !== ".");
     if (dir.length === 0) errors.push({ path: "/brain/dir", message: "the brain folder cannot be the repo root" });
     else if (dir[0].toLowerCase() === ".liftoff") errors.push({ path: "/brain/dir", message: "the shared brain cannot live under .liftoff (that folder is personal and ignored by git)" });
@@ -14485,6 +14489,10 @@ function normalize(raw) {
             reviewAfterDays: raw.brain.lessons.reviewAfterDays ?? 90,
             metrics: raw.brain.lessons.metrics ?? true
           }
+        },
+        // Same for the handbook: a brain without one keeps the hash it had before the handbook existed.
+        ...raw.brain.handbook && {
+          handbook: { maxPages: raw.brain.handbook.maxPages ?? 40, reviewAfterDays: raw.brain.handbook.reviewAfterDays ?? 180 }
         }
       }
     },
@@ -15072,6 +15080,22 @@ var liftoff_schema_default = {
               type: "boolean"
             }
           }
+        },
+        handbook: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            maxPages: {
+              type: "integer",
+              minimum: 10,
+              maximum: 100
+            },
+            reviewAfterDays: {
+              type: "integer",
+              minimum: 30,
+              maximum: 730
+            }
+          }
         }
       }
     }
@@ -15339,7 +15363,7 @@ var validate2 = ({ root }) => {
 };
 
 // package.json
-var package_default = { version: "0.4.0" };
+var package_default = { version: "0.5.0" };
 
 // src/cli/version.ts
 var INSTALLED_VERSION = package_default.version;
@@ -16587,7 +16611,7 @@ function openPoints(text) {
   for (const l of (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/)) {
     const h = headingOf(l);
     if (h) section = h.title.replace(/<[^>]+>/g, "").replace(/[*#]/g, "").trim();
-    if (l.includes("_TBD_")) out.push({ section, line: l.trim() });
+    if (/(^|[^A-Za-z0-9])TBD($|[^A-Za-z0-9])/.test(l)) out.push({ section, line: l.trim() });
   }
   return out;
 }
@@ -17199,7 +17223,7 @@ function checkPo(po, typeName, description) {
   }
   for (const f of PO_FIELDS) {
     const text = typeof given[f] === "string" ? given[f].trim() : "";
-    const answered = text !== "" && text !== TBD;
+    const answered = text !== "" && text.replace(/^[_*\s]+|[_*\s]+$/g, "").toUpperCase() !== "TBD";
     if (answered) {
       status[f] = "answered";
       texts.push(text);
