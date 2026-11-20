@@ -31,7 +31,7 @@ describe("po: the person's own words", () => {
     expect(checkPo(PO, "Story", text)).toMatchObject({ errors: [], warnings: [], status: { why: "answered", outOfScope: "answered" } });
   });
   it("a question the type asks, left unanswered, is a warning and never an error", () => {
-    for (const po of [undefined, {}, { why: "", outOfScope: "  " }, { why: "_TBD_", outOfScope: "_TBD_" }]) {
+    for (const po of [undefined, {}, { why: "", outOfScope: "  " }, { why: "_TBD_", outOfScope: "_TBD_" }, { why: "*TBD*", outOfScope: " tbd " }]) {
       const r = checkPo(po, "Story", text);
       expect(r.errors).toEqual([]);
       expect(codes(r.warnings)).toEqual(["po-decision-missing", "po-decision-missing"]);
@@ -168,6 +168,11 @@ describe("parse-ticket and _TBD_", () => {
     const b = parse("## Context\nx\n\n## Acceptance criteria\n* y");
     expect(b.openPoints).toEqual([]);
     expect(codes(b.warnings)).not.toContain("tbd-open-points");
+  });
+  it("finds a TBD whatever markup Jira gave it back in", () => {
+    for (const l of ["_TBD_", "*TBD*", "__TBD__", "TBD", "to be decided: TBD."]) expect(openPoints(`## Why\n${l}`), l).toHaveLength(1);
+    for (const l of ["TBDX", "ATBD", "tbd2"]) expect(openPoints(`## Why\n${l}`), l).toHaveLength(0);
+    expect(openPoints("<h2>Why</h2><p><em>TBD</em></p>")).toEqual([{ section: "Why", line: "TBD" }]);
   });
   it("reads Jira wiki headings and HTML too", () => {
     expect(openPoints("h2. Why\n_TBD_")).toEqual([{ section: "Why", line: "_TBD_" }]);

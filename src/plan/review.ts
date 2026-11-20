@@ -49,7 +49,7 @@ export function checkPo(po: unknown, typeName: string | undefined, description: 
   }
   for (const f of PO_FIELDS) {
     const text = typeof given[f] === "string" ? (given[f] as string).trim() : "";
-    const answered = text !== "" && text !== TBD;
+    const answered = text !== "" && text.replace(/^[_*\s]+|[_*\s]+$/g, "").toUpperCase() !== "TBD";
     if (answered) {
       status[f] = "answered";
       texts.push(text);
