@@ -140,8 +140,9 @@ for delegation. "Show my pilot metrics" gains one row. Nothing is sent anywhere.
 ## Open questions
 
 1. ~~Who counts as "the person"?~~ Decided: engineers get the same flow with the lighter table above.
-2. **Configurable per team?** A `tracker.issueTypes[].poQuestions` list (which sections are asked) in `liftoff.yaml`,
-   or fixed in the skill? Fixed is simpler for the pilot.
+2. ~~Configurable per team?~~ Decided 2026-11-20: one switch, `practices.ticket-po-review: on | nudge | off` in `liftoff.yaml`
+   (see `handbook.md`, rule 20). Which types ask what stays fixed in the skill and the CLI. Not built yet: today the flow is
+   always on.
 3. **A visible trace in Jira?** The footer line makes the review auditable and costs one line of noise per ticket.
 4. **Metrics without the brain.** Pilot metrics are switched on under `brain.lessons.metrics`, but Ticket works without a
    brain. Move the switch to a top-level key, or keep this signal tied to the brain?
