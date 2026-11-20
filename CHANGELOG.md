@@ -2,6 +2,15 @@
 
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 
+## Unreleased
+
+### Faster lookups in the brain
+
+- Each row of `brain/index.md` now carries the page's `updated` date and `module`, so the agent can pick pages without opening them.
+  An existing `index.md` shows as `index-stale` once: run `brain-index --write`.
+- `brain-index --write --hook` never fails (no brain or a broken one is a silent exit 0), for a Stop hook that keeps the index fresh.
+  The plugin ships no hooks, so the repo opts in: the Brain skill's Setup gives the snippet for `.claude/settings.json`.
+
 ## 0.5.0 (2026-11-20)
 
 ### The PO decides, the agent writes (Ticket)

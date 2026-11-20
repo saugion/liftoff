@@ -114,7 +114,7 @@ describe("brain-check structure", () => {
 
   it("a source kept on purpose after a retract is not an unfinished ingest", () => {
     const { dir, raw } = healthy();
-    put(dir, "brain/wiki/learnings/other.md", page("Other", [raw], `[r](reset.md)\n\n${quote(raw)}`));
+    put(dir, "brain/wiki/learnings/other.md", page("Other", [raw], `[r](reset.md)\n\n${quote(raw)}`, "module: api\n"));
     put(dir, "spare.md", "Spare text for a retracted source.\n");
     const spare = call(dir, "brain-source", "--kind", "doc", "--file", "spare.md", "--write").body.path.replace(/^brain\//, "");
     expect(codes(check(dir).body.warnings)).toContain("raw-unreferenced");

@@ -15883,13 +15883,13 @@ function buildIndex(pages) {
   const parsed = [];
   for (const p of pages) {
     const r = parsePage(p.text);
-    if (r.ok) parsed.push({ path: p.path, title: r.front.title, type: r.front.type, summary: r.front.summary });
+    if (r.ok) parsed.push({ path: p.path, title: r.front.title, type: r.front.type, summary: r.front.summary, updated: r.front.updated, ...r.front.module && { module: r.front.module } });
     else skipped.push({ path: p.path, errors: r.errors });
   }
   parsed.sort((a, b) => byCodeUnit(a.title.toLowerCase(), b.title.toLowerCase()) || byCodeUnit(a.title, b.title) || byCodeUnit(a.path, b.path));
   skipped.sort((a, b) => byCodeUnit(a.path, b.path));
   const sections = PAGE_TYPES.flatMap((type) => {
-    const rows = parsed.filter((p) => p.type === type).map((p) => `- [${escapeLabel(p.title)}](wiki/${p.path}) - ${p.summary}`);
+    const rows = parsed.filter((p) => p.type === type).map((p) => `- [${escapeLabel(p.title)}](wiki/${p.path}) - ${p.summary} (updated ${p.updated}${p.module ? `; module ${p.module}` : ""})`);
     return rows.length === 0 ? [] : [`## ${HEADINGS[type]}
 
 ${rows.join("\n")}
@@ -17535,7 +17535,7 @@ function wikiPages(wikiAbs, prefix = "") {
     return name.endsWith(".md") ? [{ path: rel, text: readFileSync11(join15(wikiAbs, rel), "utf8") }] : [];
   });
 }
-var brainIndex = ({ root, write }) => {
+var buildBrainIndex = ({ root, write }) => {
   const read2 = readConfigWithPin(root);
   if (read2.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read2) } };
   if (!read2.config.brain) return brainFail("no-brain", NO_BRAIN);
@@ -17560,6 +17560,11 @@ var brainIndex = ({ root, write }) => {
     handbook = { path: hp.index, content: built.content, changed: hchanged, skipped: built.skipped, written: write === true && hchanged };
   }
   return { exitCode: 0, body: { ok: true, path: paths.index, content, changed, skipped, written: write === true && changed, ...handbook && { handbook } } };
+};
+var brainIndex = (ctx) => {
+  const out = buildBrainIndex(ctx);
+  if (!ctx.hook || out.exitCode === 0) return out;
+  return { exitCode: 0, body: { ok: true, skipped: true, reason: out.body.errors } };
 };
 
 // src/cli/brain-source.ts
@@ -18923,7 +18928,7 @@ var connectInfo = ({ root }) => {
 };
 
 // src/cli/main.ts
-var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics|pilot-metrics|handbook-init|handbook-status|handbook-update|handbook-retire|handbook-seen|clean-review> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--page <id>] [--reason <text>] [--approve] [--write] | --help";
+var USAGE = "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics|pilot-metrics|handbook-init|handbook-status|handbook-update|handbook-retire|handbook-seen|clean-review> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--page <id>] [--reason <text>] [--approve] [--write] [--hook] | --help";
 var handlers = {
   validate: validate2,
   "check-config": checkConfigCommand,
@@ -18973,6 +18978,7 @@ function run(argv, cwd, table = handlers) {
           key: { type: "string" },
           approve: { type: "boolean" },
           write: { type: "boolean" },
+          hook: { type: "boolean" },
           kind: { type: "string" },
           help: { type: "boolean" }
         }
@@ -18993,6 +18999,9 @@ function run(argv, cwd, table = handlers) {
     if ((values.page !== void 0 || values.reason !== void 0) && !command.startsWith("handbook-")) {
       return usageError(root, "--page and --reason are only valid for the handbook commands");
     }
+    if (values.hook && command !== "brain-index") {
+      return usageError(root, "--hook is only valid for brain-index");
+    }
     if (values.review && command !== "draft-tickets") {
       return usageError(root, "--review is only valid for draft-tickets");
     }
@@ -19005,7 +19014,7 @@ function run(argv, cwd, table = handlers) {
     } catch {
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
-    const outcome = table[command]({ root, overwrite: values.overwrite ?? [], file: values.file, review: values.review, page: values.page, reason: values.reason, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
+    const outcome = table[command]({ root, overwrite: values.overwrite ?? [], file: values.file, review: values.review, page: values.page, reason: values.reason, key: values.key, approve: values.approve, write: values.write, hook: values.hook, kind: values.kind });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

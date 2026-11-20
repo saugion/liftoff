@@ -27,12 +27,17 @@ describe("buildIndex", () => {
     expect(content).toBe(
       [
         INDEX_MARKER, "", "# Index", "",
-        "## Modules", "", "- [API](wiki/modules/api.md) - The HTTP API.", "",
-        "## Decisions", "", "- [Use Postgres](wiki/decisions/d.md) - About Use Postgres.", "",
-        "## Learnings", "", "- [Alpha](wiki/learnings/a.md) - About Alpha.", "- [Alpha](wiki/learnings/a2.md) - About Alpha.", "- [beta](wiki/learnings/b.md) - About beta.", "",
-        "## Topics", "", "- [Zeta](wiki/topics/zeta.md) - About Zeta.", "",
+        "## Modules", "", "- [API](wiki/modules/api.md) - The HTTP API. (updated 2026-11-19)", "",
+        "## Decisions", "", "- [Use Postgres](wiki/decisions/d.md) - About Use Postgres. (updated 2026-11-19)", "",
+        "## Learnings", "", "- [Alpha](wiki/learnings/a.md) - About Alpha. (updated 2026-11-19)", "- [Alpha](wiki/learnings/a2.md) - About Alpha. (updated 2026-11-19)", "- [beta](wiki/learnings/b.md) - About beta. (updated 2026-11-19)", "",
+        "## Topics", "", "- [Zeta](wiki/topics/zeta.md) - About Zeta. (updated 2026-11-19)", "",
       ].join("\n"),
     );
+  });
+
+  it("a page with a module shows it in its row", () => {
+    const text = page("M", "topic").replace("sources:", "module: api\nsources:");
+    expect(buildIndex([{ path: "topics/m.md", text }]).content).toContain("- [M](wiki/topics/m.md) - About M. (updated 2026-11-19; module api)");
   });
 
   it("a type without pages has no heading", () => {
@@ -88,6 +93,24 @@ describe("brain-index command", () => {
     expect(w.body).toMatchObject({ changed: true, written: true });
     expect(readFileSync(join(dir, "brain/index.md"), "utf8")).toBe(dry.body.content);
     expect(idx(dir, "--write").body).toMatchObject({ changed: false, written: false });
+  });
+
+  it("--hook writes like --write, and a repo without a brain is a silent exit 0", () => {
+    const dir = repo();
+    init(dir);
+    put(dir, "brain/wiki/topics/t.md", page("T", "topic"));
+    expect(idx(dir, "--write", "--hook").body).toMatchObject({ ok: true, written: true });
+    expect(idx(dir).body).toMatchObject({ changed: false });
+    const none = makeRepo({ targets: "[claude-code]", modules: [], pluginVersion: "0.4" });
+    const r = idx(none, "--write", "--hook");
+    expect(r.exitCode).toBe(0);
+    expect(r.body).toMatchObject({ ok: true, skipped: true });
+    expect(idx(none).exitCode).toBe(1);
+  });
+
+  it("--hook is refused on other commands", () => {
+    const r = run(["validate", "--hook"], repo());
+    expect(r.exitCode).toBe(2);
   });
 
   it("lists a broken page in skipped and still exits 0", () => {
