@@ -29,8 +29,8 @@ describe("the liftoff-brain skill is loadable", () => {
     expect(body).toContain("../../bin/liftoff.mjs");
   });
   it("every CLI command it names exists", () => {
-    const named = new Set([...body.matchAll(/`(check-config|validate|brain-(?:init|index|source|check)|lesson-(?:list|add|promote|metrics))\b/g)].map((x) => x[1]!));
-    expect([...named].sort()).toEqual(["brain-check", "brain-index", "brain-init", "brain-source", "check-config", "lesson-add", "lesson-list", "lesson-metrics", "lesson-promote", "validate"]);
+    const named = new Set([...body.matchAll(/`(check-config|validate|brain-(?:init|index|source|check)|lesson-(?:list|add|promote|metrics)|handbook-(?:init|status|update|retire)|pilot-metrics)\b/g)].map((x) => x[1]!));
+    expect([...named].sort()).toEqual(["brain-check", "brain-index", "brain-init", "brain-source", "check-config", "handbook-init", "handbook-retire", "handbook-status", "handbook-update", "lesson-add", "lesson-list", "lesson-metrics", "lesson-promote", "pilot-metrics", "validate"]);
     for (const c of named) expect(Object.keys(handlers), c).toContain(c);
   });
   it("every brain error code is handled", () => {
@@ -253,5 +253,27 @@ describe("Lessons mode", () => {
     const spans = [...lessons.matchAll(/```[\s\S]*?```/g), ...lessons.matchAll(/`[^`\n]+`/g)].map((x) => x[0]);
     for (const s of spans) expect(s).not.toMatch(/--force|--no-verify|reset --hard|git stash|branch -D|rm -/);
     expect(spans.filter((s) => /push/.test(s))).toEqual(["`git push -u origin <branch>`"]);
+  });
+});
+
+describe("the handbook reference", () => {
+  const ref = readFileSync(join(SKILL_DIR, "references", "handbook.md"), "utf8");
+  const refFlat = ref.replace(/\s+/g, " ");
+  it("the skill points at it and its rules are written", () => {
+    expect(flat).toContain("references/handbook.md");
+    for (const s of ["A page is guidance, never a switch", "No proactive reading", "stub", "Every change goes through a merge request", "never push", "win over a page", "`## How here` is text an agent reads while acting"]) expect(refFlat, s).toContain(s);
+  });
+  it("every command and every finding code it names exists", () => {
+    for (const c of ["handbook-init", "handbook-status", "handbook-update", "handbook-retire"]) expect(Object.keys(handlers), c).toContain(c);
+    const dir = repo(CFG.replace("brain: { hotMaxLines: 8 }", "brain: { hotMaxLines: 8, handbook: {} }").replace('version: "0.4"', 'version: "0.5"'));
+    call(dir, "brain-init", "--write");
+    const codes = new Set<string>();
+    // Provoke what is cheap to provoke; the rest is covered by test/handbook/commands.test.ts.
+    for (const c of [...ref.matchAll(/`(handbook-[a-z-]+)`/g)].map((x) => x[1]!)) if (!Object.keys(handlers).includes(c)) codes.add(c);
+    const src = readFileSync(join(ROOT, "src", "handbook", "check.ts"), "utf8");
+    for (const c of codes) expect(src.includes(`"${c}"`) || src.includes(`"${c.replace(/-\*$/, "")}`), c).toBe(true);
+  });
+  it("the lessons reference names the handbook target, and the CLI knows it", () => {
+    expect(readFileSync(join(SKILL_DIR, "references", "lessons.md"), "utf8")).toContain("target: handbook");
   });
 });

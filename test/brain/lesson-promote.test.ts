@@ -85,6 +85,14 @@ describe("lesson-promote: add", () => {
     expect(read(dir, ".liftoff/brain/lessons/api-test-command.md")).toContain("Run the API tests with");
   });
 
+  it("a lesson for the handbook produces a message and no file change: the skill writes the page, never AGENTS.md", () => {
+    const dir = setup();
+    lesson(dir, { key: "why-verify", rule: "We verify with the nightly fixture, so a fresh clone needs `make fixtures` first.", target: "handbook" });
+    const { body } = promote(dir, { add: [{ key: "why-verify" }] }, "--write");
+    expect(body).toMatchObject({ files: [], branch: null, commitMessage: null, gitAdd: [], lead: [], handbook: [{ key: "why-verify", message: expect.stringContaining("handbook page") }], promoted: ["why-verify"] });
+    expect(read(dir, "AGENTS.md")).toBe(AGENTS);
+    expect(read(dir, "CONSTRAINTS.md")).toBe(CONSTRAINTS);
+  });
   it("a lesson for the lead produces a message and no file change", () => {
     const dir = setup();
     lesson(dir, { key: "branch-names", rule: "Branches are named feature/<KEY>-<slug>.", target: "lead" });

@@ -4,7 +4,7 @@ description: >
   The project's second brain: a shared wiki in the repo that the team's agents read before planning and keep up to
   date, plus a personal layer that is never committed. Use when the user says "liftoff brain", "second brain",
   "set up the brain", "what do we know about ...", "ask the wiki", "remember that I ...", or asks what the project
-  already knows. Needs a `brain` section in liftoff.yaml (the lead adds it with this skill's Setup).
+  already knows; also "the handbook", "how do we ..." (the team's way of working with AI), "show my pilot metrics". Needs a `brain` section in liftoff.yaml (the lead adds it with this skill's Setup).
 license: Apache-2.0
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *)
 ---
@@ -47,7 +47,7 @@ from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.
 
 Commands used here: `check-config`, `validate`, `brain-init [--write]`, `brain-index [--write]`,
 `brain-source --kind <ticket|plan|mr|doc|lesson> --file <path> [--write]`, `brain-check`; for Lessons (step 8): `lesson-list`,
-`lesson-add [--write]`, `lesson-promote [--write]`, `lesson-metrics`. Without `--write` a command only
+`lesson-add [--write]`, `lesson-promote [--write]`, `lesson-metrics`; for the handbook (step 9): `handbook-init [--page <id>] [--write]`, `handbook-status [--page <id>]`, `handbook-update --page <id> [--write]`, `handbook-retire --page <id> --reason <text> [--write]`; for the pilot counters, `pilot-metrics`. Without `--write` a command only
 plans and writes nothing. Stdout is always **one JSON document**; read it whatever the exit code. Exit 2 or stdout
 that is not JSON means something is wrong with the environment: show `message` or stderr and stop.
 
@@ -125,6 +125,7 @@ without its own yes.
    `AGENTS.md`, `.gitattributes` and the settings files that were changed or created), and say the personal layer is never
    committed. Do not commit for the user.
 5. Remind the lead that teammates run the Init skill to get the structure on their machine.
+6. **Optional extra, its own yes: the handbook.** Offer it once (what it is is in step 9); never apply it without a yes.
 
 ## 3. Ingest
 
@@ -217,3 +218,9 @@ block), then the git commands per `build.git` (**yes 2**). A personal lesson is 
 lesson and a retirement from the constraints block each need their own explicit yes. **Never push, never open a merge
 request:** the team reviews the rules in a merge request the engineer opens. Without `lessons` the `lesson-*` commands
 answer `no-lessons`: say the lead enables it.
+
+## 9. The living handbook (only with `brain.handbook`)
+
+Read `references/handbook.md` before you act: Setup, Query, the loop (status, updates, retire, the question after a build, a lesson for
+the handbook) and what each `handbook-*` finding means. The rules there hold: a page is guidance and never a switch; the ticket,
+`AGENTS.md`, `CONSTRAINTS.md` and the code win; read it only on demand; a stub is not read; every change is a merge request.
