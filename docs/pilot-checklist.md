@@ -85,8 +85,10 @@ After editing a skill on disk, run `/reload-plugins`. `claude plugin validate <r
    in itself. Time it, and count the questions (target: two, plus one round of assumptions).
 2. The PO answers one and says "don't know" to the other: the ticket carries a visible `_TBD_` in that section, `draft-tickets`
    warns `po-decision-missing`, and the ticket is still created.
-3. **`_TBD_` survives Jira.** Read that ticket back with `jira_get_issue` and run `parse-ticket`: `openPoints` lists the section. If
-   Jira's markup returns `*TBD*`, `<em>TBD</em>` or something else, note exactly what, and fix `openPoints`.
+3. **`_TBD_` through Jira.** Read that ticket back with `jira_get_issue`, save the raw response as `test/fixtures/jira-dc/tbd-real.json` (key
+   `PROJ-9`) and run `parse-ticket --file` on it. **Expected:** `openPoints` lists the section and `tbd-open-points` is a warning, whether Jira
+   hands back `_TBD_`, `*TBD*`, an escaped form or only the rendered HTML (all four shapes are fixtures already). The file you add becomes a
+   regression test. If it does not, add the variant to `openPoints` and a fixture: that is the whole fix.
 4. Plan on that ticket stops and asks to settle the `_TBD_` before the outline, and does not invent a scope.
 5. The agent lists what it added as numbered assumptions. Does the PO answer them one by one, or type "ok" to everything?
    Count both. Does a PO who answers nothing and changes nothing still get a `ready` batch (they must not: a review file with
@@ -134,9 +136,11 @@ Start a volunteer repo on v0.4 after the first two weeks of the v0.3 pilot.
    entry or scenario).
 4. `practices.clean-review: on`, Claude Code: the `liftoff-reviewer` subagent is found in the installed plugin, is really read-only, and runs on
    the session's model. Is its JSON usable as it comes? How many findings per change, and how many does the engineer refuse?
-5. **VS Code Copilot (nobody has checked it):** does the plugin's `agents/` folder load; is there a subagent or custom agent for the clean
+5. **VS Code Copilot (to check by a person with VS Code; the pages say "not verified" until then):** does the plugin's `agents/` folder load; is there a subagent or custom agent for the clean
    review, else does the fresh-session fallback work; do `/clear`, `/rename`, hooks and the cache settings exist; can a hook rewrite or cut a
    tool's output; how does Copilot bill context (the pages say nothing about it until this is checked); is there a limit to the number of tools.
+   **Expected, so the answer is a tick and not a decision:** if `agents/` does not load, the clean review uses its fresh-session fallback (already
+   written in Build step 6b and the page); if a command or a hook is missing, the pages already say what to do without it.
 6. Context hygiene: run `brain-check` on a real repo: which warnings fire, and are the defaults (200 lines, 40 hooks, 5 MCP servers) sensible?
 7. The nudge line (`I did X because ... (handbook: id)`): does the second time read as a pointer, not noise?
 8. The metric: after a PO week, `pilot-metrics` shows the share of batches approved with no question answered and no change.

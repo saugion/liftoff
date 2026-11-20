@@ -18586,7 +18586,8 @@ var parseTicketCommand = ({ root, file }) => {
   if (reading.acceptanceCriteria.source === "none") warnings.push({ code: "no-acceptance-criteria", message: "no acceptance criteria found with the reading map: ask the engineer, do not invent them" });
   if (!ticket.description) warnings.push({ code: "empty-description", message: "the ticket has no description" });
   if (project.stream && project.inherited) warnings.push({ code: "types-inherited", message: `stream ${project.stream.id} has no issue types of its own: read with the tracker's; its workflow may differ, ask the lead to learn them with the Connect skill` });
-  const open = openPoints(ticket.description);
+  const fromText = openPoints(ticket.description);
+  const open = fromText.length > 0 || !ticket.rendered ? fromText : openPoints(ticket.rendered);
   if (open.length > 0) {
     const where = [...new Set(open.map((o) => o.section || "(no section)"))].join(", ");
     warnings.push({ code: "tbd-open-points", message: `the ticket still says _TBD_ in: ${where}. Settle each with the product owner before the outline; do not guess it and do not invent scope` });
