@@ -138,7 +138,7 @@ for delegation. "Show my pilot metrics" gains one row. Nothing is sent anywhere.
 - **Unverified against a real agent.** Like the rest of the skills, the wording is tested for rules and drift, not for
   how a real agent follows it. A smoke run with the `smoke-test` skill should come before any release.
 
-## Open questions
+## The questions that were open (all decided)
 
 All decided on 2026-11-20 (the last four by a design review recorded in `DECISIONS.md`).
 

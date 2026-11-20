@@ -223,7 +223,7 @@ anything is added. So everything that adds a step to Plan or Build is off by def
   Copilot is not verified. A page for it must say what to do without one.
 - **Tokens.** The handbook is read on demand and each page is capped, so the cost is the nudge line plus the one page a step needs.
 
-## Open questions
+## The questions that were open (all decided)
 
 All seven were decided with the product owner on 2026-11-20.
 
