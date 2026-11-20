@@ -17,7 +17,7 @@ the engineer's (Ticket flow 15), which supersedes Plan and Build 5, 6, 17 and Ti
 **Proposal after v0.4:** [The living handbook](handbook.md) (not built).
 **Draft after v0.4:** [Handbook practice: context hygiene](handbook-practice-context-hygiene.md) (pages and checks, not built).
 
-Contents: [After v0.4 (0.5.0)](#after-v04-050-unreleased) · [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket flow, work streams, git option, epics, release](#ticket-flow-work-streams-git-option-epics-release)
+Contents: [After v0.4 (0.5.0)](#after-v04-050) · [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket flow, work streams, git option, epics, release](#ticket-flow-work-streams-git-option-epics-release)
 
 
 ## Connect (0.2)
@@ -148,15 +148,15 @@ Contents: [After v0.4 (0.5.0)](#after-v04-050-unreleased) · [Connect](#connect-
     the loopback address is refused (DNS rebinding); writes must be JSON (so a form on another site cannot post); a strict
     CSP. No credential is ever sent to the page or accepted by it.
 
-## After v0.4 (0.5.0, unreleased)
+## After v0.4 (0.5.0)
 
 Decided with the product owner on 2026-11-20 and built the same day; a design pass by an Opus agent settled what the specs left open.
 The designs are in `ticket-po-review.md`, `handbook.md` and `handbook-practice-context-hygiene.md`. Numbers continue the list above.
 
-44. **Version 0.5.0 on `main`, no tag.** Like 0.2.0 and 0.3.0 before it: `package.json`, `plugin.json` and the marketplace fragment say
+44. **Version 0.5.0, tagged after the merge (the owner asked for it on 2026-11-20).** First built untagged, like 0.2.0 and 0.3.0 before it: `package.json`, `plugin.json` and the marketplace fragment say
     0.5.0, and the fragment points at a `v0.5.0` tag that does not exist until it is released. Tagging stays the owner's. The tests that
     use "a pin newer than the installed plugin" moved to 0.6 and 0.5.1.
-45. **The pilot rule holds.** Everything that adds a step to Plan or Build (`verify-first`, `clean-review`) is off by default; the PO review of
+45. **The pilot rule holds.** (v0.5.0 was tagged anyway, at the owner's explicit request, with the pilot not yet run.) Everything that adds a step to Plan or Build (`verify-first`, `clean-review`) is off by default; the PO review of
     tickets is on by default because the product owner called it essential, and `practices.ticket-po-review` turns it down or off.
 46. **`practices` and `pilot`** are new top-level sections (plugin 0.5). Unknown ids are errors; only written keys enter the hash;
     `connect-info` and `parse-ticket` return the resolved modes (handbook.md, rules 20-22).

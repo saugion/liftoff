@@ -1,6 +1,6 @@
 # The living handbook
 
-Status: **built (2026-11-20), phases A, B and C, in version 0.5.0 on `main`, untagged and unpiloted.** Rules 1-8 were decided with the
+Status: **built (2026-11-20), phases A, B and C, in version 0.5.0 (tag `v0.5.0` after the merge), unpiloted.** Rules 1-8 were decided with the
 product owner; rules 9-27 are what the design needed on top of them, reviewed by an Opus design pass (see `DECISIONS.md`). It builds on
 the project brain (`src/brain/*`, the Brain skill), which has not been piloted either. Everything that adds a step to Plan or Build is
 **off by default** (`practices`, rule 20), so the README's pilot rule holds: nothing changes for a team that does not turn it on.

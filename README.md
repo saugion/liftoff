@@ -6,7 +6,7 @@ the team writes its rules down once, in one file, and every engineer's agent fol
 ticket, write a plan, write the code and prepare the merge request, all the way the team does it. The engineer approves
 every step and stays in charge.
 
-Current release: **v0.4.0**, built and tested, not yet piloted (the pilot runs on v0.3.0; the project brain is new in v0.4). `main` is at **0.5.0**, unreleased and untagged: the PO's review of tickets, the living handbook and the practices below. See [Status](#status-and-limits).
+Current release: **v0.5.0**, built and tested, not yet piloted (the pilot runs on v0.3.0; the project brain is new in v0.4, and v0.5 adds the PO's review of tickets, the living handbook and the practices below). See [Status](#status-and-limits).
 
 **What a team gets**
 
@@ -258,11 +258,11 @@ Homebrew, after you approve.
 Claude Code:
 
 ```
-/plugin marketplace add saugion/liftoff#v0.4.0
+/plugin marketplace add saugion/liftoff#v0.5.0
 /plugin install liftoff@liftoff
 ```
 
-The `#v0.4.0` tag installs exactly that release. A team already piloting on v0.3.0 stays on its tag until it chooses to move.
+The `#v0.5.0` tag installs exactly that release (`#v0.4.0` is the previous one). A team already piloting on v0.3.0 stays on its tag until it chooses to move.
 
 VS Code with GitHub Copilot: turn on `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install `liftoff`.
 Plugin support in VS Code is partly experimental, and the pilot will check this path.
@@ -309,7 +309,7 @@ The repo pins the plugin to a release tag in `.claude/settings.json` (`ref`), an
 **Built in v0.4.0:** Init, Connect (member and lead flows), Plan, Build with the `build.git` option, Ticket (with
 epics), work streams, and the optional project brain (shared wiki, personal layer, lessons loop).
 
-**Unreleased (on `main`, 0.5.0):** the [control panel](#control-panel-optional) (`liftoff-ui`); the [PO's review of tickets, the living handbook, `verify-first` and `clean-review`](#the-po-decides-and-the-living-handbook), `practices` and `pilot` in `liftoff.yaml`, and the context-hygiene checks. Nothing in them has been piloted, and the steps that add work to Plan and Build are off until the lead turns them on. Not checked anywhere: a real Jira (does `_TBD_` survive its markup?) and VS Code Copilot (the reviewer's fallback and the commands the pages mention): see `docs/pilot-checklist.md`.
+**Built in v0.5.0:** the [control panel](#control-panel-optional) (`liftoff-ui`); the [PO's review of tickets, the living handbook, `verify-first` and `clean-review`](#the-po-decides-and-the-living-handbook), `practices` and `pilot` in `liftoff.yaml`, and the context-hygiene checks. Nothing in them has been piloted, and the steps that add work to Plan and Build are off until the lead turns them on. Not checked anywhere: a real Jira (does `_TBD_` survive its markup?) and VS Code Copilot (the reviewer's fallback and the commands the pages mention): see `docs/pilot-checklist.md`.
 
 **Supported:** Jira Server/Data Center through the community MCP server `mcp-atlassian`, one Jira project per repo.
 GitLab through `glab`. macOS. Claude Code and GitHub Copilot in VS Code.
