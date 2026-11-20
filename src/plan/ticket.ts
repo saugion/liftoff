@@ -139,3 +139,16 @@ export function readWithMap(t: Ticket, type: IssueType | undefined): Reading {
   const fields = (type?.readingMap.fields ?? []).map((f) => ({ id: f.id, label: f.label, value: fieldText(t, f.id) }));
   return { acceptanceCriteria, fields: fields.filter((f) => f.value), missing: fields.filter((f) => !f.value).map((f) => f.id) };
 }
+
+// Places where the ticket still says `_TBD_`: the section it sits in (nearest heading above, or "" before any) and the
+// line. An answer nobody gave: Plan settles it with the person, never with a guess.
+export function openPoints(text: string): { section: string; line: string }[] {
+  const out: { section: string; line: string }[] = [];
+  let section = "";
+  for (const l of (/<h[1-6]/i.test(text) ? fromHtml(text) : text).split(/\r?\n/)) {
+    const h = headingOf(l);
+    if (h) section = h.title.replace(/<[^>]+>/g, "").replace(/[*#]/g, "").trim();
+    if (l.includes("_TBD_")) out.push({ section, line: l.trim() });
+  }
+  return out;
+}

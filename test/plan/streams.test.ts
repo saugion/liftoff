@@ -27,7 +27,8 @@ const draft = (body: unknown, config = WITH) => {
   const dir = repo(config, { "d.json": JSON.stringify(body) });
   return cli(["draft-tickets", "--root", dir, "--file", "d.json"]);
 };
-const story = { type: "Story", summary: "Add login", description: "## Context\nx\n\n## Acceptance criteria\n* y", priority: "High", labels: ["backend"] };
+const PO = { why: "Shoppers abandon the cart when they must register first", outOfScope: "Social login" };
+const story = { type: "Story", summary: "Add login", description: `## Context\n${PO.why}. Not in this ticket: ${PO.outOfScope}\n\n## Acceptance criteria\n* y`, priority: "High", labels: ["backend"], po: PO };
 
 describe("parse-ticket on a stream", () => {
   const parse = (ticket: object) => {
@@ -123,10 +124,10 @@ describe("draft-tickets", () => {
     expect(draft({ tickets: [story] }, none).body.tickets[0].errors.map((e: any) => e.code)).toContain("no-issue-types");
   });
   it("template conformance is a warning per missing section", () => {
-    const { body } = draft({ tickets: [{ ...story, description: "## Context\nonly" }] });
+    const { body } = draft({ tickets: [{ ...story, description: `## Context\n${PO.why} ${PO.outOfScope}` }] });
     expect(body.tickets[0].ok).toBe(true);
     expect(body.tickets[0].warnings).toEqual([{ code: "template-section-missing", message: expect.stringContaining("acceptance criteria") }]);
-    expect(draft({ tickets: [{ ...story, description: "h2. Context\nx\nh2. Acceptance Criteria\ny" }] }).body.tickets[0].warnings).toEqual([]);
+    expect(draft({ tickets: [{ ...story, description: `h2. Context\n${PO.why} ${PO.outOfScope}\nh2. Acceptance Criteria\ny` }] }).body.tickets[0].warnings).toEqual([]);
   });
   it("hostile text stays data: it is in the JSON args, never in a command string", () => {
     const evil = "x'; rm -rf / #`$(id)";

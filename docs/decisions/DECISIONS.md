@@ -13,7 +13,7 @@ The specs these notes cite (`SPEC*.md`) were removed from the working tree; they
 streams and epics are built, so Plan and Build 1 and 14 are history. The merge request and the ticket's lane are always
 the engineer's (Ticket flow 15), which supersedes Plan and Build 5, 6, 17 and Ticket flow 13.
 
-**Proposal after v0.4:** [Ticket flow: the PO decides, the agent writes](ticket-po-review.md) (not built).
+**After v0.4:** [Ticket flow: the PO decides, the agent writes](ticket-po-review.md) (CLI checks and skill text built, not piloted).
 
 Contents: [Connect](#connect-02) · [Plan and Build](#plan-and-build) · [Ticket flow, work streams, git option, epics, release](#ticket-flow-work-streams-git-option-epics-release)
 

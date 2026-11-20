@@ -21,7 +21,7 @@ import { validate } from "./validate.js";
 export type { CliError, Context, ErrorCode, Handler, Outcome, RunResult } from "./types.js";
 
 export const USAGE =
-  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--key <KEY>] [--approve] [--write] | --help";
+  "liftoff <validate|check-config|render|connect-info|parse-ticket|plan|draft-tickets|brain-init|brain-index|brain-source|brain-check|lesson-add|lesson-list|lesson-promote|lesson-metrics> [--kind <ticket|plan|mr|doc|lesson>] [--root <abs-dir>] [--overwrite <path>]... [--file <ticket.json>] [--review <review.json>] [--key <KEY>] [--approve] [--write] | --help";
 
 // The registry of commands: a name is valid only if it is a key here.
 export const handlers: Record<string, Handler> = {
@@ -65,6 +65,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
           root: { type: "string" },
           overwrite: { type: "string", multiple: true },
           file: { type: "string" },
+          review: { type: "string" },
           key: { type: "string" },
           approve: { type: "boolean" },
           write: { type: "boolean" },
@@ -86,6 +87,9 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
     if (values.overwrite && command !== "render") {
       return usageError(root, "--overwrite is only valid for render");
     }
+    if (values.review && command !== "draft-tickets") {
+      return usageError(root, "--review is only valid for draft-tickets");
+    }
     if (values.write && !WRITE_COMMANDS.has(command)) {
       return usageError(root, "--write is only valid for brain-init, brain-index, brain-source, lesson-add and lesson-promote");
     }
@@ -97,7 +101,7 @@ export function run(argv: string[], cwd: string, table: Record<string, Handler> 
     }
     if (!isDir) return usageError(root, "--root must be an existing directory");
 
-    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
+    const outcome = table[command]!({ root, overwrite: values.overwrite ?? [], file: values.file, review: values.review, key: values.key, approve: values.approve, write: values.write, kind: values.kind });
     return json(root, outcome.exitCode, outcome.body);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

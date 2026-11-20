@@ -37,7 +37,8 @@ export interface RunResult {
 export interface Context {
   root: string; // absolute
   overwrite: string[];
-  file?: string; // parse-ticket
+  file?: string; // parse-ticket, draft-tickets
+  review?: string; // draft-tickets
   key?: string; // plan
   approve?: boolean; // plan
   kind?: string; // brain-source

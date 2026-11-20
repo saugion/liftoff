@@ -2,6 +2,7 @@ import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { connectors, projectsOf } from "../config/index.js";
 import { checkTicket, type ModuleContext } from "../plan/draft.js";
+import { checkReview } from "../plan/review.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
 import type { Handler, Outcome } from "./types.js";
 
@@ -10,7 +11,7 @@ const MAX_BYTES = 2_000_000;
 const MAX_TICKETS = 200;
 
 // Read-only. Checks a batch of drafts against the team config and returns the exact creation calls. Calls nothing.
-export const draftTicketsCommand: Handler = ({ root, file }) => {
+export const draftTicketsCommand: Handler = ({ root, file, review }) => {
   if (!file) return fail("usage", "draft-tickets needs --file <drafts.json>", 2);
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
@@ -37,6 +38,23 @@ export const draftTicketsCommand: Handler = ({ root, file }) => {
   for (const p of projectsOf(read.config)) if (p.stream?.module) streamOf.set(p.stream.module, p.stream.id);
   const mods: ModuleContext = { modules: new Set((read.config.modules?.items ?? []).map((m) => m.id)), streamOf };
   const tickets = doc.tickets.map((t, i) => checkTicket(t, i, tracker, info, mods, doc.tickets as unknown[]));
+  // The person's review of what the agent added on its own. The batch is `ready` only when it is complete.
+  let reviewRaw: unknown;
+  let reviewProblem: string | undefined;
+  if (review) {
+    try {
+      const rp = resolve(root, review);
+      if (statSync(rp).size > MAX_BYTES) reviewProblem = `${review} is larger than ${MAX_BYTES} bytes`;
+      else reviewRaw = JSON.parse(readFileSync(rp, "utf8"));
+    } catch (e) {
+      reviewProblem = `cannot read ${review} as JSON: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+  const descriptions = (doc.tickets as unknown[]).map((t) => (typeof (t as { description?: unknown } | null)?.description === "string" ? (t as { description: string }).description : undefined));
+  const reviewReport = reviewProblem
+    ? { provided: true, ok: false, errors: [{ code: "review-invalid", message: reviewProblem }], warnings: [], assumptions: { total: 0, confirmed: 0, changed: 0, dropped: 0, unanswered: 0 } }
+    : checkReview(reviewRaw, descriptions);
+  const allOk = tickets.every((t) => t.ok);
   return {
     exitCode: 0,
     body: {
@@ -45,7 +63,9 @@ export const draftTicketsCommand: Handler = ({ root, file }) => {
       stream: info.stream ? { id: info.stream.id, mode: info.stream.mode, module: info.stream.module ?? null, epics: info.stream.epics } : null,
       inheritedTypes: info.inherited,
       count: tickets.length,
-      allOk: tickets.every((t) => t.ok),
+      allOk,
+      review: reviewReport,
+      ready: allOk && reviewReport.ok,
       tickets,
     },
   };

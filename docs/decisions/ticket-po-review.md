@@ -1,7 +1,11 @@
 # Ticket flow: the PO decides, the agent writes
 
-Status: **proposal, not built.** Decided with the product owner on 2026-11-20; the numbered rules below are the decisions, the
-rest is the design that follows from them. Nothing here is in the skills or the CLI yet.
+Status: **CLI checks and skill text built (2026-11-20); not run against a real agent; the metric is not built.** Decided with
+the product owner; the numbered rules below are the decisions, the rest is the design that follows from them.
+
+What exists: `draft-tickets` takes a `po` field per ticket and a `--review` file and answers `ready`; `parse-ticket` reports
+`openPoints`; the Ticket and Plan skills say what to do with them; unit and end-to-end tests cover it. What does not: the
+`ticket-reviewed` metric (see "The signal"), and any run with a real agent.
 
 ## Why
 
@@ -42,7 +46,9 @@ piece and does not depend on the project brain, which has not been piloted.
 | Task | asked | optional | listed |
 | Bug | not asked (steps, expected and actual are facts the skill already asks) | optional | listed |
 
-This is a starting point; the lead may want it configurable (see open questions).
+Engineers who file a bug or a task get the same flow with this table (decided 2026-11-20), so a bug asks nothing about the
+why and a task asks the why. The type is matched by its Jira name (`Epic`, `Story`, `User Story`, `Bug`); any other name (a
+team that names its types in its own language) is treated like a Task. The lead may want this configurable (open question 2).
 
 ## The flow, step by step
 
@@ -52,20 +58,31 @@ Changes are to `plugin/skills/liftoff-ticket/SKILL.md`, steps 3 to 5. Steps 1, 2
 out-of-scope questions that the table above requires. If the person's first message already answers one, the agent
 quotes it back and does not ask again.
 
-**4. Draft (extended).** The agent writes from the type's template as today, with two rules: the why and out-of-scope
-sections carry the person's answers, and every sentence the agent added that the person did not say is recorded as an
-assumption in a local review file, `.liftoff/tmp/review-<n>.json`, next to the drafts file:
+**4. Draft (extended).** The agent writes from the type's template as today, with two rules: the description carries the
+person's answers as they said them, and each ticket in the drafts file has a `po` object with those same words:
 
 ```json
-{ "tickets": [ { "ref": "#0",
-  "said": ["why", "outOfScope"],
-  "assumptions": [ { "id": 1, "text": "Reset link expires after 24 hours", "section": "Acceptance criteria", "source": "agent" } ] } ] }
+{ "type": "Story", "summary": "...", "description": "...", "po": { "why": "the person's words", "outOfScope": "the person's words" } }
+```
+
+Every sentence the agent added that the person did not say is recorded as an assumption in a local review file,
+`.liftoff/tmp/review-<n>.json`, with one entry per ticket (an empty list is fine). The person's answer goes into the same file:
+
+```json
+{ "tickets": [ { "ref": "#0", "assumptions": [
+  { "id": 1, "text": "Reset link expires after 24 hours", "section": "Acceptance criteria", "answer": "confirmed" },
+  { "id": 2, "text": "Email in plain text", "answer": "changed", "final": "Email in HTML and plain text" },
+  { "id": 3, "text": "Rate limit of 5 per hour", "answer": "dropped" } ] } ] }
 ```
 
 **5. Review (extended).** Show, per ticket: the preview, then *what you told me* (the why and out-of-scope, verbatim),
 then the numbered assumptions. Ask the person to answer in one message ("1 ok, 2 change to 48 hours, 3 drop"). Apply the
 changes to the drafts, run `draft-tickets` again, and only then ask the single batch approval. A change after the yes
 asks for a fresh yes, as today.
+
+**Create only when `ready`.** `draft-tickets --file <drafts> --review <review>` answers `ready: true` only when every ticket is
+valid (`allOk`) and the review is complete. Without a review file it answers `ready: false` with `review-missing`, so the
+agent cannot skip the review by forgetting it.
 
 **What is written in the ticket.** Nothing visible in Jira changes except the two sections. Whether to add a one-line
 footer ("Why and scope written by the PO; N assumptions confirmed") is an open question below.
@@ -74,21 +91,30 @@ footer ("Why and scope written by the PO; N assumptions confirmed") is an open q
 
 Deterministic, tested, in the CLI (`draft-tickets`):
 
-- the required why and out-of-scope sections are present in the template for the type, or the lead is told to teach them
-  with Connect;
-- a `_TBD_` left in a why or out-of-scope section raises a `po-decision-missing` warning;
-- the review file is well formed and every assumption has an answer before the batch is marked ready (a new `review`
-  check; the agent cannot skip it by forgetting).
+- a question the type asks and the person did not answer (absent, blank or `_TBD_` in `po`) raises `po-decision-missing`, a
+  warning: the ticket can be created, nothing is guessed. The per-ticket result carries `po` (`answered`, `missing`,
+  `not-asked`);
+- the person's words must be in the description, whitespace aside (`po-text-not-in-description`, a warning), and are
+  checked for credentials like the rest of the ticket;
+- the review file is well formed: one entry per ticket, every assumption has an id, a text and one of `confirmed`,
+  `changed` (with `final`) or `dropped`; an unanswered one is `assumption-unanswered`. A confirmed or changed text missing
+  from the description, or a dropped one still in it, is a warning;
+- `ready` is true only when `allOk` and the review is complete.
+
+The check does not require a section of a given name in the template: the template of a team may have none for the why, and
+the skill puts the words in the section that fits best (it already did this for scope exclusions).
 
 Judgment, in the skill: which statements are assumptions, how to word the questions, how to keep the person's words.
 
 ## Plan reads it
 
-Plan already reads the ticket through the reading map. Two additions, in `parse-ticket` and the Plan skill: a `_TBD_` in
-the why or out-of-scope section is reported as an open point to settle with the PO before the outline, and Plan does not
-invent a scope. This is what gives the PO's answers weight downstream.
+Plan already reads the ticket through the reading map. Two additions, in `parse-ticket` and the Plan skill: any `_TBD_` in
+the description is reported as `openPoints` (with the section it sits in) and a `tbd-open-points` warning, and the Plan skill
+settles each one with the engineer and the PO before the outline and does not invent a scope. It is not limited to the why
+and the out-of-scope, because the CLI cannot know which heading is which in a team's template; any `_TBD_` is a decision
+nobody took. This is what gives the PO's answers weight downstream.
 
-## The signal
+## The signal (not built)
 
 One local event, written only when pilot metrics are on, with no key, text or name:
 
@@ -113,8 +139,7 @@ for delegation. "Show my pilot metrics" gains one row. Nothing is sent anywhere.
 
 ## Open questions
 
-1. **Who counts as "the person"?** An engineer filing a bug or a task is not a PO. Same flow, lighter table (above), or
-   skip the why for engineers?
+1. ~~Who counts as "the person"?~~ Decided: engineers get the same flow with the lighter table above.
 2. **Configurable per team?** A `tracker.issueTypes[].poQuestions` list (which sections are asked) in `liftoff.yaml`,
    or fixed in the skill? Fixed is simpler for the pilot.
 3. **A visible trace in Jira?** The footer line makes the review auditable and costs one line of noise per ticket.
@@ -124,11 +149,14 @@ for delegation. "Show my pilot metrics" gains one row. Nothing is sent anywhere.
 
 ## Test plan
 
-- Unit: `draft-tickets` warns `po-decision-missing` on `_TBD_` in a required section; rejects a review file with an
-  unanswered assumption; accepts one with all answered.
-- `parse-ticket`: reports a `_TBD_` why or scope as an open point.
-- End to end (fake Jira, as in `test/e2e/`): a story batch with answered questions is created; one with a skipped why is
-  created with the `_TBD_` and the warning; one with an unanswered assumption is not created.
-- Skill drift test: the skill text mentions the questions, the review file and the single approval.
+- Unit (`test/plan/po-review.test.ts`, built): `po-decision-missing` for each unanswered question and type; the words must
+  be in the description; the review file shape, answers, refs and warnings; `ready` with and without a review; `--review`
+  only for `draft-tickets`; `openPoints` in Markdown, Jira wiki and HTML.
+- End to end (built): the scripted agent in `new-project` and `templates-smoke` now sends `po` and a review file, and
+  every batch must be `ready` before it is created in the fake Jira.
+- Skill drift test (built): the Ticket and Plan skills name the questions, the review file, `ready`, the warnings and
+  `openPoints`, and each name exists in the real CLI output.
+- Still to do: a case where the scripted agent sends a skipped why (created with the warning) and one with an unanswered
+  assumption (not created).
 - A smoke run with agents (`smoke-test`): a PO who answers, a PO who clicks "yes" to everything, and a PO who changes an
   assumption.
