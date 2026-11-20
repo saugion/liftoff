@@ -15,21 +15,22 @@ export interface Skipped {
 const byCodeUnit = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 const escapeLabel = (s: string): string => s.replace(/[[\]\\]/g, "\\$&");
 
+// Each row carries the page's date and module, so a reader (or the agent) can pick pages without opening them.
 // Pure. The same pages in any order give the same bytes. A page whose front matter does not parse is left out
 // and reported in `skipped`, so one bad page never blocks the index.
 export function buildIndex(pages: IndexPage[]): { content: string; skipped: Skipped[] } {
   const skipped: Skipped[] = [];
-  const parsed: { path: string; title: string; type: PageType; summary: string }[] = [];
+  const parsed: { path: string; title: string; type: PageType; summary: string; updated: string; module?: string }[] = [];
   for (const p of pages) {
     const r = parsePage(p.text);
-    if (r.ok) parsed.push({ path: p.path, title: r.front.title, type: r.front.type, summary: r.front.summary });
+    if (r.ok) parsed.push({ path: p.path, title: r.front.title, type: r.front.type, summary: r.front.summary, updated: r.front.updated, ...(r.front.module && { module: r.front.module }) });
     else skipped.push({ path: p.path, errors: r.errors });
   }
   parsed.sort((a, b) => byCodeUnit(a.title.toLowerCase(), b.title.toLowerCase()) || byCodeUnit(a.title, b.title) || byCodeUnit(a.path, b.path));
   skipped.sort((a, b) => byCodeUnit(a.path, b.path));
 
   const sections = PAGE_TYPES.flatMap((type) => {
-    const rows = parsed.filter((p) => p.type === type).map((p) => `- [${escapeLabel(p.title)}](wiki/${p.path}) - ${p.summary}`);
+    const rows = parsed.filter((p) => p.type === type).map((p) => `- [${escapeLabel(p.title)}](wiki/${p.path}) - ${p.summary} (updated ${p.updated}${p.module ? `; module ${p.module}` : ""})`);
     return rows.length === 0 ? [] : [`## ${HEADINGS[type]}\n\n${rows.join("\n")}\n`];
   });
   const body = sections.length === 0 ? "_No pages yet._\n" : sections.join("\n");

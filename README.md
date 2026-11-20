@@ -149,7 +149,7 @@ lead adds a `brain` section to `liftoff.yaml` (the Brain skill's Setup does it, 
 ```
 brain/                      committed, reviewed in merge requests like code
   README.md   hot.md        what it is; a few lines of "what is going on now"
-  index.md                  generated list of every page
+  index.md                  generated list of every page, with its date and module
   raw/                      the sources, copied once and never edited (named by their content)
   wiki/                     pages: modules, decisions, learnings, each fact quoted from a source in raw/
   log/                      one line per ingest, retract or fix
@@ -160,6 +160,9 @@ brain/                      committed, reviewed in merge requests like code
   the source, then the pages, then the commit, each with its own yes. *Query* answers from the wiki by reading
   the hot notes, the index and only the pages the question needs. *Health check* reports contradictions and stale
   pages and changes nothing. *Retract* removes a wrong source's facts from the pages that cite it.
+- **The index keeps itself fresh, if you want.** `brain-index --write` regenerates it. To run it after every agent turn, add one
+  hook to the repo's `.claude/settings.json` (the plugin ships none): `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"node <path-to>/liftoff.mjs brain-index --write --hook"}]}]}}`.
+  `--hook` never fails, so a repo without a brain sees nothing. `brain-check` reports `index-stale` in CI either way.
 - **Quotes are checked, not trusted.** Every key fact is a blockquote copied word for word from a raw source, and
   `brain-check` verifies each one against the file. A raw source is written only by a command that never overwrites;
   a later edit shows up as an error. The check proves structure and quotes, not truth: a wrong source gives a

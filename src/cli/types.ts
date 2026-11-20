@@ -45,6 +45,7 @@ export interface Context {
   approve?: boolean; // plan
   kind?: string; // brain-source
   write?: boolean; // brain-init, brain-index, brain-source
+  hook?: boolean; // brain-index: run as a hook, never fail
 }
 
 // What a command handler returns; `run` adds `root` and serializes it.

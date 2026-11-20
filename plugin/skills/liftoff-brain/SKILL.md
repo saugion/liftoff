@@ -176,7 +176,10 @@ is a report only:
 
 **A health check changes nothing.** Run it also after a merge or a pull: git can merge `index.md` cleanly and still leave
 it listing only one side's pages, which `brain-check` reports as `index-stale`; the fix is always `brain-index --write`,
-never merging the index by hand. A fix you propose goes through the same three approvals as an ingest (step 3, log op
+never merging the index by hand.
+To stop the index going stale at all, the lead can opt in to one hook in the repo's `.claude/settings.json` (this plugin ships
+no hooks; show the diff and wait for a yes): `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"node \"<abs path to liftoff.mjs>\" brain-index --write --hook"}]}]}}`.
+`--hook` never fails and prints nothing the agent must act on. A fix you propose goes through the same three approvals as an ingest (step 3, log op
 `fix`).
 
 ## 6. Retract a source

@@ -19,7 +19,7 @@ function wikiPages(wikiAbs: string, prefix = ""): IndexPage[] {
 }
 
 // Builds index.md from the pages' front matter; with --write writes it only when it changed.
-export const brainIndex: Handler = ({ root, write }) => {
+const buildBrainIndex: Handler = ({ root, write }) => {
   const read = readConfigWithPin(root);
   if (read.kind !== "ok") return { exitCode: 1, body: { ok: false, errors: readFailure(root, read) } };
   if (!read.config.brain) return brainFail("no-brain", NO_BRAIN);
@@ -47,4 +47,12 @@ export const brainIndex: Handler = ({ root, write }) => {
     handbook = { path: hp.index, content: built.content, changed: hchanged, skipped: built.skipped, written: write === true && hchanged };
   }
   return { exitCode: 0, body: { ok: true, path: paths.index, content, changed, skipped, written: write === true && changed, ...(handbook && { handbook }) } };
+};
+
+// With --hook (the plugin's Stop hook) the command never fails: no brain, no wiki or a broken one is reported in the body
+// and the exit code is 0, so a repo without a brain sees nothing. Without --hook it behaves as before.
+export const brainIndex: Handler = (ctx) => {
+  const out = buildBrainIndex(ctx);
+  if (!ctx.hook || out.exitCode === 0) return out;
+  return { exitCode: 0, body: { ok: true, skipped: true, reason: out.body.errors } };
 };
