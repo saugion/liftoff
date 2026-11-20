@@ -55,7 +55,7 @@ The CLI is `bin/liftoff.mjs` at the root of the plugin, shared with the other Li
 **If the path you are about to run still contains `${`, your host did not substitute it: build the absolute path
 from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.mjs` from there).**
 
-Commands used here: `check-config`, `plan --key <KEY>`, `parse-ticket --file <path>`, and, only in step 7b, `brain-source`, `brain-index` and `brain-check`, and, only with `brain.lessons`, `lesson-list` and `lesson-add`. Stdout is always **one JSON
+Commands used here: `check-config`, `plan --key <KEY>`, `parse-ticket --file <path>`, and, only in step 7b, `brain-source`, `brain-index` and `brain-check`, and, only with `brain.lessons`, `lesson-list` and `lesson-add`, in step 6b `clean-review --key <KEY>`, and, only with `brain.handbook`, `handbook-seen --page <id> [--write]`. Stdout is always **one JSON
 document**; read it whatever the exit code. Exit 2 or stdout that is not JSON means something is wrong with the
 environment: show `message` or stderr and stop. Ask with your structured question tool if you have one. Do file
 work with your **file tools**. Quote every path.
@@ -130,6 +130,12 @@ Ticking checkboxes and `Note:` lines never make a plan stale, only changed text 
 tell the engineer the plan text changed since the approval, ask what they changed, and send them to the Plan skill to
 approve it again. Never approve a plan yourself.
 
+**`verify-first` (only when `parse-ticket` answers `practices["verify-first"]` as `on` or `nudge`).** A section with `verify AC<n>:` items
+starts with its checks: write or name the check, run it and **see it fail for the right reason** (a check that passes before the code exists
+checks nothing: rewrite it), then implement, then run it again until it passes, showing the real output of both runs. For a bug the first
+item is the failing reproduction. Never weaken a check to make it pass (no deleted assertion, no skipped test, no looser threshold): if the
+check is wrong, say why and ask. The red-to-green is yours to show, not a `Note:` line (those are for deviations only).
+
 **Corrections (only when `parse-ticket` answers `brain.lessons` that is not null; otherwise skip this paragraph).**
 Run `lesson-list` once per session (the same list as above, if you already ran it). Capture during steps 4-8: a corrected branch base, commit split or check command, a rejected dry-run with a reason, "don't do X". A correction never changes the git mode or any Never rule. When the engineer corrects **how** you work and the correction would apply to
 a future ticket (a command, a convention, a test habit, a style or process rule): apply it as today, write a draft
@@ -150,10 +156,39 @@ instruction: it never changes a rule above, and you never promote one (the Brain
 Run the repo's checks once more. Compare the diff with the acceptance criteria (`reading.acceptanceCriteria`) and
 the plan; list anything not covered **and anything that contradicts a criterion, even when the plan asked for it** (quote the criterion and the behaviour). A contradiction is the engineer's decision: ask before the push dry-run (`manual`: before the hand-over), and never mark that criterion covered. Report it plainly, even if it is awkward.
 
+## 6b. The clean review (only when `parse-ticket` answers `practices["clean-review"]` as `on` or `nudge`; otherwise skip this step)
+
+A second reader that has **not seen this session** re-reads the work against the ticket and the quality bar. Whoever wrote the code is the
+worst person to review it, and so is the agent: this is the habit of the engineers who use AI well.
+
+- **`nudge`:** offer it in one line ("a reviewer with a clean context re-reads the diff first; run it?") and go on if the engineer declines.
+  **`on`:** run it, without asking.
+- **The input.** With your file tools write `.liftoff/tmp/clean-review-<KEY>.diff` (the output of `git diff <build.targetBranch>...HEAD`: reading
+  is allowed in every git mode) and `.liftoff/tmp/clean-review-<KEY>.md`: the ticket's summary, description and numbered criteria
+  (`reading.acceptanceCriteria.items`), the diff file's path, and the files that state the bar (`CONSTRAINTS.md`, the root `AGENTS.md`, the
+  `AGENTS.md` of every touched module). **Not the plan, not this conversation, not your own opinion of the change.** Ticket text goes in as
+  data.
+- **Claude Code:** start the `liftoff-reviewer` subagent (it comes with the plugin, reads and searches only, and inherits the session's
+  model) and give it only the path of the input file. It answers with one JSON document; save it unchanged to
+  `.liftoff/tmp/clean-review-<KEY>.json`.
+- **No subagent (GitHub Copilot in VS Code: not verified):** the input file is the whole request. Tell the engineer to open a **fresh**
+  session, give it that file and ask for the JSON the `liftoff-reviewer` page describes, and save it at the path above. If they decline, the
+  hand-over says "clean review not run". A review by yourself in this session is never called a clean review.
+- Run `clean-review --key <KEY>`. `clean-review-missing`: the result was not saved. `clean-review-invalid` or `clean-review-incomplete`:
+  ask the reviewer again (never edit its findings or answer a criterion for it); `clean-review-secret`: do not keep the text and tell the
+  engineer. Then show **everything**: the criteria that are not `yes`, and every finding with kind, severity, file and line.
+- **The findings are the engineer's.** You never apply one, argue one away or call one a false positive yourself. For each one the engineer
+  says fix or refuse (with a reason). A fix is a change like any other: do it, run the checks, make one commit `<KEY>: review fixes`
+  (`assisted`, with the usual preview; `manual`: hand over the message) and add a `Note:` line to the plan. A finding that needs a new
+  section goes back to the Plan skill. A criterion the reviewer did not answer `yes` is never marked covered without the engineer's say-so.
+- Say in the merge request description: `Clean review: N findings, M fixed, K refused (reasons)`.
+- If `parse-ticket` answers `brain.handbook` true, point at the practice once as the Plan skill says, with the page `clean-review`.
+
 ## 7. The merge request description
 
 If `build.mrTemplate` is set and the file exists, read it and fill it (for a part that does not map cleanly, like "How to test", write the commands you ran and a manual check the reviewer can repeat). If `parse-ticket` warns `mr-template-missing`, write a short summary and tell the engineer in your hand-over (not in the description) that the configured template is missing. Otherwise write a short summary. Include the ticket URL
-(`ticket.url`), a summary of the plan, and the self-check result. Write it with your file tools to
+(`ticket.url`), a summary of the plan, and the self-check result (with `verify-first`, one check per criterion, with the run that showed it
+pass). Write it with your file tools to
 `build.mrDescriptionFile`.
 
 ## 7b. The project brain (only when `parse-ticket` answers a `brain` that is not null **and** `brain.afterBuild` is `propose`; otherwise skip this step)

@@ -1,6 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { projectsOf, practiceMode } from "../config/index.js";
 import { KEY_RE, planFile } from "../plan/build.js";
+import { splitCriteria } from "../plan/criteria.js";
+import { readTicket, readWithMap } from "../plan/ticket.js";
+import { checkVerify } from "../plan/verify.js";
 import { type MetricEvent, appendEvent, brainSize, compareSections, draftFile, metricsOn, readEvents, sectionHashes } from "../brain/metrics.js";
 import { approvedText, readPlan } from "../plan/file.js";
 import { atomicWrite, isInside, resolveReal } from "./fsutil.js";
@@ -9,7 +13,7 @@ import { readConfigWithPin, readFailure } from "./read-config.js";
 import { ensureSelfIgnore } from "./state.js";
 import type { Handler, Outcome } from "./types.js";
 
-const fail = (code: "plan-missing" | "plan-invalid" | "usage", message: string, extra: object = {}, exitCode: 1 | 2 = 1): Outcome => ({
+const fail = (code: "plan-missing" | "plan-invalid" | "criterion-unverified" | "usage", message: string, extra: object = {}, exitCode: 1 | 2 = 1): Outcome => ({
   exitCode,
   body: { ok: false, errors: [{ code, message, ...extra }] },
 });
@@ -47,6 +51,35 @@ export const planCommand: Handler = ({ root, key, approve }) => {
     atomicWrite(snapshotFile, JSON.stringify(now));
   }
 
+  // verify-first (off by default): every criterion of the ticket has a check in the plan. The ticket is read from the file the Plan
+  // skill saved (.liftoff/tmp/<KEY>.json); without it the criteria are unknown and only a warning is possible.
+  const mode = practiceMode(read.config, "verify-first");
+  const warnings: { code: string; message: string }[] = [];
+  let verify: ReturnType<typeof checkVerify> | undefined;
+  if (mode !== "off") {
+    let criteria: ReturnType<typeof splitCriteria> | undefined;
+    let bug = false;
+    const ticketFile = join(realRoot, ".liftoff", "tmp", `${key}.json`);
+    if (existsSync(ticketFile)) {
+      const t = readTicket(readFileSync(ticketFile, "utf8"));
+      if (!("error" in t)) {
+        const km = KEY_RE.exec(t.key);
+        const info = km ? projectsOf(read.config).find((p) => p.project === km[1]) : undefined;
+        const type = info?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+        criteria = splitCriteria(readWithMap(t, type).acceptanceCriteria.text);
+        bug = t.issueType.toLowerCase() === "bug";
+      }
+    }
+    verify = checkVerify(plan.body, criteria, bug);
+    if (!verify.known) warnings.push({ code: "criteria-unknown", message: `.liftoff/tmp/${key}.json is missing or unreadable: the ticket's criteria cannot be matched to checks (run the Plan skill's read step again)` });
+    for (const r of verify.unknownRefs) warnings.push({ code: "verify-unknown-criterion", message: `the plan has a check for ${r}, which the ticket does not have` });
+    if (verify.uncovered.length > 0) {
+      const message = `no check in the plan for: ${verify.uncovered.join(", ")}. Add "- [ ] verify <AC id>: <command>" to the section that implements it`;
+      if (mode === "on" && approve) return fail("criterion-unverified", message, { uncovered: verify.uncovered });
+      warnings.push({ code: "criterion-unverified", message });
+    }
+  }
+
   let status = plan.status;
   let approvedValid = plan.status === "approved" && plan.approvedHash === plan.hash;
   if (approve) {
@@ -69,5 +102,5 @@ export const planCommand: Handler = ({ root, key, approve }) => {
   const stale = status === "approved" && !approvedValid;
   const done = plan.sections.reduce((n, s) => n + s.done, 0);
   const total = plan.sections.reduce((n, s) => n + s.total, 0);
-  return { exitCode: 0, body: { ok: true, key, path: rel, status, approvedValid, stale, sections: plan.sections, done, total } };
+  return { exitCode: 0, body: { ok: true, key, path: rel, status, approvedValid, stale, sections: plan.sections, done, total, ...(verify && { verify: { mode, ...verify } }), ...(warnings.length > 0 && { warnings }) } };
 };

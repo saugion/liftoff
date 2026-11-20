@@ -11,7 +11,7 @@ export type ErrorCode =
   | "internal";
 
 // Codes of the Plan and Build commands. Kept apart from ErrorCode (v1) on purpose.
-export type PlanErrorCode = "no-tracker" | "ticket-invalid" | "plan-missing" | "plan-invalid" | "ticket-draft-invalid" | "tracker-read-only";
+export type PlanErrorCode = "no-tracker" | "ticket-invalid" | "plan-missing" | "plan-invalid" | "ticket-draft-invalid" | "tracker-read-only" | "criterion-unverified" | "clean-review-missing" | "clean-review-invalid";
 
 // Codes of the brain commands.
 export type BrainErrorCode = "no-brain" | "brain-invalid" | "source-invalid" | "source-secret";

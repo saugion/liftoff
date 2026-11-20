@@ -13,6 +13,7 @@
     "verify-first": "off",
     "clean-review": "off"
   },
+  "handbook": false,
   "streams": [],
   "mcp": [],
   "credential": null,

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { brainPaths } from "../brain/paths.js";
 import { connectors, projectsOf, resolvedPractices } from "../config/index.js";
 import { KEY_RE, buildInfo } from "../plan/build.js";
+import { splitCriteria } from "../plan/criteria.js";
 import { openPoints, readTicket, readWithMap } from "../plan/ticket.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
 import type { Handler, Outcome } from "./types.js";
@@ -57,6 +58,8 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
   const lessons = read.config.brain?.lessons;
   const brain = read.config.brain && (({ dir, hot, index, personalHot }) => ({
     dir, hot, index, personalHot, afterBuild: read.config.brain!.afterBuild,
+    // the living handbook: whether the lead turned it on (the skills then point at a page when they apply a practice)
+    handbook: read.config.brain!.handbook !== undefined,
     // the lessons loop: null unless the lead turned it on inside the brain
     lessons: lessons ? { capture: lessons.capture, promoteAfter: lessons.promoteAfter, metrics: lessons.metrics } : null,
   }))(brainPaths(read.config.brain.dir));
@@ -70,7 +73,7 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
       ticket: { key: ticket.key, url: `${tracker.url}/browse/${ticket.key}`, summary: ticket.summary, issueType: ticket.issueType, ...(ticket.status && { status: ticket.status }), description: ticket.description },
       known: type !== undefined,
       stream: project.stream ? { id: project.stream.id, mode: project.stream.mode, module: project.stream.module ?? null, epics: project.stream.epics } : null,
-      reading: { acceptanceCriteria: reading.acceptanceCriteria, fields: reading.fields },
+      reading: { acceptanceCriteria: { ...reading.acceptanceCriteria, items: splitCriteria(reading.acceptanceCriteria.text) }, fields: reading.fields },
       openPoints: open,
       warnings,
       build: { git: read.config.build?.git ?? "assisted", ...buildInfo(ticket, tracker, type, codeHost) },

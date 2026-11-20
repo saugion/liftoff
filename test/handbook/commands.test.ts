@@ -220,6 +220,35 @@ describe("brain-check with a handbook", () => {
   });
 });
 
+describe("handbook-seen: how a skill points at a page", () => {
+  it("the first two times in full, then the id alone; the count is personal and survives a damaged file", () => {
+    const dir = ready();
+    const seen = (...extra: string[]) => call(dir, "handbook-seen", "--page", "verify-first", ...extra).body;
+    expect(seen()).toMatchObject({ form: "full", seen: 0, summary: expect.stringContaining("check that fails") });
+    expect(seen("--write")).toMatchObject({ form: "full", seen: 1 });
+    expect(seen("--write")).toMatchObject({ form: "full", seen: 2 });
+    expect(seen("--write")).toMatchObject({ form: "id", seen: 3 });
+    expect(read(dir, ".liftoff/brain/handbook-seen.json")).toContain('"verify-first":3');
+    put(dir, ".liftoff/brain/handbook-seen.json", "{ damaged");
+    expect(seen()).toMatchObject({ form: "full", seen: 0 });
+  });
+  it("a stub, an absent or an invalid page is never pointed at", () => {
+    const dir = ready();
+    const form = (id: string) => call(dir, "handbook-seen", "--page", id).body.form;
+    expect(form("how-we-test")).toBe("none");
+    unlinkSafe(dir, `${HB}/small-slices.md`);
+    expect(form("small-slices")).toBe("none");
+    put(dir, `${HB}/review-ai-code.md`, "nope");
+    expect(form("review-ai-code")).toBe("none");
+    expect(call(dir, "handbook-seen")).toMatchObject({ exitCode: 2 });
+  });
+  it("never touches a tracked file, and the personal file is ignored by git", () => {
+    const dir = ready();
+    call(dir, "handbook-seen", "--page", "verify-first", "--write");
+    expect(read(dir, ".liftoff/.gitignore").trim()).toBe("*");
+  });
+});
+
 describe("brain-index with a handbook", () => {
   it("regenerates the handbook index too, and says nothing about it without a handbook", () => {
     const dir = ready();

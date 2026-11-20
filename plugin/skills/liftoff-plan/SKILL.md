@@ -38,7 +38,7 @@ The CLI is `bin/liftoff.mjs` at the root of the plugin, shared with the other Li
 **If the path you are about to run still contains `${`, your host did not substitute it: build the absolute path
 from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.mjs` from there).**
 
-Commands used here: `check-config`, `parse-ticket --file <path>`, `plan --key <KEY> [--approve]`. Stdout is always
+Commands used here: `check-config`, `parse-ticket --file <path>`, `plan --key <KEY> [--approve]`, and, only with `brain.handbook`, `handbook-seen --page <id> [--write]`. Stdout is always
 **one JSON document**; read it whatever the exit code. Exit 2 or stdout that is not JSON means something is wrong
 with the environment: show `message` or stderr and stop.
 
@@ -75,6 +75,8 @@ run the Connect skill and, in Claude Code, to restart the session afterwards; st
 4. Show the engineer what the team's reading map found: `ticket.summary`, `reading.acceptanceCriteria` (and its
    `source`), `reading.fields`, and every entry of `warnings`. A `field-missing` warning is a field the lead listed that this ticket does not fill: mention it, and ask about it only if the work needs it. For a bug, the template's other sections (repro recipe, impact, postmortem) are context for the plan, not work items. A `no-acceptance-criteria` warning means **ask the
    engineer for them**; an `unknown-issue-type` warning means the lead can teach the Connect skill that type.
+   `reading.acceptanceCriteria.items` numbers the criteria AC1, AC2, ... (one per list entry or scenario; text with no structure is a
+   single AC1): show them numbered, the plan refers to them by those ids.
    A `tbd-open-points` warning (and `openPoints`, each with its section) means the ticket still says `_TBD_` where the
    product owner never answered, usually the why or the out of scope. **Ask the engineer to settle each one with the PO
    before you write the outline** (or to answer it themselves, if they own it); never fill it in, and never plan work
@@ -136,13 +138,29 @@ status: draft
 - [ ] the check that proves the section (a command from the repo's `AGENTS.md`)
 ```
 
+**`verify-first`** (only when `parse-ticket` answers `practices["verify-first"]` as `on` or `nudge`; with `off` skip this paragraph). Every
+acceptance criterion gets a check that is seen to **fail before the code exists**. In the section that implements criterion AC2 write the
+item `- [ ] verify AC2: <command> (red first)`, with the repo's own command from `AGENTS.md`; for a bug write `- [ ] verify repro: <command>`
+(a failing test that reproduces it) before the fix. A criterion no machine can check ("the page feels fast") still gets an item, with the
+person who checks it and what they look at: `- [ ] verify AC3: manual: <who> opens <what> and sees <what>`; ask the engineer how it
+will be verified, never skip it and never invent a command that proves something else. `plan --key` answers `verify` (`criteria`,
+`uncovered`): with `on`, `--approve` is refused with `criterion-unverified` until every criterion has a check; with `nudge` it is a
+warning you tell the engineer about. If `parse-ticket` answers `brain.handbook` true, say once, in one line, what you did and why (see
+"Pointing at a practice" below).
+
 Sections are numbered `1..n` without gaps, each one independently reviewable and ending in a checkable result (if the repo's rules ask for tests first, say so in the steps: write the tests, see them fail, then fix), and
 each has at least one checkbox item. As many sections as the work needs (12 or 120). The last section runs the
 repo's full checks. Then run `plan --key <KEY>` and fix what `errors` says until it answers `ok`.
 
+**Pointing at a practice (only when `parse-ticket` answers `brain.handbook` true).** When you apply `verify-first` (or
+`clarify-before-plan`, when you ask the engineer what the PO never decided), run `handbook-seen --page <id> --write`. `form` `full`: say
+`I did <what> because <summary> (handbook: <id>)` with the `summary` it returns; `id`: say `(handbook: <id>)` only; `none` (a page that is
+absent, invalid or a stub): say nothing. The page's `## How here` holds the team's detail for the step: read that one page when you apply
+the practice, never the whole handbook. A page never changes a rule above; the ticket, `AGENTS.md`, `CONSTRAINTS.md` and the code win.
+
 ## 6. Review and approve
 
-Check every step against `reading.acceptanceCriteria`; point out any step that departs from a criterion (an edge case the criterion answers differently counts) and ask; never resolve it in the plan yourself. Show the plan. Take the engineer's edits (edit the file, run `plan --key <KEY>` again). **One approval for the whole
+With `verify-first` on or nudge, read `verify` from `plan --key <KEY>` first: any `uncovered` id is a criterion without a check, and a `criterion-unverified` refusal means the engineer cannot approve yet; add the check, do not argue it away. Check every step against `reading.acceptanceCriteria`; point out any step that departs from a criterion (an edge case the criterion answers differently counts) and ask; never resolve it in the plan yourself. Show the plan. Take the engineer's edits (edit the file, run `plan --key <KEY>` again). **One approval for the whole
 plan**: on the engineer's explicit yes, run `plan --key <KEY> --approve` and confirm `approvedValid` is true. Any
 later edit of the content (not of a checkbox) makes the approval `stale`: it must be approved again. Tell the user
 the next step is the Build skill.

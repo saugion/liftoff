@@ -148,9 +148,11 @@ describe("plugin/ is small and clean", () => {
       ".claude-plugin/plugin.json",
       "LICENSE",
       "THIRD_PARTY_NOTICES",
+      "agents/liftoff-reviewer.md",
       "bin/liftoff.mjs",
       "skills/liftoff-brain/SKILL.md",
       "skills/liftoff-brain/assets/page-template.md",
+      "skills/liftoff-brain/references/handbook.md",
       "skills/liftoff-brain/references/ingest.md",
       "skills/liftoff-brain/references/lessons.md",
       "skills/liftoff-build/SKILL.md",
@@ -178,7 +180,10 @@ describe("plugin/ is small and clean", () => {
     const plugin = readJson("plugin", ".claude-plugin", "plugin.json");
     expect(plugin.hooks).toBeUndefined();
     expect(plugin.mcpServers).toBeUndefined();
-    expect(files.filter((f) => /^(hooks|\.mcp\.json|agents|commands)(\/|$)/.test(f))).toEqual([]);
+    // One subagent definition is allowed: a prompt that reads and searches (no Bash, Write, Edit or Task), loaded only when Build asks for it.
+    expect(files.filter((f) => /^(hooks|\.mcp\.json|agents|commands)(\/|$)/.test(f))).toEqual(["agents/liftoff-reviewer.md"]);
+    const tools = /^tools:\s*(.+)$/m.exec(read("plugin", "agents", "liftoff-reviewer.md"))![1]!.split(",").map((t) => t.trim());
+    expect(tools.sort()).toEqual(["Glob", "Grep", "Read"]);
   });
 });
 

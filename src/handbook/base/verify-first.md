@@ -15,8 +15,11 @@ For every plan section that has an acceptance criterion, and for every bug. Not 
 with an existing test suite: say so in the plan and move on.
 
 ## How here
-- **In the plan.** Each section lists its checks next to the criteria it covers: the command, and the result that proves it
-  (for example `npm test -- cart.spec.ts` fails with "expected 3, got 0", then passes).
+- **In the plan.** Each criterion of the ticket has a numbered id (AC1, AC2, ...). The section that implements it carries the item
+  `- [ ] verify AC2: <command> (red first)` with the repo's own command and the result that proves it (for example
+  `npm test -- cart.spec.ts` fails with "expected 3, got 0", then passes). A bug gets `- [ ] verify repro: <command>` first. A
+  check a person does is written as `- [ ] verify AC3: manual: <who> opens <what> and sees <what>`. `plan --key` reports which
+  criteria still have no check.
 - **Red before green.** Before the code of a section, write or name the check, run it, and see it fail for the right reason. A
   check that passes before the code exists checks nothing: rewrite it.
 - **A bug starts with a reproduction.** First a failing test that shows the bug (the steps, the expected and the actual from the

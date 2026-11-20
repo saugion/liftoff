@@ -48,6 +48,5 @@ runs `/clear`, and starts PROJ-130 with "plan PROJ-130". The new session starts 
 Anti-example: she keeps going in the same session, asks for an unrelated dashboard fix, switches to a cheaper model to "save",
 and the next turn reads the whole PROJ-123 history again, uncached.
 
-Copilot in VS Code: whether `/clear`, `/rename` and the cache settings exist there, and how long its cache lives, is
-**unverified**. Copilot has billed by token since 2026-06-01 (from a search snippet, unverified), so the same habit should
-still pay off.
+Copilot in VS Code: whether `/clear`, `/rename` and the cache settings exist there, and how long its cache lives, is **unverified**.
+If a command is missing, the habit still holds: start a new chat for a new ticket and keep the state in the plan file, not in the chat.

@@ -69,7 +69,7 @@ describe("2. Plan", () => {
     const p = liftoff(root, ["parse-ticket", "--file", ".liftoff/tmp/PROJ-123.json"]);
     expect(p.status, p.stderr + JSON.stringify(p.body)).toBe(0);
     expect(p.body.ticket).toMatchObject({ key: "PROJ-123", summary: "Add login", issueType: "Story", status: "To Do" });
-    expect(p.body.reading.acceptanceCriteria).toEqual({ source: "heading", text: "* valid credentials open the dashboard\n* a wrong password is refused" });
+    expect(p.body.reading.acceptanceCriteria).toMatchObject({ source: "heading", text: "* valid credentials open the dashboard\n* a wrong password is refused", items: [{ id: "AC1", text: "valid credentials open the dashboard" }, { id: "AC2", text: "a wrong password is refused" }] });
     expect(p.body.reading.fields).toEqual([{ id: "customfield_10016", label: "Story points", value: "5" }]);
     expect(p.body.warnings).toEqual([]);
     expect(p.body.build).toMatchObject({ branch: "feature/PROJ-123-add-login", title: "PROJ-123: Add login", targetBranch: "main" });
@@ -78,7 +78,7 @@ describe("2. Plan", () => {
     for (const [key, expected] of [["PROJ-124", { source: "field", text: "no crash on an empty cart; a message is shown" }], ["PROJ-125", { source: "none", text: "" }]] as const) {
       write(root, `.liftoff/tmp/${key}.json`, JSON.stringify((await mcp.call("jira_get_issue", { issue_key: key })).json));
       const p = liftoff(root, ["parse-ticket", "--file", `.liftoff/tmp/${key}.json`]);
-      expect(p.body.reading.acceptanceCriteria).toEqual(expected);
+      expect(p.body.reading.acceptanceCriteria).toMatchObject(expected);
       if (key === "PROJ-125") expect(p.body.warnings.map((w: any) => w.code)).toEqual(expect.arrayContaining(["unknown-issue-type", "no-acceptance-criteria"]));
     }
   });
