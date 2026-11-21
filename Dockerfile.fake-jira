@@ -1,0 +1,20 @@
+# A fake Jira (and a ready-to-use sandbox repo) for trying LiftOff with no real Jira. Not part of the plugin.
+# See docs/fake-jira.md. Build from the repo root: docker build -f Dockerfile.fake-jira -t liftoff-fake-jira .
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git openssl && rm -rf /var/lib/apt/lists/*
+WORKDIR /liftoff
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY plugin ./plugin
+COPY src ./src
+COPY schema ./schema
+COPY test ./test
+COPY tsconfig.json ./
+RUN npx esbuild test/agent/setup.ts --bundle --platform=node --format=esm --outfile=dist/agent/setup.mjs \
+    --banner:js='import { createRequire as __c } from "node:module"; const require = __c(import.meta.url);'
+# "blank" (default): the Jira with its tickets and nothing else, you start a project from zero. Other modes: see test/agent/setup.ts
+# (e.g. `docker run ... liftoff-fake-jira node dist/agent/setup.mjs /sandbox brain` also writes a ready repo in /sandbox/app)
+ENV FAKE_JIRA_PORT=8443 FAKE_JIRA_HOST=0.0.0.0 HOME=/tmp
+VOLUME /sandbox
+EXPOSE 8443
+CMD ["node", "dist/agent/setup.mjs", "/sandbox", "blank"]

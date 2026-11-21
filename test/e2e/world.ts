@@ -104,7 +104,7 @@ export function renderDescription(text: string): string {
 
 export async function startJira(dir: string, token: string | string[] = TOKEN, opts: { fresh?: boolean; port?: number } = {}): Promise<FakeJira> {
   const key = join(dir, "jira-key.pem"), cert = join(dir, "jira-cert.pem");
-  const r = spawnSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert, "-subj", "/CN=localhost", "-days", "2"], { encoding: "utf8" });
+  const r = spawnSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert, "-subj", "/CN=localhost", "-addext", "subjectAltName=IP:127.0.0.1,DNS:localhost", "-days", "2"], { encoding: "utf8" });
   if (r.status !== 0) throw new Error("openssl failed: " + r.stderr);
   const requests: FakeJira["requests"] = [];
   const issues = opts.fresh ? ISSUES().filter((i) => i.key === "STR-1") : ISSUES(); // fresh: a new instance, only the stream's epic exists
@@ -121,6 +121,16 @@ export async function startJira(dir: string, token: string | string[] = TOKEN, o
         const project = /project\s*=\s*"?([A-Z0-9_]+)"?/.exec(url.searchParams.get("jql") ?? "")?.[1];
         const hits = issues.filter((i) => !project || i.key.startsWith(project + "-"));
         return send(200, { total: hits.length, issues: hits });
+      }
+      if (url.pathname === "/rest/api/2/project" && req.method === "GET") {
+        const keys = [...new Set(issues.map((i) => i.key.replace(/-\d+$/, "")))];
+        return send(200, keys.map((key) => ({ key, name: key === "PROJ" ? "Product" : key === "STR" ? "Streams" : key, projectTypeKey: "software" })));
+      }
+      const proj = /^\/rest\/api\/2\/project\/([A-Z0-9_]+)$/.exec(url.pathname);
+      if (proj && req.method === "GET") {
+        if (!issues.some((i) => i.key.startsWith(proj[1] + "-"))) return send(404, { errorMessages: ["No project could be found with key '" + proj[1] + "'."] });
+        const names = [...new Set(["Epic", "Story", "Task", "Bug", ...issues.filter((i) => i.key.startsWith(proj[1] + "-")).map((i) => (i.fields.issuetype as { name: string }).name)])];
+        return send(200, { key: proj[1], name: proj[1], issueTypes: names.map((name) => ({ name, subtask: false })) });
       }
       if (url.pathname === "/rest/api/2/issue" && req.method === "POST") {
         const f = JSON.parse(body).fields as Record<string, any>;
@@ -146,7 +156,7 @@ export async function startJira(dir: string, token: string | string[] = TOKEN, o
       send(204, {});
     });
   });
-  await new Promise<void>((ok) => server.listen(opts.port ?? 0, "127.0.0.1", ok));
+  await new Promise<void>((ok) => server.listen(opts.port ?? 0, process.env.FAKE_JIRA_HOST ?? "127.0.0.1", ok));
   const port = (server.address() as { port: number }).port;
   return { url: `https://127.0.0.1:${port}`, requests, issues, close: () => new Promise((ok) => (server.closeAllConnections(), server.close(() => ok()))) };
 }
