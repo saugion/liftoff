@@ -11,6 +11,11 @@ request titles are named, or which checks must pass. So the tickets and merge re
 reads that file. The agent can then read a Jira ticket, write a plan, write the code and prepare the merge request, the
 team's way. The engineer approves every step that leaves the laptop and stays in charge.
 
+**You do not have to edit that file by hand.** Both the product owner and the technical lead set LiftOff up in a **web page that
+runs on their own computer** (a setup guide with forms and plain-language questions). The product owner fills in part 1,
+the technical lead part 2, and each saves their part to the team with one click, after a yes. The same page, the control
+panel, is there for every later change: a ticket template, a new ticket type, the GitLab conventions.
+
 Status: built and tested with automated tests, **not yet used by a real team**. See [Status and limits](#status-and-limits).
 
 ## Contents
@@ -53,8 +58,8 @@ A team builds a web app, with tickets in Jira and code in GitLab. The setup is a
 
 | Person | When | What they do | What they get |
 |---|---|---|---|
-| **Product owner** | once per project, about 10 minutes | Part 1 of the setup guide in the browser: the project, the Jira connection, the ticket types and how each ticket is written. Nothing technical. | Tickets written on the team's templates, from a sentence. |
-| **Technical lead** | once per project, after the product owner | Part 2 of the setup guide: the parts of the code, the agents the team uses, git, GitLab and the quality bar. | One set of rules that every engineer's agent follows. |
+| **Product owner** | once per project, about 10 minutes | Part 1 of the setup guide, a page in the browser with forms (no file to edit): the project, the Jira connection, the ticket types and how each ticket is written. Nothing technical. | Tickets written on the team's templates, from a sentence. |
+| **Technical lead** | once per project, after the product owner | Part 2 of the setup guide, the same page: the parts of the code, the agents the team uses, git, GitLab and the quality bar. | One set of rules that every engineer's agent follows. |
 | **Engineer (teammate)** | once per machine, a few minutes | Runs Init (no questions) and Connect (their own Jira token). | An agent that plans, builds and prepares merge requests the team's way. |
 | **Everyone** | every day | Asks in plain words: "create a bug", "plan PROJ-123", "build this plan". | Every step shown first, nothing sent without a yes. |
 
