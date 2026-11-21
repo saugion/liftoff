@@ -1,7 +1,7 @@
 // Not part of `npm test`. Prepares a workspace for a real agent to run the skills against: a fake Jira that stays up,
 // a repo that already ran Init and has the Jira entry wired (the machine is "connected"), and `bin/jira-tool`, a shell
 // command that stands in for the MCP tools (a sub-agent has no MCP attached; the command starts the same generated
-// MCP entry the way a host does). Prints one JSON line {jira, repo, bin}. Usage: node setup.mjs <dir> [jira-only|brain|lessons]
+// MCP entry the way a host does). Prints one JSON line {jira, repo, bin}. Usage: node setup.mjs <dir> [jira-only|blank|brain|lessons]
 // `brain`: the full fake Jira (PROJ-123..126, STR-1), a repo whose liftoff.yaml has `brain:` and the learned issue types,
 // a bare `origin` with main pushed, and one ingested ticket (PROJ-124) so the wiki is not empty. PROJ-126 carries text
 // that tries to instruct the agent. `lessons`: the same plus `brain.lessons: {}` and one personal lesson at count 1
@@ -13,10 +13,11 @@ import { config } from "../e2e/config.js";
 
 const dir = process.argv[2]!;
 const LEAD_TOKEN = "agent-run-PAT-do-not-leak";
-const jiraOnly = process.argv[3] === "jira-only"; // restart the fake Jira (same port, empty) without touching the workspace
+const blank = process.argv[3] === "blank"; // the full fake Jira (PROJ-123..126, STR-1) and nothing else: no repo, a person starts from zero
+const jiraOnly = process.argv[3] === "jira-only" || blank; // restart the fake Jira (same port, empty) without touching the workspace
 const lessons = process.argv[3] === "lessons";
 const brain = process.argv[3] === "brain" || lessons;
-const jira = await startJira(dir, [LEAD_TOKEN], { fresh: !brain, ...(process.env.FAKE_JIRA_PORT && { port: Number(process.env.FAKE_JIRA_PORT) }) });
+const jira = await startJira(dir, [LEAD_TOKEN], { fresh: !brain && !blank, ...(process.env.FAKE_JIRA_PORT && { port: Number(process.env.FAKE_JIRA_PORT) }) });
 if (jiraOnly) { console.log(JSON.stringify({ jira: jira.url })); setInterval(() => writeFileSync(join(dir, "jira-state.json"), JSON.stringify({ requests: jira.requests.length, issues: jira.issues }, null, 2)), 1000); await new Promise(() => {}); }
 const repo = join(dir, "app");
 // Init'ed, with the tracker linked but no issue type learned yet (that is the lead flow's job)

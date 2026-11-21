@@ -4,6 +4,11 @@
 #    find-generic-password prints it with -w (and succeeds silently without), exit 44 when empty.
 #  - otherwise: find-generic-password answers with $FAKE_KEYCHAIN_TOKEN (older tests).
 [ -n "$FAKE_KEYCHAIN_LOG" ] && echo "$*" >> "$FAKE_KEYCHAIN_LOG"
+if [ "$1" = "-i" ]; then # interactive mode: one command per stdin line, the secret after -w in double quotes
+  IFS= read -r line
+  case "$line" in *add-generic-password*) printf '%s' "$line" | sed -n 's/.* -w "\(.*\)"$/\1/p' > "${FAKE_KEYCHAIN_FILE:-/dev/null}"; exit 0 ;; esac
+  exit 1
+fi
 if [ -n "$FAKE_KEYCHAIN_FILE" ]; then
   case "$1" in
     add-generic-password) IFS= read -r secret; printf '%s' "$secret" > "$FAKE_KEYCHAIN_FILE"; exit 0 ;;
