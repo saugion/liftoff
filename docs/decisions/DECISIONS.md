@@ -133,7 +133,7 @@ Contents: [After v0.4 (0.5.0)](#after-v04-050) · [Connect](#connect-02) · [Pla
     still contain no network module (`static-guard.test.ts` is unchanged). The panel may use `node:http` and nothing else,
     held by `test/ui-guard.test.ts`: it binds `127.0.0.1` only, never connects out, starts no process, and its page loads
     nothing from outside. It is not shipped in `plugin/` yet (that needs the packaging tests and the release script to
-    know a second binary).
+    know a second binary). *Superseded in part by 64: it ships in the plugin now, with two named exceptions.*
 39. **One validator.** The panel never re-implements a rule: it merges the edit into the YAML and runs `validateConfig`,
     then writes only if that passes. Errors come back as JSON pointers and the page maps them to fields.
 40. **Edits are patches into the YAML document, not a rewrite.** Untouched fields are left out of the patch, comments stay,
@@ -146,7 +146,7 @@ Contents: [After v0.4 (0.5.0)](#after-v04-050) · [Connect](#connect-02) · [Pla
     refused (409) if `liftoff.yaml` changed on disk since the page loaded.
 43. **Local access control.** A random token in the printed address, checked on every request; a `Host` header that is not
     the loopback address is refused (DNS rebinding); writes must be JSON (so a form on another site cannot post); a strict
-    CSP. No credential is ever sent to the page or accepted by it.
+    CSP. *(The last sentence of the first version, "no credential is ever accepted by the page", is superseded by 64.)*
 
 ## After v0.4 (0.5.0)
 
@@ -214,4 +214,127 @@ the Brain skill's handbook Setup (Nina) and a handbook update with one page take
     markup (any `TBD` word, in the description or, failing that, the rendered HTML); four shapes are fixtures in `test/fixtures/jira-dc/`, and the
     real response, once someone has it, is dropped there as `tbd-real.json` and becomes a regression test. VS Code Copilot has a written fallback
     for every missing piece; the fake `glab` covers the GitLab flow until a real one is tried.
+
+## The guided setup (after 0.5.0, unreleased)
+
+63. **Why.** A product owner who had never heard of LiftOff walked the flow from zero (`tasks/newcomer-feedback.md`, local): Init asked about
+    modules, monorepos and `AGENTS.md`; after Init they had to type a command to Connect; Connect put a certificate error, a GitLab host, a token
+    in a second terminal and a test project in chat. The verdict was "too complicated for a PO". The setup is now a form in the browser in two
+    parts, **the product owner first** (project, Jira, which tickets, their templates) **then the technical lead** (modules, assistants, git, GitLab,
+    quality bar), each saved to the team on the person's own yes. The Init skill no longer interviews: it starts the form and waits.
+64. **The panel ships in the plugin (`plugin/bin/liftoff-ui.mjs`) and the guard has exactly two exceptions**, each held by `test/ui-guard.test.ts`:
+    `ui/connect.ts` may reach the Jira address the user typed (`https`) and run `security` for the keychain (`child_process`);
+    `ui/persist.ts` may run git (`child_process`). Nothing else in `ui/` may import either, `fetch` and dynamic `import()` stay banned, the CLI
+    bundle is untouched. This supersedes the "no network, no process, no credential" lines of 38 and 43. The plugin limit went from 1 to 2 MB
+    (two self-contained bundles; the plugin has no install step to share `yaml` and `ajv`).
+65. **The token: the page may send it once, the keychain keeps it.** It goes page, then the local server, then `security -i` **through stdin** (never
+    an argument, so `ps` never shows it), under the same service name the MCP launcher reads (`liftoff-jira@host`). It is never written to a file,
+    never logged, never in a response; a token with a quote or backslash is refused (the keychain command is a quoted line). Later calls read it from
+    the keychain, so the page asks once.
+66. *(Superseded by 74: the certificate mechanism did not work with the real server and was removed.)* **An unknown certificate is shown, never skipped.** Plain-language screen with the SHA-256 fingerprint and subject; "Yes, trust this Jira"
+    refetches the certificate and trusts it only if the fingerprint is still the one shown; it is written to `.liftoff/ca/<host>.pem` (personal,
+    ignored). A wrong host name or an expired certificate is not offered for trust. `sslVerify` is never set to `false` by the panel. The MCP launcher
+    now exports `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE` and `MCP_ATLASSIAN_USE_SYSTEM_TRUSTSTORE=false` **only when that file exists** (so nothing changes
+    for a team without one; the golden strings and `connect-info` fixtures were regenerated). **Not verified against the real `mcp-atlassian` 0.23.1**:
+    its truststore setting may behave differently (pilot checklist).
+67. **Saving = commit and push of the setup files, after a yes** (`ui/persist.ts`). The page lists the exact files (a fixed whitelist: `liftoff.yaml`,
+    the `AGENTS.md`, `CLAUDE.md`, `CONSTRAINTS.md`, the MCP and Claude settings files, the Copilot file; never anything else a person is working on),
+    on a **new branch** `liftoff/setup-po` or `-tl`, then pushes that branch. It never touches `main`, never merges, never opens the merge request, and
+    refuses if the list changed since the person saw it. This changes the README's "nothing is committed for you" for these two saves only; Build and
+    the other skills keep the old rule. `persist.ts` names no `merge`, `rebase` or `reset` (tested).
+68. **One new config field: `project.setup`** (`po` | `done`). The product owner's save writes `po`, the technical lead's writes `done`; absent means
+    complete, so no existing repo changes. `po` is what makes Init and the page open the technical part. It is not in the section hash.
+69. **Defaults and detection instead of questions.** The PO answers name, purpose, Jira, ticket types and templates. Agents default to `claude-code`, git
+    to `assisted`, `AGENTS.md`, `CONSTRAINTS.md` and the per-agent files are generated from the Init templates (never over an existing file), modules and
+    stack come from the manifests (`package.json`, Gradle, Maven, Python, Go, Rust; read from files only), the GitLab host from `origin`, and the
+    target branch from the repository's default branch (found by a test run: it first took the current branch, which is the setup branch after the PO saves).
+    A template starts from a ready-made one, from a real ticket's headings, or from the person's own sections; the acceptance-criteria section is chosen
+    for every type.
+70. **What the guide does not do, on purpose.** It does not create test tickets or learn `createFields`, transitions or the epic fields: it writes issue
+    types with empty ones, and the Connect skill's lead flow (L5) still does that, from the config alone. It does not log in to GitLab (`glab` keeps its
+    own login). A teammate's first run is the apply mode of Init and the member flow of Connect, unchanged.
+71. **How it was checked.** `test/e2e/ui-setup.test.ts` (23 tests: the page choice, an unknown certificate, the keychain, a wrong token
+    or project, the files written, a team's own `AGENTS.md` kept, no token in any file, the preview, a changed list refused, the push to a bare remote
+    with `main` untouched, the technical part, a folder with no git). The two pages' scripts were also driven end to end in a simulated DOM against the
+    real server and the Docker fake Jira. **Not checked:** a real browser (the extension was not connected), a real Jira, the real `mcp-atlassian`,
+    macOS Keychain (the fake `security` stands in; the real one takes commands from `-i` stdin, which the code relies on).
+
+### After the first full walk-through (PO, TL, member), 2026-11-21
+
+The notes of that walk-through are in `tasks/newcomer-feedback.md` (local). What they changed:
+
+72. **The Jira key is in the Keychain or in an environment variable, nothing else.** The launcher already read `LIFTOFF_JIRA_TOKEN` first and the
+    Keychain second; the Connect skill now offers the variable as the simple way (the person sets it, the agent never writes a command with the
+    token in it) and has no step about certificates. The page keeps the token in the Keychain after the first use.
+73. **The PO picks the Jira project from a list.** LiftOff never creates a Jira project. After the address and token the page asks Jira for the
+    projects the token can see (`GET /rest/api/2/project`) and shows them by name; the key typed by hand is the fallback when the list is empty.
+74. **No certificate files.** The real `mcp-atlassian` 0.23.1 was run against the fake Jira in four settings (no file; `SSL_CERT_FILE` and
+    `REQUESTS_CA_BUNDLE` with its system truststore off; only `SSL_CERT_FILE`; truststore on with `SSL_CERT_FILE`): all four fail, because its
+    connection pool pins the connection for safety and reads none of them. So 66 is gone: no `.liftoff/ca`, no "trust" button, no extra lines in the
+    launcher (the golden strings are back to what they were). A Jira whose certificate this computer does not know is told in plain words: **on this
+    computer** (`127.0.0.1`, `localhost`, `::1`) the page offers one click, "skip the check for this local test Jira", which writes
+    `tracker.server.sslVerify: false` (the server grants the skip only for those addresses, tested); **anywhere else** it only says what to do (the
+    company certificate installed in the system, which a company laptop already has, or the lead). Verified: the real `mcp-atlassian` with
+    `JIRA_SSL_VERIFY=false` returns the fake Jira's tickets.
+75. **The setup page can be left and come back to.** Back on every screen; "Not now" says "not saved yet" (it used to say "Saved") with a
+    "Save now" button; a page reopened while `liftoff.yaml` is written but not committed offers the save before anything else (`/api/setup` returns
+    `unsaved`). Creating the files can be repeated: files that exist are kept, `liftoff.yaml` is patched.
+76. **The root `AGENTS.md` follows the technical lead.** The product owner saves first, when the modules are not known, so the "Modules" and
+    "Commands" blocks of the generated root file sit between `<!-- liftoff:modules -->` and `<!-- liftoff:commands -->`; the technical lead's save
+    refreshes exactly those, or, in a file written before the markers, only the exact text LiftOff generated. Anything a team wrote or edited stays.
+    The stack is told once, per part (languages and frameworks); the project's `stack` is what the parts add up to.
+77. **`commitType` per ticket type, and `{commitType}` in the title.** A team whose merge requests read `fix(PROJ-123): ...` sets, per type, the
+    word that starts the title (feat, fix, chore, docs, refactor, test; default from `branchType`: feature, bugfix, anything else). `{type}` keeps
+    meaning the Jira type name. The page asks the PO in plain words ("what kind of change is a Bug ticket?") and shows the TL one example title per type.
+78. **A ticket type can be the team's own: `jiraType`.** "e2e" can be a Task in Jira. The name is free; `jiraType` says which Jira type it is
+    created as. Jira only knows it as that type, so LiftOff adds the label `liftoff-<name>` when it creates one (`draft-tickets`) and `parse-ticket`
+    reads the label back to pick the template and reading map; two names that would give the same label are refused. **The label is my assumption**
+    (the user did not choose how to recognise it): a title prefix or no recognition were the alternatives. PO and TL can add, edit and remove types in
+    the setup page and later in the control panel; the patch is keyed by name, so what Connect learned (`createFields`, transitions) is never lost.
+79. **GitHub Copilot is three homes, not one.** The command line reads `.github/copilot-instructions.md`, `AGENTS.md` and a project `.mcp.json`;
+    IntelliJ reads the instructions files but takes MCP servers from the IDE's own settings ([sources](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions),
+    [JetBrains](https://github.blog/changelog/2026-03-11-major-agentic-capabilities-improvements-in-github-copilot-for-jetbrains-ides/)). No schema change
+    (`copilot` means all of them); the labels say so and the Connect skill gives an IntelliJ user the entry to paste. **Not verified** with the real tools.
+80. **After Init, a teammate is told to run Connect**, and not that Jira "does not work until the server connects" (found in the walk-through: Connect is what connects it).
+81. **Checked.** 2,000-odd tests; both parts of the page driven end to end in a simulated DOM against the real server, the Docker fake Jira and a real
+    git remote, which found three bugs the tests could not (a step name, a leftover line that unlocked the existing types, a regex that left
+    `{commitType}` in a title). **Still not checked:** a real browser, a real Jira, Copilot CLI and IntelliJ, the macOS Keychain.
+82. **A button waits for its fields, and wakes up when they are filled.** Found in the second test: "Connect" and "Continue" were drawn once, before the fields
+    were filled, and typing did not redraw the page, so they stayed off. The user decided that buttons stay **disabled** while a required field is empty (a
+    button that is always on and complains was considered and withdrawn). After every edit the page now sets its buttons again from what the screen would
+    say now (`syncButtons`), without redrawing, so the cursor and the scroll stay where they are. `test/e2e/ui-page.test.ts` runs the page's own script
+    against the real server, the fake Jira and a git remote, like a browser would (a button that is off cannot be pressed) and fails without the fix.
+
+### After the independent review (2026-11-21)
+
+An independent review of the whole change (no-go until the first seven were fixed; no hole in token handling, the local access control or the local TLS skip)
+and three more requests from the walk-through led to these:
+
+83. **Saving never takes more than the guide wrote.** `ui/persist.ts` commits the intersection of what git says is new or changed and the list of files the
+    guide itself wrote (`.liftoff/ui-written.json`, personal and ignored), so an engineer's own edit of another `AGENTS.md` is never swept in, and a
+    rename is read properly (`status -z`). The project may be a folder of a larger repository (paths are taken relative to it). The new branch starts where the
+    person is, unless that branch holds commits no remote has: then it starts from the remote's default branch, so they are not pushed. If a step fails after the
+    branch was made, the person is put back and the empty branch removed (the save used to leave them on it).
+84. **A half-written setup is undone.** `liftoff.yaml` is written first (the files after it read it), and put back if scaffolding, the MCP files or the render
+    fail; a module folder that is a file or a link leaving the project is refused before anything is written; the scaffold refuses a path whose real location
+    is outside the project. A page reopened while something the guide wrote is not saved offers the save again (also after the technical lead's part, which the
+    first version lost because the stage was already "done").
+85. **One way to read a ticket's type.** `typeOfTicket` (the label of a team-named type, else the Jira type name) is used by `parse-ticket`, `plan`,
+    `clean-review`, `lesson-add` and `brain-source`; before, only `parse-ticket` knew the label and the others read an `e2e` ticket with the criteria of a Task.
+    Renaming a team-named type changes its label, so tickets made under the old name are no longer recognised: this is true and now written here.
+86. **The project brain is the technical lead's decision, in the guide.** A page of its own (default "not now"; "yes" may add lessons). A yes writes
+    `brain: {}` (or with `lessons`), makes the folders with the CLI's own `brain-init`, and applies the four shared settings that command only proposes (a pointer
+    block in `AGENTS.md`, the rule that stops edits of the raw sources for Claude Code and VS Code, and the merge rule for the log), all additive and listed
+    before the save. It never switches an existing brain off.
+87. **Streams take their project from Jira; a list cannot grow while an entry is wrong.** In the control panel a stream's project is chosen from the projects the
+    token can see (not the team's own); the key is typed only if Jira cannot be asked. "Link a stream" (and the same buttons of modules and ticket types) and
+    "Continue" stay off while the section has an error, and say which one (decision 82: buttons wait for their fields).
+88. **Smaller things from the review:** the page's project search narrows as you type; an IPv6 loopback address works; a Jira answer is read up to 5 MB and
+    within 25 seconds; a re-run of the product owner's step no longer clears what Connect learned (no `readingMap.fields` in the patch) and can clear a
+    `jiraType` that became the name; module ids from folder names are made valid (`my_app` becomes `my-app`); the "Agent files" list of the root `AGENTS.md`
+    follows the lead's choice (the "Key paths" table does not: a marker cannot sit inside a table). **Not changed on purpose:** the environment token is sent to the
+    address typed in the page (a typo would send it there; the page now says so), and the panel's existing "Verify SSL certificate" switch can still write
+    `sslVerify: false` for any address, as before (the local-only rule is for the guide and its own Jira calls).
+89. **Versioning.** `0.5.0` was never tagged (the remote has `v0.1.0`, `v0.3.0`, `v0.4.0`); the next tag is `0.6.0`, made with `npm run release 0.6.0` on `main`
+    after the pull request is merged. The pull request carries no version bump; the README installs from `#v0.6.0`.
 

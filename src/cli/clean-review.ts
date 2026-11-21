@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { practiceMode, projectsOf } from "../config/index.js";
+import { practiceMode, projectsOf, typeOfTicket } from "../config/index.js";
 import { KEY_RE } from "../plan/build.js";
 import { checkCleanReview } from "../plan/cleanreview.js";
 import { splitCriteria } from "../plan/criteria.js";
@@ -36,7 +36,7 @@ export const cleanReviewCommand: Handler = ({ root, key }) => {
     if (!("error" in t)) {
       const km = KEY_RE.exec(t.key);
       const info = km ? projectsOf(read.config).find((p) => p.project === km[1]) : undefined;
-      const type = info?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+      const type = info ? typeOfTicket(info.issueTypes, t) : undefined;
       ids = splitCriteria(readWithMap(t, type).acceptanceCriteria.text).map((c) => c.id);
     }
   }

@@ -64,9 +64,18 @@
         "name": {
           "$ref": "#/definitions/name80"
         },
+        "jiraType": {
+          "$ref": "#/definitions/name80",
+          "description": "The Jira issue type this LiftOff type is created as, when the team's own name differs (an 'e2e' ticket that is a Task in Jira). Absent: the name is the Jira type. A type that differs is recognised again by the Jira label liftoff-<name>."
+        },
         "branchType": {
           "type": "string",
           "pattern": "^[a-z0-9._-]+$"
+        },
+        "commitType": {
+          "type": "string",
+          "pattern": "^[a-z]+$",
+          "description": "The conventional-commit word of this type for merge request titles ({commitType}): feat, fix, chore, docs, refactor, test. Absent: feat for a feature branch type, fix for bugfix, chore otherwise."
         },
         "readingMap": {
           "type": "object",
@@ -174,6 +183,14 @@
         },
         "required": {
           "$ref": "#/definitions/requiredFlag"
+        },
+        "setup": {
+          "type": "string",
+          "enum": [
+            "po",
+            "done"
+          ],
+          "description": "Where the guided setup stands: 'po' = the product owner is done and the technical lead still has to confirm the technical part; 'done' or absent = complete."
         }
       }
     },

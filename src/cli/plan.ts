@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { projectsOf, practiceMode } from "../config/index.js";
+import { jiraTypeOf, projectsOf, practiceMode, typeOfTicket } from "../config/index.js";
 import { KEY_RE, planFile } from "../plan/build.js";
 import { splitCriteria } from "../plan/criteria.js";
 import { readTicket, readWithMap } from "../plan/ticket.js";
@@ -65,9 +65,9 @@ export const planCommand: Handler = ({ root, key, approve }) => {
       if (!("error" in t)) {
         const km = KEY_RE.exec(t.key);
         const info = km ? projectsOf(read.config).find((p) => p.project === km[1]) : undefined;
-        const type = info?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+        const type = info ? typeOfTicket(info.issueTypes, t) : undefined;
         criteria = splitCriteria(readWithMap(t, type).acceptanceCriteria.text);
-        bug = t.issueType.toLowerCase() === "bug";
+        bug = (type ? jiraTypeOf(type) : t.issueType).toLowerCase() === "bug";
       }
     }
     verify = checkVerify(plan.body, criteria, bug);

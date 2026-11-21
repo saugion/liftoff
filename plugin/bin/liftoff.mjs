@@ -14304,6 +14304,11 @@ var MIN_BUILD_PLUGIN = "0.3";
 var MIN_BRAIN_PLUGIN = "0.4";
 var MIN_HANDBOOK_PLUGIN = "0.5";
 var MIN_PRACTICES_PLUGIN = "0.5";
+var jiraTypeOf = (t) => t.jiraType ?? t.name;
+var isCustomType = (t) => t.jiraType !== void 0 && t.jiraType.toLowerCase() !== t.name.toLowerCase();
+var typeLabel = (t) => `liftoff-${t.name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "type"}`;
+var typeOfTicket = (types, ticket) => types.find((t) => isCustomType(t) && (ticket.labels ?? []).includes(typeLabel(t))) ?? types.find((t) => !isCustomType(t) && t.name.toLowerCase() === ticket.issueType.toLowerCase());
+var commitTypeOf = (type) => type?.commitType ?? (type?.branchType === "feature" ? "feat" : type?.branchType === "bugfix" ? "fix" : "chore");
 function projectsOf(config) {
   const { tracker } = connectors(config);
   if (!tracker) return [];
@@ -14330,7 +14335,9 @@ function normalizeIssueType(t) {
   for (const role of ["start", "review", "done"]) if (t.transitions?.[role]) transitions[role] = normalizeTransition(t.transitions[role]);
   return {
     name: t.name,
+    ...t.jiraType !== void 0 && { jiraType: t.jiraType },
     ...t.branchType !== void 0 && { branchType: t.branchType },
+    ...t.commitType !== void 0 && { commitType: t.commitType },
     readingMap: {
       ...t.readingMap?.acceptanceCriteria && { acceptanceCriteria: t.readingMap.acceptanceCriteria },
       fields: (t.readingMap?.fields ?? []).map((f) => ({ ...f }))
@@ -14387,6 +14394,9 @@ function issueTypeErrors(types, base) {
   types.forEach((t, i) => {
     const key = t.name.toLowerCase();
     const first = seen.get(key);
+    const label = typeLabel(t);
+    const other = isCustomType(t) ? types.findIndex((o, j) => j < i && isCustomType(o) && typeLabel(o) === label) : -1;
+    if (other >= 0 && first === void 0) errors.push({ path: `${base}/${i}/name`, message: `'${t.name}' gives the same Jira label (${label}) as '${types[other].name}': rename one` });
     if (first === void 0) seen.set(key, i);
     else errors.push({ path: `${base}/${i}/name`, message: `duplicate issue type '${t.name}' (first at ${base}/${first}/name)` });
     const ids = /* @__PURE__ */ new Map();
@@ -14436,8 +14446,8 @@ function connectorErrors(raw) {
     const c = codeHost.conventions;
     const bp = c?.branchPattern !== void 0 ? badPlaceholders(c.branchPattern, ["key", "slug", "type"]) : [];
     if (bp.length) errors.push({ path: "/codeHost/conventions/branchPattern", message: `unknown placeholder {${bp[0]}}; allowed: {key} {slug} {type}` });
-    const tp = c?.titlePattern !== void 0 ? badPlaceholders(c.titlePattern, ["key", "summary", "type"]) : [];
-    if (tp.length) errors.push({ path: "/codeHost/conventions/titlePattern", message: `unknown placeholder {${tp[0]}}; allowed: {key} {summary} {type}` });
+    const tp = c?.titlePattern !== void 0 ? badPlaceholders(c.titlePattern, ["key", "summary", "type", "commitType"]) : [];
+    if (tp.length) errors.push({ path: "/codeHost/conventions/titlePattern", message: `unknown placeholder {${tp[0]}}; allowed: {key} {summary} {type} {commitType}` });
   }
   const items = isConnector(raw.streams) ? raw.streams.items ?? [] : [];
   if (items.length > 0) {
@@ -14618,9 +14628,18 @@ var liftoff_schema_default = {
         name: {
           $ref: "#/definitions/name80"
         },
+        jiraType: {
+          $ref: "#/definitions/name80",
+          description: "The Jira issue type this LiftOff type is created as, when the team's own name differs (an 'e2e' ticket that is a Task in Jira). Absent: the name is the Jira type. A type that differs is recognised again by the Jira label liftoff-<name>."
+        },
         branchType: {
           type: "string",
           pattern: "^[a-z0-9._-]+$"
+        },
+        commitType: {
+          type: "string",
+          pattern: "^[a-z]+$",
+          description: "The conventional-commit word of this type for merge request titles ({commitType}): feat, fix, chore, docs, refactor, test. Absent: feat for a feature branch type, fix for bugfix, chore otherwise."
         },
         readingMap: {
           type: "object",
@@ -14728,6 +14747,14 @@ var liftoff_schema_default = {
         },
         required: {
           $ref: "#/definitions/requiredFlag"
+        },
+        setup: {
+          type: "string",
+          enum: [
+            "po",
+            "done"
+          ],
+          description: "Where the guided setup stands: 'po' = the product owner is done and the technical lead still has to confirm the technical part; 'done' or absent = complete."
         }
       }
     },
@@ -17303,6 +17330,10 @@ function readTicket(text) {
     issueType: flatten(type),
     ...lookup(raw, "status") !== void 0 && { status: flatten(lookup(raw, "status")) },
     description: flatten(lookup(raw, "description")),
+    labels: (() => {
+      const l = lookup(raw, "labels");
+      return Array.isArray(l) ? l.map(flatten).filter(Boolean) : typeof l === "string" ? l.split(/[\s,]+/).filter(Boolean) : [];
+    })(),
     ...rendered && { rendered },
     raw
   };
@@ -17390,7 +17421,7 @@ function ticketText(root, config, ticket) {
     const t = readTicket(readFileSync10(file, "utf8"));
     if ("error" in t) return void 0;
     const project = projectsOf(config).find((p) => ticket.startsWith(`${p.project}-`));
-    const type = project?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+    const type = project ? typeOfTicket(project.issueTypes, t) : void 0;
     return flat2([t.summary, t.description, readWithMap(t, type).acceptanceCriteria.text].join(" "));
   } catch {
     return void 0;
@@ -17582,7 +17613,7 @@ function slugify(s, max = 40) {
   const slug = s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/g, "");
   return slug || "work";
 }
-var fill = (pattern, values) => pattern.replace(/\{(key|slug|type|summary)\}/g, (_m, k) => values[k] ?? "");
+var fill = (pattern, values) => pattern.replace(/\{(key|slug|type|summary|commitType)\}/g, (_m, k) => values[k] ?? "");
 function safeBranch(name) {
   const b = name.replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/\.{2,}/g, ".").replace(/\/{2,}/g, "/").replace(/^[-/.]+|[/.-]+$/g, "").replace(/\.lock$/, "");
   return b || "work";
@@ -17591,7 +17622,7 @@ function buildInfo(t, tracker, type, codeHost) {
   const conv = codeHost?.conventions;
   const typeWord = type?.branchType ?? slugify(t.issueType || "task");
   const branch = safeBranch(fill(conv?.branchPattern ?? "{key}-{slug}", { key: t.key, slug: slugify(t.summary), type: typeWord }));
-  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType });
+  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType, commitType: commitTypeOf(type) });
   const labels = conv?.labels ?? [];
   const reviewers = conv?.reviewers ?? [];
   const descFile = mrDescriptionFile(t.key);
@@ -17676,7 +17707,7 @@ var brainSource = ({ root, file, key, kind, write }) => {
     const km = KEY_RE2.exec(ticket.key);
     const project = km && projectsOf(config).find((p) => p.project === km[1]);
     if (!project) return fail2("source-invalid", `${ticket.key} is not an issue key of a configured project`);
-    const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+    const type = typeOfTicket(project.issueTypes, ticket);
     const text = cleanText(Buffer.from(ticketBody({ key: ticket.key, summary: ticket.summary, issueType: ticket.issueType, description: ticket.description, criteria: readWithMap(ticket, type).acceptanceCriteria.text })));
     if ("error" in text) return fail2("source-invalid", `the ticket text is ${text.error}`);
     id = ticket.key;
@@ -17902,7 +17933,7 @@ var cleanReviewCommand = ({ root, key }) => {
     if (!("error" in t)) {
       const km = KEY_RE2.exec(t.key);
       const info = km ? projectsOf(read2.config).find((p) => p.project === km[1]) : void 0;
-      const type = info?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+      const type = info ? typeOfTicket(info.issueTypes, t) : void 0;
       ids = splitCriteria(readWithMap(t, type).acceptanceCriteria.text).map((c) => c.id);
     }
   }
@@ -18432,7 +18463,7 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
     else if (info.stream && stream !== info.stream.id) err("module-wrong-project", `module '${m}' does not belong to stream ${info.stream.id}: create its ticket in its own project`);
     else if (!info.stream && stream) err("module-in-stream", `module '${m}' belongs to stream ${stream}: its ticket goes in that stream's project; split the work into one ticket per project`);
   }
-  const isEpic = isEpicType(type?.name ?? str("type"));
+  const isEpic = isEpicType(type ? jiraTypeOf(type) : str("type"));
   const epic = t.epic;
   let epicValue;
   if (epic !== void 0) {
@@ -18462,11 +18493,12 @@ function checkTicket(raw, index, tracker, info, mods = { modules: /* @__PURE__ *
   const ok = errors.length === 0;
   const additional = { ...type?.createFields ?? {}, ...isObj4(fields) ? fields : {} };
   if (isEpic && tracker.epicNameField && additional[tracker.epicNameField] === void 0 && typeof summary === "string") additional[tracker.epicNameField] = summary.trim();
-  if (Array.isArray(labels) && labels.length > 0) additional.labels = labels;
+  const allLabels = Array.isArray(labels) ? [.../* @__PURE__ */ new Set([...labels, ...type && isCustomType(type) ? [typeLabel(type)] : []])] : [];
+  if (allLabels.length > 0) additional.labels = allLabels;
   if (typeof priority === "string") additional.priority = { name: priority };
-  const call = ok ? { tool: "jira_create_issue", args: { project_key: info.project, issue_type: type.name, summary, description, ...Object.keys(additional).length > 0 && { additional_fields: additional } } } : null;
+  const call = ok ? { tool: "jira_create_issue", args: { project_key: info.project, issue_type: jiraTypeOf(type), summary, description, ...Object.keys(additional).length > 0 && { additional_fields: additional } } } : null;
   const after = ok && epicValue !== void 0 && tracker.epicLinkField ? [{ tool: "jira_update_issue", args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epicValue } } }] : [];
-  const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` \xB7 ${priority}` : ""}${Array.isArray(labels) && labels.length ? ` \xB7 ${labels.join(", ")}` : ""}${typeof epic === "string" ? ` \xB7 epic ${epic}` : ""}`, summary ?? ""].join("\n");
+  const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` \xB7 ${priority}` : ""}${allLabels.length ? ` \xB7 ${allLabels.join(", ")}` : ""}${typeof epic === "string" ? ` \xB7 epic ${epic}` : ""}`, summary ?? ""].join("\n");
   return { index, ok, errors, warnings, preview, isEpic, po: po.status, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
 }
 
@@ -18584,7 +18616,7 @@ var parseTicketCommand = ({ root, file }) => {
     const known = projectsOf(read2.config).map((p) => p.project).join(", ");
     return fail7("ticket-invalid", `${ticket.key} is not in a configured project (${known})`);
   }
-  const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+  const type = typeOfTicket(project.issueTypes, ticket);
   const reading = readWithMap(ticket, type);
   const warnings = [];
   if (!type) warnings.push({ code: "unknown-issue-type", message: `issue type '${ticket.issueType}' is not in liftoff.yaml: read with defaults; the lead can add it with the Connect skill` });
@@ -18771,9 +18803,9 @@ var planCommand = ({ root, key, approve }) => {
       if (!("error" in t)) {
         const km = KEY_RE2.exec(t.key);
         const info = km ? projectsOf(read2.config).find((p) => p.project === km[1]) : void 0;
-        const type = info?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+        const type = info ? typeOfTicket(info.issueTypes, t) : void 0;
         criteria = splitCriteria(readWithMap(t, type).acceptanceCriteria.text);
-        bug = t.issueType.toLowerCase() === "bug";
+        bug = (type ? jiraTypeOf(type) : t.issueType).toLowerCase() === "bug";
       }
     }
     verify = checkVerify(plan.body, criteria, bug);

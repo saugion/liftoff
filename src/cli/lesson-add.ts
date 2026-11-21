@@ -4,7 +4,7 @@ import { instructionLike, weakensBar } from "../brain/guards.js";
 import { appendEvent, brainSize, metricsOn } from "../brain/metrics.js";
 import { type Draft, type Lesson, countOf, draftErrors, evidenceHash, parseLesson, serializeLesson, similarity } from "../brain/lesson.js";
 import { PERSONAL_DIR } from "../brain/paths.js";
-import { type Config, projectsOf } from "../config/index.js";
+import { type Config, projectsOf, typeOfTicket } from "../config/index.js";
 import { secretGuard } from "../config/secrets.js";
 import { readTicket, readWithMap } from "../plan/ticket.js";
 import { NO_BRAIN, brainFail } from "./brain-init.js";
@@ -31,7 +31,7 @@ export function ticketText(root: string, config: Config, ticket: string): string
     const t = readTicket(readFileSync(file, "utf8"));
     if ("error" in t) return undefined;
     const project = projectsOf(config).find((p) => ticket.startsWith(`${p.project}-`));
-    const type = project?.issueTypes.find((x) => x.name.toLowerCase() === t.issueType.toLowerCase());
+    const type = project ? typeOfTicket(project.issueTypes, t) : undefined;
     return flat([t.summary, t.description, readWithMap(t, type).acceptanceCriteria.text].join(" "));
   } catch {
     return undefined;

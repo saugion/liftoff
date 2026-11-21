@@ -142,9 +142,9 @@ describe("Build's git mode", () => {
   it("the skill names both modes, the key, and forbids git writes in manual mode", () => {
     for (const x of ["build.git", "`assisted`", "`manual`", "never** run a git command that writes", "Read-only git", "run a git write in `manual` mode"]) expect(flat(), x).toContain(x);
   });
-  it("the Init skill asks the lead and writes the answer", () => {
-    const init = readFileSync(join(ROOT, "plugin/skills/liftoff-init/SKILL.md"), "utf8").replace(/\s+/g, " ");
-    for (const x of ["Git in the Build skill", "`assisted`", "`manual`", "BUILD_GIT"]) expect(init, x).toContain(x);
+  it("the technical lead is asked in the setup guide, which writes the answer (build.git is tested end to end in ui-setup)", () => {
+    const page = readFileSync(join(ROOT, "ui/wizard.html"), "utf8");
+    for (const x of ["data-git", 'value="assisted"', 'value="manual"', "git: W.git"]) expect(page, x).toContain(x);
   });
 });
 

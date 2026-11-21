@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LiftOff setup</title>
+<style>
+:root{--ink:#0E1726;--mut:#46526A;--line:#D5DBE6;--bg:#F3F5F8;--card:#fff;--acc:#1F4FD8;--bad:#B42318;--ok:#0B6B3A;--ring:#BFD0FF}
+@media (prefers-color-scheme:dark){:root{--ink:#E6ECF7;--mut:#A9B5CC;--line:#2B3750;--bg:#0B1220;--card:#121B2E;--acc:#7AA2FF;--bad:#FF8A80;--ok:#4ADE80;--ring:#27407F}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+header{padding:16px 32px;background:#0E1726;color:#fff;display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+header small{color:#B6C0D4}
+header a{color:#B6C0D4;font-size:13px}
+main{max-width:760px;margin:0 auto;padding:28px 20px 60px}
+.dots{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.dot{height:6px;flex:1 1 40px;border-radius:3px;background:var(--line)}.dot.on{background:var(--acc)}.dot.done{background:var(--ok)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:18px}
+h1{margin:0;font-size:26px;letter-spacing:-.02em}
+.eyebrow{font-size:13px;font-weight:600;color:var(--acc);letter-spacing:.04em;text-transform:uppercase}
+.lede,.hint{color:var(--mut)}.hint{font-size:14px}
+.f{display:flex;flex-direction:column;gap:6px}
+.f>label,.lab{font-weight:600;font-size:15px}
+.in{width:100%;min-height:44px;padding:8px 14px;border:1px solid #C3CAD6;border-radius:10px;background:var(--card)}
+textarea.in{min-height:150px;line-height:1.55;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px}
+.in:focus,button:focus-visible{outline:3px solid var(--ring);outline-offset:1px;border-color:var(--acc)}
+.row{display:flex;flex-wrap:wrap;gap:12px}.row>*{flex:1 1 200px}
+.btn{height:44px;padding:0 20px;border-radius:10px;border:1px solid #C3CAD6;background:var(--card);font-weight:600}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.sm{height:36px;font-size:13px;padding:0 14px}
+.foot{display:flex;gap:12px;justify-content:space-between;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.note{padding:14px 16px;border-radius:12px;font-size:15px}
+.n-info{background:#E7EEFF;color:#173DAA}.n-warn{background:#FFF4E5;color:#7A2E0E}.n-bad{background:#FDE8E6;color:#8F1D12}.n-ok{background:#E3F5EA;color:#0A4D2A}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.opt input{margin-top:5px}
+.sub{border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all}
+ul.files{margin:0;padding-left:20px}
+</style>
+</head>
+<body>
+<header><div><b>LiftOff</b> <small id="who">Setup</small></div><a id="panel" href="#">Open the full control panel</a></header>
+<main><div class="dots" id="dots"></div><section class="card" id="app">Loading…</section></main>
+<script>
+"use strict";
+const TOKEN = "__TOKEN__";
+history.replaceState(null, "", location.pathname);
+document.getElementById("panel").href = "/?t=" + TOKEN + "&view=panel";
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: Object.assign({ "x-liftoff-token": TOKEN }, body !== undefined ? { "content-type": "application/json" } : {}), body: body !== undefined ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({ ok: false, message: "The panel did not answer." }));
+  return Object.assign({ status: r.status }, j);
+}
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const csv = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
+const heads = (t) => [...String(t).matchAll(/^#{1,6}\s+(.+?)\s*$/gm)].map((m) => m[1]);
+const guessAc = (t) => { const h = heads(t); return h.find((x) => /accept/i.test(x)) || h[0] || "Acceptance criteria"; };
+// What kind of change a ticket type usually is, in the words of conventional commits (the start of a merge request title).
+const COMMITS = [["feat", "A new feature"], ["fix", "A bug fix"], ["chore", "Maintenance or a task"], ["docs", "Documentation"], ["refactor", "A refactoring"], ["test", "Tests"]];
+const guessCommit = (n) => (/bug|fix|defect|incident/i.test(n) ? "fix" : /task|chore|maint|support|e2e|test/i.test(n) ? "chore" : "feat");
+const branchOf = (commit) => (commit === "feat" ? "feature" : commit === "fix" ? "bugfix" : "chore");
+const commitOf = (t) => t.commitType || (t.branchType === "feature" ? "feat" : t.branchType === "bugfix" ? "fix" : "chore");
+
+let S = null;          // what the panel knows
+let W = null;          // the wizard's own state
+let step = 0, busy = false, msg = null, constraints = "";
+
+function init(s) {
+  S = s;
+  const c = s.config || {}, d = s.detected || {};
+  W = {
+    stage: s.stage,
+    name: c.project?.name || d.name || "", purpose: "",
+    url: c.tracker?.url || "", project: c.tracker?.project || "", token: "", insecure: c.tracker?.server?.sslVerify === false, projects: null, manual: false, filter: "", local: false, found: [], typesFor: "", later: false, saveOnly: false, saveStage: "", brain: "off", addName: "", addBase: "", typesNote: "", loadedTl: false,
+    types: [],
+    modules: (d.modules || []).map((m) => ({ id: m.id, path: m.path, languages: (m.languages || []).join(", "), frameworks: (m.frameworks || []).join(", "), build: m.build || "", test: m.test || "", lint: m.lint || "" })),
+    languages: (c.stack?.languages || d.languages || []).join(", "), frameworks: (c.stack?.frameworks || d.frameworks || []).join(", "),
+    targets: c.agents?.targets || ["claude-code"], git: c.build?.git || "assisted",
+    host: c.codeHost?.host || d.git?.host || "", conv: { targetBranch: c.codeHost?.conventions?.targetBranch || d.git?.defaultBranch || "main", branchPattern: c.codeHost?.conventions?.branchPattern || "{type}/{key}-{slug}", titlePattern: c.codeHost?.conventions?.titlePattern || "{commitType}({key}): {summary}", labels: "", reviewers: "" },
+    created: null, preview: null, saved: null,
+  };
+  if (c.modules?.items?.length) W.modules = c.modules.items.map((m) => Object.assign({ languages: "", frameworks: "", build: "", test: "", lint: "" }, { id: m.id, path: m.path }));
+  if (s.stage === "tl") W.types = fromConfigTypes();
+  document.getElementById("who").textContent = s.stage === "po" ? "Setup, step 1 of 2: the project and its tickets" : s.stage === "tl" ? "Setup, step 2 of 2: the technical side" : "Setup";
+}
+
+// ---------- steps
+const PO = ["welcome", "project", "jira", "types", "templates", "review", "save"];
+const TL = ["welcome", "tech", "agents", "types", "templates", "gitlab", "quality", "brain", "review", "save"];
+const steps = () => (W.stage === "po" ? PO : TL.filter((x) => x !== "templates" || W.types.some((t) => t.on && !t.locked)));
+
+function dots() {
+  document.getElementById("dots").innerHTML = steps().map((_, i) => `<div class="dot ${i < step ? "done" : i === step ? "on" : ""}"></div>`).join("");
+}
+const note = () => (msg ? `<div class="note n-${msg.kind}" role="status">${esc(msg.text)}</div>` : "");
+const nav = (next, label = "Continue", ok = true) => `<div class="foot">${step > 0 ? `<button class="btn" data-act="back">Back</button>` : "<span></span>"}${next ? `<button class="btn pri" data-act="${next}" ${ok && !busy ? "" : "disabled"}>${busy ? "One moment…" : label}</button>` : ""}</div>`;
+const titleFor = (t) => String(W.conv.titlePattern).replaceAll("{commitType}", commitOf(t)).replaceAll("{key}", (S.config?.tracker?.project || "PROJ") + "-123").replaceAll("{summary}", "Reset the password").replaceAll("{type}", t.name);
+const field = (label, key, extra = {}) => `<div class="f"><label for="${key}">${label}</label>${extra.hint ? `<span class="hint">${extra.hint}</span>` : ""}<input class="in" id="${key}" data-bind="${key}" type="${extra.type || "text"}" value="${esc(extra.value ?? "")}" ${extra.ph ? `placeholder="${esc(extra.ph)}"` : ""} autocomplete="off"></div>`;
+
+const VIEWS = {
+  welcome() {
+    if (W.stage === "po") return `<div class="eyebrow">Welcome</div><h1>Let's set up LiftOff for your project</h1>
+      <p class="lede">LiftOff makes your team's AI assistants work the way your team works, and write tickets the way your team writes them.</p>
+      <p>You will: <b>describe the project</b>, <b>connect Jira</b> and <b>decide how your tickets are written</b>. It takes about 10 minutes. You do not need to know anything technical: a colleague will take care of that part afterwards.</p>
+      <div class="note n-info">Nothing leaves this computer until the last step, where you decide whether to save and share it with your team.</div>${nav("next", "Start")}`;
+    return `<div class="eyebrow">Welcome back</div><h1>The technical side</h1>
+      <p class="lede">The project owner has already described <b>${esc(S.config?.project?.name)}</b> and its Jira tickets (${esc((S.config?.tracker?.issueTypes || []).map((t) => t.name).join(", ") || "no ticket types yet")}).</p>
+      <p>Now you confirm what LiftOff found about the code: its parts, the assistants your team uses, how git is used and how the quality bar reads. Everything is a suggestion you can change.</p>${nav("next", "Start")}`;
+  },
+  project() {
+    return `<div class="eyebrow">The project</div><h1>What is this project?</h1>
+      ${field("Project name", "name", { value: W.name })}
+      <div class="f"><label for="purpose">What is it for?</label><span class="hint">One or two sentences. Your team's assistants read this to understand the project.</span><textarea class="in" style="min-height:90px;font-family:inherit" id="purpose" data-bind="purpose">${esc(W.purpose)}</textarea></div>
+      ${nav("next", "Continue", W.name.trim() !== "")}`;
+  },
+  jira() {
+    const list = W.projects || [];
+    const pick = W.projects !== null && !W.manual;
+    const options = list.filter((x) => !W.filter || (x.key + " " + x.name).toLowerCase().includes(W.filter.toLowerCase()));
+    return `<div class="eyebrow">Jira</div><h1>Connect to Jira</h1>
+      <p class="lede">LiftOff reads your Jira to learn which tickets you use, and later writes tickets there for you, always asking first.</p>
+      ${field("Jira address", "url", { value: W.url, ph: "https://jira.yourcompany.com", hint: "The address you type in the browser to open Jira. For example <b>https://jira.yourcompany.com</b>" })}
+      <div class="f"><label for="token">Personal access token</label>
+        <span class="hint">In Jira, click your picture, then <b>Profile</b>, then <b>Personal Access Tokens</b>, then <b>Create token</b>. Paste it here. It is kept in your Mac's keychain, never in the project and never shared. (If you set the <b>LIFTOFF_JIRA_TOKEN</b> environment variable instead, leave this empty: it is used for the address above.)</span>
+        <input class="in" id="token" data-bind="token" type="password" autocomplete="off" placeholder="${W.projects !== null && !W.token ? "Saved on this computer" : ""}"></div>
+      ${note()}
+      ${W.local ? `<div class="sub"><b>Is this a Jira on your own computer?</b>
+        <span>Jira's security certificate is not known to this computer. For a test Jira that runs on this very computer you can skip that check. For a real company Jira, do not: ask your IT to install the company certificate, or ask the technical lead.</span>
+        <div class="row"><button class="btn pri" data-act="local">Yes, it is a local test Jira: skip the check</button></div></div>` : ""}
+      ${pick ? `<div class="f"><label for="project">Which Jira project does your team use?</label>
+          <span class="hint">These are the projects your token can see. LiftOff uses an existing project and never creates one.</span>
+          ${list.length > 8 ? `<input class="in" id="filter" data-bind="filter" placeholder="Search by name or key" value="${esc(W.filter)}">` : ""}
+          <select class="in" id="project" data-bind="project"><option value="">Choose a project…</option>${options.map((x) => `<option value="${esc(x.key)}" ${x.key === W.project ? "selected" : ""}>${esc(x.name)} (${esc(x.key)})</option>`).join("")}</select>
+          <button class="btn sm" data-act="manual" style="align-self:flex-start">My project is not in the list</button></div>` : ""}
+      ${W.manual ? field("Project key", "project", { value: W.project, ph: "PROJ", hint: "The capital letters in front of your ticket numbers: in PROJ-123 it is PROJ." }) : ""}
+      <div class="foot"><button class="btn" data-act="back">Back</button>${W.projects !== null ? `<button class="btn pri" data-act="pickProject" ${busy || !W.project ? "disabled" : ""}>${busy ? "One moment…" : "Continue"}</button>` : `<button class="btn pri" data-act="connect" ${busy || !W.url.trim() ? "disabled" : ""}>${busy ? "Checking…" : "Connect"}</button>`}</div>`;
+  },
+  types() {
+    const tl = W.stage === "tl";
+    return `<div class="eyebrow">Tickets</div><h1>${tl ? "Which kinds of ticket does your team have?" : "Which kinds of ticket does your team use?"}</h1>
+      <p class="lede">${tl ? `These are already set up. You can add the ones Jira has that the team does not use yet, or a kind of your own.` : `These are the ticket types Jira has for ${esc(W.project)}. Pick the ones your team really uses, and add your own if you want one Jira does not have.`}</p>
+      ${W.types.map((t, i) => `<div class="opt"><input type="checkbox" data-check="${i}" ${t.on ? "checked" : ""} ${t.locked ? "disabled" : ""}><span style="flex:1"><b>${esc(t.name)}</b>${t.jira ? ` <span class="hint">a ${esc(t.jira)} in Jira</span>` : ""}${t.locked ? ` <span class="hint">already set up</span>` : ""}</span>${!t.locked && t.jira ? `<button class="btn sm" data-act="removeType" data-i="${i}">Remove</button>` : ""}</div>`).join("")}
+      ${W.typesNote ? `<div class="note n-warn">${esc(W.typesNote)}</div>` : ""}
+      <div class="sub"><b>Add a ticket type of your own</b>
+        <span class="hint">For example "e2e" or "support prio". Jira creates it as one of its own types, which you choose here; LiftOff adds a label to tell them apart.</span>
+        <div class="row"><div class="f"><label for="addName">Name</label><input class="in" id="addName" data-bind="addName" value="${esc(W.addName)}" placeholder="e2e"></div>
+        <div class="f"><label for="addBase">It is a … in Jira</label>${W.found.length ? `<select class="in" id="addBase" data-bind="addBase"><option value="">Choose…</option>${W.found.map((n) => `<option ${n === W.addBase ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>` : `<input class="in" id="addBase" data-bind="addBase" value="${esc(W.addBase)}" placeholder="Task">`}</div></div>
+        <button class="btn sm" data-act="addType" style="align-self:flex-start">Add this type</button></div>
+      ${note()}${nav("next", "Continue", W.types.some((t) => t.on))}`;
+  },
+  templates() {
+    const on = W.types.filter((t) => t.on && !t.locked);
+    return `<div class="eyebrow">Tickets</div><h1>How should each ticket be written?</h1>
+      <p class="lede">A template is the list of sections a ticket has. When anyone asks their assistant to write a ticket, it follows this. One section must hold the <b>acceptance criteria</b>: what has to be true for the ticket to be done.</p>
+      ${note()}
+      ${on.map((t) => { const i = W.types.indexOf(t), h = heads(t.template); return `<div class="sub"><b>${esc(t.name)}</b>
+        <div class="f"><label>Start from</label>
+          <label class="opt"><input type="radio" name="src${i}" data-src="${i}" value="default" ${t.src === "default" ? "checked" : ""}><span>A ready-made template <span class="hint">(recommended)</span></span></label>
+          <label class="opt"><input type="radio" name="src${i}" data-src="${i}" value="sample" ${t.src === "sample" ? "checked" : ""}><span>A ticket we already have in Jira</span></label>
+          <label class="opt"><input type="radio" name="src${i}" data-src="${i}" value="own" ${t.src === "own" ? "checked" : ""}><span>My own sections</span></label></div>
+        ${t.src === "sample" ? `<div class="row"><input class="in" data-tbind="${i}.key" placeholder="PROJ-123" value="${esc(t.key)}"><button class="btn sm" data-act="sample" data-i="${i}">Use its sections</button></div>` : ""}
+        ${t.src === "own" ? `<div class="row"><input class="in" data-tbind="${i}.own" placeholder="Context, Steps to reproduce, Acceptance criteria" value="${esc(t.own)}"><button class="btn sm" data-act="own" data-i="${i}">Use these sections</button></div><span class="hint">Separate the sections with commas.</span>` : ""}
+        <div class="f"><label>The sections (you can edit them)</label><textarea class="in" data-tbind="${i}.template">${esc(t.template)}</textarea></div>
+        <div class="f"><label>Which section holds the acceptance criteria?</label><select class="in" data-tbind="${i}.ac">${h.map((x) => `<option ${x === t.ac ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></div>
+        <div class="f"><label>What kind of change is a ${esc(t.name)} ticket?</label><span class="hint">It starts the merge request title, like <b>${esc(t.commit)}(${esc(W.project || "PROJ")}-123): …</b></span>
+          <select class="in" data-tbind="${i}.commit">${COMMITS.map(([v, l]) => `<option value="${v}" ${v === t.commit ? "selected" : ""}>${l} (${v})</option>`).join("")}</select></div></div>`; }).join("")}
+      ${nav("next", "Continue", on.every((t) => heads(t.template).length > 0 && heads(t.template).includes(t.ac)))}`;
+  },
+  review() {
+    if (W.stage === "po") {
+      const on = W.types.filter((t) => t.on);
+      return `<div class="eyebrow">Check</div><h1>Here is what LiftOff will set up</h1>
+        <div class="sub"><div><b>Project:</b> ${esc(W.name)}</div><div><b>Jira:</b> ${esc(W.url)}, project ${esc(W.project)}</div>
+        <div><b>Tickets:</b> ${on.map((t) => `${esc(t.name)} (acceptance criteria in “${esc(t.ac)}”)`).join("; ")}</div></div>
+        <p class="hint">Next LiftOff creates a few files in your project folder (settings and instructions for the assistants). You will see the list before anything is shared.</p>
+        ${note()}${nav("create", "Create the files")}`;
+    }
+    return `<div class="eyebrow">Check</div><h1>Here is what LiftOff will set up</h1>
+      <div class="sub"><div><b>Parts of the code:</b> ${W.modules.length ? W.modules.map((m) => esc(m.id)).join(", ") : "a single application"}</div>
+      <div><b>Assistants:</b> ${W.targets.map((t) => (t === "copilot" ? "GitHub Copilot (VS Code, IntelliJ, CLI)" : "Claude Code")).join(", ")}</div>
+      <div><b>Git:</b> ${W.git === "manual" ? "assistants never run git for you" : "assistants prepare git steps and ask you at each one"}</div>
+      <div><b>GitLab:</b> ${esc(W.host || "not set")}</div><div><b>Project brain:</b> ${S.config && S.config.brain ? "already on" : W.brain === "off" ? "off" : W.brain === "lessons" ? "on, with lessons" : "on"}</div>${W.types.some((t) => t.on && !t.locked) ? `<div><b>New ticket types:</b> ${W.types.filter((t) => t.on && !t.locked).map((t) => esc(t.name)).join(", ")}</div>` : ""}</div>${note()}${nav("create", "Create the files")}`;
+  },
+  tech() {
+    return `<div class="eyebrow">The code</div><h1>The parts of the project</h1>
+      <p class="lede">LiftOff looked at the folders. Fix anything it got wrong. A project with a single application has no parts: leave the list empty.</p>
+      ${W.modules.map((m, i) => `<div class="sub"><div class="row"><div class="f"><label>Name</label><input class="in" data-mbind="${i}.id" value="${esc(m.id)}"></div><div class="f"><label>Folder</label><input class="in" data-mbind="${i}.path" value="${esc(m.path)}"></div></div>
+        <div class="row"><div class="f"><label>Languages</label><input class="in" data-mbind="${i}.languages" value="${esc(m.languages)}" placeholder="Java"></div><div class="f"><label>Frameworks</label><input class="in" data-mbind="${i}.frameworks" value="${esc(m.frameworks)}" placeholder="Spring Boot"></div></div>
+        <div class="row"><div class="f"><label>Build command</label><input class="in" data-mbind="${i}.build" value="${esc(m.build)}"></div><div class="f"><label>Test command</label><input class="in" data-mbind="${i}.test" value="${esc(m.test)}"></div><div class="f"><label>Lint command</label><input class="in" data-mbind="${i}.lint" value="${esc(m.lint)}"></div></div>
+        <button class="btn sm" data-act="rm" data-i="${i}">Remove this part</button></div>`).join("")}
+      <button class="btn" data-act="addmod">Add a part</button>
+      ${W.modules.length === 0 ? `<div class="row">${field("Languages", "languages", { value: W.languages, hint: "Comma separated." })}${field("Frameworks", "frameworks", { value: W.frameworks, hint: "Comma separated." })}</div>` : `<p class="hint">The project's languages and frameworks are what its parts add up to.</p>`}
+      ${nav("next")}`;
+  },
+  agents() {
+    const on = (t) => (W.targets.includes(t) ? "checked" : "");
+    return `<div class="eyebrow">Assistants and git</div><h1>Which AI assistants does the team use?</h1>
+      <label class="opt"><input type="checkbox" data-target="claude-code" ${on("claude-code")}><span><b>Claude Code</b></span></label>
+      <label class="opt"><input type="checkbox" data-target="copilot" ${on("copilot")}><span><b>GitHub Copilot</b> in VS Code, IntelliJ or on the command line</span></label>
+      <h1 style="font-size:20px;margin-top:8px">Who runs git when an assistant builds something?</h1>
+      <label class="opt"><input type="radio" name="git" data-git value="assisted" ${W.git === "assisted" ? "checked" : ""}><span><b>The assistant, with your approval.</b> It shows each step (new branch, commit, push) and waits for a yes. <span class="hint">Recommended.</span></span></label>
+      <label class="opt"><input type="radio" name="git" data-git value="manual" ${W.git === "manual" ? "checked" : ""}><span><b>Only you.</b> The assistant never changes git; it hands you the commands.</span></label>
+      ${nav("next", "Continue", W.targets.length > 0)}`;
+  },
+  gitlab() {
+    return `<div class="eyebrow">GitLab</div><h1>Where does the code live?</h1>
+      <p class="lede">Leave the address empty if the team does not use GitLab.</p>
+      ${field("GitLab address", "host", { value: W.host, ph: "gitlab.yourcompany.com", hint: W.host && S.detected?.git?.host === W.host ? "Taken from this project's git settings." : "" })}
+      <div class="row">${field("Branch that merge requests go to", "c.targetBranch", { value: W.conv.targetBranch })}${field("Branch names", "c.branchPattern", { value: W.conv.branchPattern, hint: "{type}, {key} and {slug} are filled in." })}</div>
+      <div class="row">${field("Merge request titles", "c.titlePattern", { value: W.conv.titlePattern, hint: "{commitType} (feat, fix, chore…, set for each ticket type), {key} and {summary} are filled in." })}</div>
+      <div class="note n-info"><b>What a title will look like</b><br>${(S.config?.tracker?.issueTypes || []).map((t) => `${esc(t.name)}: <span class="mono">${esc(titleFor(t))}</span>`).join("<br>") || "Set the ticket types first."}</div>
+      <div class="row">${field("Labels", "c.labels", { value: W.conv.labels, hint: "Comma separated, optional." })}${field("Reviewers", "c.reviewers", { value: W.conv.reviewers, hint: "GitLab usernames, comma separated, optional." })}</div>
+      ${nav("next")}`;
+  },
+  quality() {
+    return `<div class="eyebrow">Quality</div><h1>The quality bar</h1>
+      <p class="lede">What every change must meet. The assistants follow it and never lower it on their own. This is a normal file in the project; edit it freely.</p>
+      <textarea class="in" style="min-height:300px" data-bind="constraints">${esc(constraints)}</textarea>${nav("next")}`;
+  },
+  brain() {
+    if (S.config && S.config.brain) return `<div class="eyebrow">Project brain</div><h1>The project brain is already on</h1><p class="lede">This project already keeps a shared brain. Nothing changes here: it is managed with the Brain skill.</p>${nav("next")}`;
+    return `<div class="eyebrow">Project brain</div><h1>Should the team keep a shared “brain” for this project?</h1>
+      <p class="lede">A set of notes inside the project that the AI assistants read before they plan, and keep up to date as they work. Everything they add goes through a merge request like code, and every fact quotes its source. This is your decision as technical lead.</p>
+      <label class="opt"><input type="radio" name="brain" data-brain value="off" ${W.brain === "off" ? "checked" : ""}><span><b>Not now.</b> <span class="hint">You can turn it on later.</span></span></label>
+      <label class="opt"><input type="radio" name="brain" data-brain value="on" ${W.brain !== "off" ? "checked" : ""}><span><b>Yes, turn it on.</b> It creates a <span class="mono">brain/</span> folder, adds a short pointer to <span class="mono">AGENTS.md</span>, a rule that keeps the original sources read-only, and a merge rule for its log. You see every file before anything is saved.</span></label>
+      ${W.brain !== "off" ? `<label class="opt"><input type="checkbox" data-lessons ${W.brain === "lessons" ? "checked" : ""}><span>Also let each person's assistant learn from their corrections. These stay personal until someone proposes a rule and the team reviews it.</span></label>` : ""}
+      <div class="note n-info">New in this version and not tried on a real project yet. “Not now” is the safe choice for a first try.</div>
+      ${nav("next")}`;
+  },
+  save() {
+    const p = W.preview, st = W.saveStage || W.stage;
+    if (W.saved) {
+      const r = W.saved;
+      return `<div class="eyebrow">Done</div><h1>${r.pushed ? "Saved and shared" : "Saved"}</h1>
+        <div class="note n-ok">Your setup is in the branch <b>${esc(r.branch)}</b>${r.pushed ? ", pushed to your team's repository" : ""}.${r.note ? " " + esc(r.note) : ""}</div>
+        <p>${st === "po" ? "Next: ask the technical lead to open this project with LiftOff to finish the technical part. They will also review your branch and merge it, which is how the team gets it." : "Next: open a merge request for this branch. When it is merged, the whole team can use LiftOff."}</p>
+        <p class="hint">You can close this page.</p>`;
+    }
+    if (W.later) return `<div class="eyebrow">Not saved yet</div><h1>Your setup is not saved</h1>
+      <div class="note n-warn">The files are in your project folder, but your team cannot see them yet. Nothing was sent anywhere.</div>
+      <div class="foot"><button class="btn" data-act="back">Back</button><button class="btn pri" data-act="saveNow">Save now</button></div>`;
+    if (!p) return `<h1>Almost there</h1><p>Loading…</p>`;
+    if (!p.git) return `<div class="eyebrow">Share</div><h1>This folder is not under git yet</h1><div class="note n-warn">The files are created and safe in the folder. To share them, someone needs to run <span class="mono">git init</span> here (an engineer can do it in a minute), and then you can open this page again.</div>${W.saveOnly ? "" : nav()}`;
+    return `<div class="eyebrow">Share</div><h1>${W.saveOnly ? "Some setup files are not saved yet" : "Save and share with your team"}</h1>
+      ${p.note ? `<div class="note n-warn">${esc(p.note)}</div>` : ""}
+      <p>These files will be saved on a <b>new branch</b> called <span class="mono">${esc(p.branch)}</span>${p.remote ? " and sent to your team's repository" : ""}. The branch your team works on is not touched, and nothing is merged: your colleagues review it first.</p>
+      ${p.files.length ? `<ul class="files">${p.files.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}</ul>` : `<div class="note n-info">There is nothing new to save.</div>`}
+      ${p.remote ? "" : `<div class="note n-warn">This project has no shared repository set up yet (no “origin”), so the branch will be saved here only.</div>`}
+      ${p.identity ? "" : `<div class="note n-warn">Git does not know your name yet. Ask an engineer to run <span class="mono">git config --global user.name</span> and <span class="mono">user.email</span>, then come back.</div>`}
+      ${note()}
+      <div class="foot">${W.saveOnly ? "<span></span>" : `<button class="btn" data-act="back">Back</button>`}<span class="row" style="flex:0 0 auto"><button class="btn" data-act="later">${W.saveOnly ? "Not now, go on" : "Not now"}</button><button class="btn pri" data-act="save" ${busy || !p.files.length || !p.identity ? "disabled" : ""}>${busy ? "Saving…" : "Save and share"}</button></span></div>`;
+  },
+  done() {
+    return `<div class="eyebrow">All set</div><h1>Setup is complete</h1><p>Both parts of the setup are done. Your team can use LiftOff.</p><p><a href="/?t=${TOKEN}&view=panel">Open the control panel</a> to change settings later.</p>`;
+  },
+};
+
+function render() {
+  const app = document.getElementById("app");
+  if (W.saveOnly) { document.getElementById("dots").innerHTML = ""; app.innerHTML = VIEWS.save(); return; }
+  if (W.stage === "done") { document.getElementById("dots").innerHTML = ""; app.innerHTML = VIEWS.done(); return; }
+  dots();
+  app.innerHTML = VIEWS[steps()[step]]();
+}
+
+// ---------- actions
+const say = (kind, text) => { msg = { kind, text }; };
+// A ticket type with the template and settings its name suggests; `jiraType` is the Jira type it is created as (a team's own name, like "e2e", for a Task).
+function mkType(name, jiraType) {
+  const base = jiraType || name, template = S.templates[base.toLowerCase() in S.templates ? base.toLowerCase() : "task"], commit = guessCommit(name);
+  return { name, jira: jiraType && jiraType.toLowerCase() !== name.toLowerCase() ? jiraType : "", on: true, locked: false, src: "default", template, ac: guessAc(template), commit, branch: branchOf(commit), key: "", own: "" };
+}
+// The types the team already has in liftoff.yaml: shown, not rewritten here (a change to one is the control panel's job).
+const fromConfigTypes = () => ((S.config && S.config.tracker && S.config.tracker.issueTypes) || []).map((t) => ({ name: t.name, jira: t.jiraType || "", on: true, locked: true, src: "default", template: t.template || "", ac: (t.readingMap && t.readingMap.acceptanceCriteria && t.readingMap.acceptanceCriteria.heading) || "", commit: commitOf(t), branch: t.branchType || branchOf(commitOf(t)), key: "", own: "" }));
+function prepareTypes(found) {
+  const wanted = /^(story|task|bug|epic)$/i, known = found.filter((n) => wanted.test(n));
+  W.types = found.map((name) => Object.assign(mkType(name, ""), { on: known.length ? wanted.test(name) : true }));
+}
+
+const ACTS = {
+  back() { step = Math.max(0, step - 1); msg = null; W.later = false; },
+  async next() {
+    step++; msg = null;
+    if (W.stage === "tl" && steps()[step] === "types" && !W.loadedTl) { // the lead's machine may have no token: then the Jira type is typed
+      W.loadedTl = true;
+      const r = await api("POST", "/api/jira/types", { url: S.config.tracker.url, project: S.config.tracker.project });
+      if (r.ok) { W.found = r.issueTypes; for (const n of r.issueTypes) if (!W.types.some((t) => t.name.toLowerCase() === n.toLowerCase())) W.types.push(Object.assign(mkType(n, ""), { on: false })); }
+      else W.typesNote = "Jira could not be reached from this computer (" + (r.message || "no token") + "). You can still add a type of your own: type the Jira type it is.";
+    }
+  },
+  addType() {
+    const name = W.addName.trim(), base = W.addBase.trim();
+    if (!name || name.length > 80) return say("warn", "Give the new type a name.");
+    if (!base) return say("warn", "Say which Jira type it is created as.");
+    if (W.types.some((t) => t.name.toLowerCase() === name.toLowerCase())) return say("warn", "There is already a type with that name.");
+    W.types.push(mkType(name, base)); W.addName = ""; W.addBase = ""; say("ok", `Added ${name}. Its template comes next.`);
+  },
+  removeType() { W.types.splice(Number(this.dataset.i), 1); },
+  async connect() {
+    busy = true; say("info", "Checking Jira…"); render();
+    const typed = W.token;
+    const r = await api("POST", "/api/jira/projects", { url: W.url, token: typed, insecure: W.insecure });
+    busy = false; W.local = false;
+    if (r.ok) {
+      W.projects = r.projects; W.manual = r.projects.length === 0; W.filter = "";
+      if (!r.saved && typed) say("warn", "Connected, but the token could not be saved in the keychain, so keep it at hand.");
+      else { W.token = ""; say("ok", r.projects.length ? "Connected. Now choose the project your team uses." : "Connected, but this token does not list any project. Type the project key."); }
+    } else if (r.code === "untrusted-local") { W.local = true; say("warn", r.message); }
+    else say(r.code === "untrusted-cert" || r.code === "cert-problem" ? "warn" : "bad", r.message || "Could not connect.");
+  },
+  async local() { W.insecure = true; await ACTS.connect(); },
+  manual() { W.manual = true; W.projects = W.projects || []; },
+  async pickProject() {
+    busy = true; say("info", "Reading the ticket types…"); render();
+    const r = await api("POST", "/api/jira/types", { url: W.url, project: W.project, token: W.token, insecure: W.insecure });
+    busy = false;
+    if (!r.ok) return say(r.code === "untrusted-cert" || r.code === "cert-problem" ? "warn" : "bad", r.message || "Could not read Jira.");
+    W.found = r.issueTypes; W.token = "";
+    if (!W.types.length || W.typesFor !== W.project) { prepareTypes(r.issueTypes); W.typesFor = W.project; }
+    msg = null; step++;
+  },
+  async sample() {
+    const i = Number(this.dataset.i), t = W.types[i];
+    const r = await api("POST", "/api/jira/sample", { url: W.url, key: t.key.trim().toUpperCase() });
+    if (!r.ok) return say("bad", r.message);
+    if (!r.headings.length) return say("warn", "That ticket has no sections to learn from. Try another ticket, or write your own sections.");
+    t.template = r.headings.map((h) => `## ${h}\n\n`).join(""); t.ac = guessAc(t.template); say("ok", `Took ${r.headings.length} sections from ${t.key.toUpperCase()}.`);
+  },
+  own() {
+    const t = W.types[Number(this.dataset.i)], h = csv(t.own);
+    if (!h.length) return say("warn", "Type at least one section name.");
+    t.template = h.map((x) => `## ${x}\n\n`).join(""); t.ac = guessAc(t.template); msg = null;
+  },
+  addmod() { W.modules.push({ id: "", path: "", languages: "", frameworks: "", build: "", test: "", lint: "" }); },
+  rm() { W.modules.splice(Number(this.dataset.i), 1); },
+  async create() {
+    busy = true; say("info", "Creating the files…"); render();
+    const r = W.stage === "po"
+      ? await api("POST", "/api/setup/po", { name: W.name, purpose: W.purpose, url: W.url, project: W.project, insecure: W.insecure, types: W.types.filter((t) => t.on).map((t) => ({ name: t.name, jiraType: t.jira || undefined, template: t.template, ac: t.ac, branch: t.branch, commit: t.commit })) })
+      : await api("POST", "/api/setup/tl", { modules: W.modules.map((m) => ({ id: m.id, path: m.path, languages: csv(m.languages), frameworks: csv(m.frameworks), build: m.build, test: m.test, lint: m.lint })), languages: csv(W.languages), frameworks: csv(W.frameworks), targets: W.targets, git: W.git, host: W.host, conventions: { targetBranch: W.conv.targetBranch, branchPattern: W.conv.branchPattern, titlePattern: W.conv.titlePattern, labels: csv(W.conv.labels), reviewers: csv(W.conv.reviewers) }, constraintsText: constraints, brain: W.brain, types: W.types.filter((t) => t.on && !t.locked).map((t) => ({ name: t.name, jiraType: t.jira || undefined, template: t.template, ac: t.ac, branch: t.branch, commit: t.commit })) });
+    busy = false;
+    if (!r.ok) return say("bad", r.errors ? r.errors.map((e) => e.message).join("; ") : r.message || "Something went wrong.");
+    W.created = r; msg = null; step++;
+    W.preview = null; render();
+    W.preview = await api("POST", "/api/save/preview", { stage: W.stage });
+  },
+  async save() {
+    busy = true; msg = null; render();
+    const r = await api("POST", "/api/save", { stage: W.saveStage || W.stage, files: W.preview.files });
+    busy = false;
+    if (r.ok) W.saved = r; else say("bad", r.message || "Could not save.");
+  },
+  later() { if (W.saveOnly) { W.saveOnly = false; msg = null; } else W.later = true; },
+  saveNow() { W.later = false; msg = null; },
+};
+
+const app = document.getElementById("app");
+app.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-act]");
+  if (!b || b.disabled) return;
+  await ACTS[b.dataset.act].call(b);
+  render();
+});
+// Typing does not redraw the page (that would take the cursor and the scroll away), but a button that waits for a field
+// must wake up, or go back to sleep, as the field is filled or emptied: so after every edit the buttons are set again
+// from what the screen would say now.
+function redrawKeepingFocus() {
+  const a = document.activeElement, id = a && a.id, from = a && a.selectionStart, to = a && a.selectionEnd;
+  render();
+  const el = id && document.getElementById(id);
+  if (el && el.focus) { el.focus(); try { if (from != null) el.setSelectionRange(from, to); } catch (_) { /* no cursor */ } }
+}
+function syncButtons() {
+  const view = W.saveOnly ? "save" : steps()[step];
+  if (!VIEWS[view] || !app.querySelectorAll) return;
+  const want = {};
+  for (const m of VIEWS[view]().matchAll(/<button\b([^>]*)>/g)) { const act = /data-act="(\w+)"/.exec(m[1]); if (act) want[act[1]] = /\sdisabled(\s|=|$)/.test(m[1]); }
+  for (const b of app.querySelectorAll("button[data-act]")) if (b.dataset.act in want) b.disabled = want[b.dataset.act];
+}
+app.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.dataset.bind) { if (t.dataset.bind === "constraints") constraints = t.value; else W[t.dataset.bind] = t.value; }
+  else if (t.id && t.id.startsWith("c.")) W.conv[t.id.slice(2)] = t.value;
+  else if (t.dataset.tbind) { const [i, k] = t.dataset.tbind.split("."); W.types[Number(i)][k] = t.value; if (k === "template") { const ty = W.types[Number(i)]; if (!heads(ty.template).includes(ty.ac)) ty.ac = guessAc(ty.template); } if (k === "commit") W.types[Number(i)].branch = branchOf(t.value); }
+  else if (t.dataset.mbind) { const [i, k] = t.dataset.mbind.split("."); W.modules[Number(i)][k] = t.value; }
+  else if (t.id && t.id in W && typeof W[t.id] === "string") W[t.id] = t.value;
+  if (t.dataset.bind === "filter") redrawKeepingFocus(); // the list narrows as you type
+  syncButtons(); // the buttons that wait for this field; the section list of a template refreshes on change, to keep the cursor
+});
+app.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.dataset.check !== undefined) W.types[Number(t.dataset.check)].on = t.checked;
+  else if (t.dataset.src !== undefined) { W.types[Number(t.dataset.src)].src = t.value; }
+  else if (t.dataset.target) { W.targets = t.checked ? [...new Set([...W.targets, t.dataset.target])] : W.targets.filter((x) => x !== t.dataset.target); }
+  else if (t.dataset.git !== undefined) W.git = t.value;
+  else if (t.dataset.brain !== undefined) W.brain = t.value;
+  else if (t.dataset.lessons !== undefined) W.brain = t.checked ? "lessons" : "on";
+  else if (t.dataset.tbind && t.dataset.tbind.endsWith(".template")) { /* fall through to render */ }
+  else if (t.dataset.tbind && t.dataset.tbind.endsWith(".ac")) return;
+  else return;
+  render();
+});
+
+(async function start() {
+  const s = await api("GET", "/api/setup");
+  if (!s.ok) { app.textContent = s.message || "Could not load."; return; }
+  init(s);
+  if (s.stage === "tl") { const st = await api("GET", "/api/state"); constraints = st.constraints?.text || ""; }
+  if (s.unsaved && s.unsaved.length > 0) { // the setup was written but never saved: offer it again before anything else
+    W.saveOnly = true; W.saveStage = s.stage === "done" ? "tl" : "po";
+    W.preview = await api("POST", "/api/save/preview", { stage: W.saveStage });
+  }
+  render();
+})();
+</script>
+</body>
+</html>

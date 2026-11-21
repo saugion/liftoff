@@ -112,6 +112,10 @@ If the type has no `template` in the config, say the lead can teach it with the 
 sections, telling the person so. Acceptance criteria are plain bullets or the template's own convention: never tick or cross them
 (`(/)` and `(x)` are check and cross icons in Jira).
 
+A type can carry a `jiraType` (the team's own name for a kind of ticket that Jira only knows as another type, such as `e2e`
+created as a `Task`): put the team's name in `type`; `draft-tickets` creates it as the Jira type and adds the label `liftoff-<name>` itself,
+which is how Plan recognises it later. Never add that label yourself.
+
 For each ticket write the full description from the type's `template` (`tracker.issueTypes[].template` or
 `streams[].issueTypes[].template`): keep its sections, in its order, with the team's checklist and scenario
 conventions. Add `priority`, `labels` and `epic` only when the person gave them (an epic never has an `epic` link); to put

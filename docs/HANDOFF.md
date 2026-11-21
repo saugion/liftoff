@@ -1,11 +1,11 @@
 # LiftOff: handoff
 
-Repo: https://github.com/saugion/liftoff · Last update: 2026-11-20 · Released next: **`v0.5.0`** (the PO's review of tickets, the living handbook and the practices; ready on the branch `claude/liftoff-ai-automation-ypmrt4`, in a pull request; the tag goes on `main` after the merge), after **`v0.4.0`** (the project brain and the lessons loop). The pilot stays pinned to `#v0.3.0` until the group chooses to move; the brain and lessons are opt-in and have not been piloted.
+Repo: https://github.com/saugion/liftoff · Last update: 2026-11-21 · Next release: **`v0.6.0`** (the guided setup, plus everything that was prepared as `v0.5.0`, which was never tagged). It is tagged by hand on `main` right after the pull request is merged: `npm run release 0.6.0`, then `git push origin main && git push origin v0.6.0` (a pushed `v*` tag is immutable). The pilot stays pinned to `#v0.3.0` until the group chooses to move; the brain, lessons and the guide have not been piloted.
 
 ## Where we are
 
 The MVP is built: **Init, Connect, Plan, Build, Ticket flow (with epics), work streams**, and the `build.git` team option.
-Everything is covered by ~1900 tests, including end-to-end runs (`test/e2e/`) against a fake Jira, a fake `glab` and a real
+Everything is covered by ~2,000 tests (2,023 at the last run), including end-to-end runs (`test/e2e/`) against a fake Jira, a fake `glab` and a real
 git remote. **Nothing has run against a real Jira Data Center, a real GitLab or a real agent following the skills.**
 
 | Piece | Where |
@@ -17,7 +17,17 @@ git remote. **Nothing has run against a real Jira Data Center, a real GitLab or 
 | Reasoning behind the design | `docs/design-notes.md` (the per-module specs were removed; they are in git history up to commit 79ab5e3) |
 | Decisions the agent took alone, to review | `docs/decisions/DECISIONS.md` |
 
-## v0.5 (ready as v0.5.0, tag after the merge, unpiloted)
+## v0.6 the guided setup (ready as v0.6.0, tag after the merge, unpiloted)
+
+Init starts a page in the browser (`plugin/bin/liftoff-ui.mjs`, source in `ui/`): the product owner describes the project, connects Jira (address, token,
+the project from a list), picks the ticket types (including the team's own, created as another Jira type and recognised by the label `liftoff-<name>`),
+templates and the kind of change; the technical lead confirms modules, assistants, ticket types, git mode, GitLab (titles like `fix(PROJ-123): ...`), the quality
+bar and decides the project brain. Each part saves to `liftoff/setup-po` / `liftoff/setup-tl` and pushes, after a yes. Decisions: `DECISIONS.md` 63-89. Tests: `test/e2e/ui-setup.test.ts`,
+`ui-page.test.ts`, `ui-panel.test.ts` (the pages' own scripts run against the real server), `test/ui/`. To try it with no real Jira: `scripts/fake-setup.sh`
+(`docs/fake-jira.md`). **Not checked:** a real browser, a real Jira, Copilot on the command line and in IntelliJ, the macOS Keychain, the real `mcp-atlassian`
+with a certificate the system does not know (it ignores certificate files; only the system's trust or `sslVerify: false` work).
+
+## v0.5 (content ships in v0.6.0, unpiloted)
 
 The PO's review of tickets, the `practices` and `pilot` sections, the living handbook (opt-in `brain.handbook`), `verify-first`, `clean-review`
 (a read-only subagent) and the context-hygiene warnings. Designs and decisions: `docs/decisions/ticket-po-review.md`, `handbook.md`,
@@ -25,7 +35,7 @@ The PO's review of tickets, the `practices` and `pilot` sections, the living han
 New CLI commands: `handbook-init|status|update|retire|seen`, `clean-review`, `pilot-metrics`; `draft-tickets` takes `--review` and `--approve`.
 Smoke runs with agents covered the Ticket flow (a PO who answers and one who delegates) and Plan and Build with `verify-first` and
 `clean-review` (see `DECISIONS.md`). **Not checked:** a real Jira (does `_TBD_` survive its markup?), VS Code Copilot (the reviewer fallback, the
-hooks, the commands the pages mention), a real GitLab. `v0.5.0` is tagged by hand, as v0.4.0 was (clean install, build, test, tag, push of the tag), **on `main` after the pull request is merged**.
+hooks, the commands the pages mention), a real GitLab. It ships with `v0.6.0` (`v0.5.0` was never tagged).
 
 ## v0.4 project brain (released as v0.4.0)
 
@@ -49,7 +59,7 @@ Done, with a fix committed after each: Connect lead (own/default/customized temp
 
 - **The pilot** (the README's "Pilot" section): run Init, Connect (lead and member), Plan, Build and Ticket on a real Jira DC and GitLab, in Claude Code and in VS Code Copilot. The manual checklist, with the open questions only the pilot can answer, is `docs/pilot-checklist.md`.
 - **Open decisions** (see the top of `docs/decisions/DECISIONS.md`): where the plan file lives, one ticket per project for work across a stream and a team module, the assumed shape of `jira_get_issue` / `jira_create_issue` results.
-- **Not built:** the MCP wrapper for chat clients (Claude Desktop), `doctor`, sprint support, stream deadline/WIP warnings, the optional Init add-ons (subagents, hooks, CI, wiki, folder reorganization). Close was dropped: the merge request and the ticket's lane belong to the engineer.
+- **Not built:** the MCP wrapper for chat clients (Claude Desktop), `doctor`, sprint support, stream deadline/WIP warnings, the optional Init add-ons (subagents, hooks, CI, folder reorganization; the wiki is the project brain). Close was dropped: the merge request and the ticket's lane belong to the engineer.
 - **Decision rule for the pilot:** if after 4 weeks fewer than half of the group uses Build, revisit the product before adding anything.
 
 ## How to work on it

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { brainPaths } from "../brain/paths.js";
-import { connectors, projectsOf, resolvedPractices } from "../config/index.js";
+import { connectors, projectsOf, resolvedPractices, typeOfTicket } from "../config/index.js";
 import { KEY_RE, buildInfo } from "../plan/build.js";
 import { splitCriteria } from "../plan/criteria.js";
 import { openPoints, readTicket, readWithMap } from "../plan/ticket.js";
@@ -38,7 +38,7 @@ export const parseTicketCommand: Handler = ({ root, file }) => {
     return fail("ticket-invalid", `${ticket.key} is not in a configured project (${known})`);
   }
 
-  const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+  const type = typeOfTicket(project.issueTypes, ticket);
   const reading = readWithMap(ticket, type);
   const warnings: { code: string; message: string }[] = [];
   if (!type) warnings.push({ code: "unknown-issue-type", message: `issue type '${ticket.issueType}' is not in liftoff.yaml: read with defaults; the lead can add it with the Connect skill` });

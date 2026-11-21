@@ -107,7 +107,9 @@ me again": the routing in step 1 of `SKILL.md` brings the user back here, at L3.
    `assets/jira-dc-formatting.md` first: how Jira DC and the server convert text decides what survives.
 6. **Ask for the `tracker.issueTypes[].branchType`** of each type (what `{type}` means in a branch name: Story
    `feature`, Bug `bugfix`, Task `chore`), defaulting from the type name and checked against the branch names found
-   in L6.
+   in L6. Also the optional **`commitType`** of each type (the word that starts a merge request title when
+   `titlePattern` uses `{commitType}`: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`). It defaults from the branch
+   type (feature `feat`, bugfix `fix`, else `chore`), so ask only when a type does not follow that.
 
 ### Changing a template later
 
@@ -181,7 +183,8 @@ Finally list the keys of every test ticket, so the lead can delete them.
 2. `glab mr list --merged -P 20 -F json`: infer from what exists and **show the evidence with counts**: the usual
    `target_branch` (`codeHost.conventions.targetBranch`), the branch-name shape around the ticket key
    (`codeHost.conventions.branchPattern`: `{type}/{key}-{slug}`), the title shape
-   (`codeHost.conventions.titlePattern`: `{key}: {summary}`), the labels used most (`codeHost.conventions.labels`),
+   (`codeHost.conventions.titlePattern`: `{key}: {summary}`; when the team's titles start with `fix(PROJ-1):`, `feat(PROJ-2):`
+   it is `{commitType}({key}): {summary}`, and each type's `commitType` says which word it gets), the labels used most (`codeHost.conventions.labels`),
    the reviewers who appear most (`codeHost.conventions.reviewers`).
 3. The repo's `.gitlab/merge_request_templates/`: prefer `Default.md` if it exists, otherwise ask which one is the
    team's default (`codeHost.conventions.mrTemplate`). A project-level default description set in GitLab's settings

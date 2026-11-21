@@ -5,6 +5,6 @@ export type { Agent, Config, ConfigError, ModuleItem, RawConfig, Result } from "
 export { AGENTS, PRACTICE_DEFAULTS, PRACTICE_IDS } from "./types.js";
 export type { PilotConfig, PracticeId, PracticeMode, PracticesConfig } from "./types.js";
 export { metricsOn, practiceMode, resolvedPractices } from "./practices.js";
-export { MIN_BRAIN_PLUGIN, MIN_CONNECT_PLUGIN, MIN_HANDBOOK_PLUGIN, MIN_JIRA_SERVER_VERSION, MIN_PRACTICES_PLUGIN, MIN_STREAMS_PLUGIN, connectors, projectsOf } from "./connectors.js";
+export { commitTypeOf, isCustomType, jiraTypeOf, typeLabel, typeOfTicket, MIN_BRAIN_PLUGIN, MIN_CONNECT_PLUGIN, MIN_HANDBOOK_PLUGIN, MIN_JIRA_SERVER_VERSION, MIN_PRACTICES_PLUGIN, MIN_STREAMS_PLUGIN, connectors, projectsOf } from "./connectors.js";
 export type { CodeHostConfig, IssueType, ProjectInfo, Stream, StreamsConfig, TrackerConfig, Transition } from "./connectors.js";
 export { compareVersions, parseVersion } from "./version.js";

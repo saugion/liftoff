@@ -1,8 +1,32 @@
 # Changelog
 
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
+`0.5.0` was never tagged: its content (below) ships in `0.6.0`.
 
-## Unreleased
+## 0.6.0 (tagged when the pull request is merged)
+
+### A guided setup, product owner first, then the technical lead
+
+- The Init skill no longer interviews: for a new project it starts `liftoff-ui`, which now ships in the plugin (`plugin/bin/liftoff-ui.mjs`).
+  The first person (a PO) describes the project, connects Jira, picks the ticket types and their templates; a second (the TL) confirms modules,
+  assistants, git mode, GitLab and the quality bar. Everything else is detected or defaulted. Each part ends with a save to a new branch
+  (`liftoff/setup-po`, `liftoff/setup-tl`), pushed after the person's yes. See `docs/decisions/DECISIONS.md` 63-71.
+- The token is entered in the page once and kept in the keychain (or lives in `LIFTOFF_JIRA_TOKEN`). A Jira whose certificate the computer does not
+  know is never trusted by file (the real `mcp-atlassian` ignores them): see the "Removed" bullet below.
+- New `project.setup` (`po` | `done`) in `liftoff.yaml`. New `docs/fake-jira.md` and `Dockerfile.fake-jira`: a fake Jira in Docker to try all of it.
+- The plugin is now two bundles (limit 2 MB). The panel's guard test allows two named exceptions (`ui/connect.ts`, `ui/persist.ts`).
+- After the first walk-through (PO, TL, member), see `docs/decisions/DECISIONS.md` 72-81: the PO picks the Jira project from a list; the page can be
+  left and reopened (Back everywhere, "not saved yet", the save offered again); the root `AGENTS.md` follows the technical lead's modules; the stack
+  is told once; `commitType` and `{commitType}` for titles like `fix(PROJ-123): ...`; ticket types the team names itself (`jiraType`, recognised again by
+  the label `liftoff-<name>`), addable and editable by the PO and the TL in the page and later in the control panel; Copilot's three homes; after Init a
+  teammate is sent to Connect. The Jira key is in the Keychain or in `LIFTOFF_JIRA_TOKEN`, nothing else.
+- Removed: the certificate-trust mechanism (`.liftoff/ca`, the "trust" button, the launcher's extra lines): the real `mcp-atlassian` ignores it. A local
+  test Jira gets one click to skip the check; any other address is told what to do.
+- After an independent code review: saving the setup is safer (only the files the guide wrote, from where the person is unless they have unshared commits,
+  put back if a step fails, works from a subfolder of a repository); a team-named type is recognised by its label in every command, not only `parse-ticket`;
+  nothing is written through a link that leaves the project, and a failure after `liftoff.yaml` restores it; module ids from folder names are valid ids; the
+  control panel offers the Jira projects for a stream and keeps buttons off while an input signals an error; the technical lead decides the project brain in the guide.
+- Not checked: a real browser, a real Jira, Copilot CLI and IntelliJ, the macOS Keychain. See the pilot checklist.
 
 ### Faster lookups in the brain
 

@@ -74,7 +74,7 @@ run the Connect skill and, in Claude Code, to restart the session afterwards; st
    stop. `ticket-invalid`: show `message`; stop.
 4. Show the engineer what the team's reading map found: `ticket.summary`, `reading.acceptanceCriteria` (and its
    `source`), `reading.fields`, and every entry of `warnings`. A `field-missing` warning is a field the lead listed that this ticket does not fill: mention it, and ask about it only if the work needs it. For a bug, the template's other sections (repro recipe, impact, postmortem) are context for the plan, not work items. A `no-acceptance-criteria` warning means **ask the
-   engineer for them**; an `unknown-issue-type` warning means the lead can teach the Connect skill that type.
+   engineer for them**; an `unknown-issue-type` warning means the lead can teach the Connect skill that type. A ticket the team created under its own type name carries the label `liftoff-<name>`; `parse-ticket` reads it and applies that type's template and reading map, so nothing to do.
    `reading.acceptanceCriteria.items` numbers the criteria AC1, AC2, ... (one per list entry or scenario; text with no structure is a
    single AC1): show them numbered, the plan refers to them by those ids.
    A `tbd-open-points` warning (and `openPoints`, each with its section) means the ticket still says `_TBD_` where the

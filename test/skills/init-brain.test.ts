@@ -42,16 +42,10 @@ describe("Init and the brain", () => {
   it("every brain command it names exists", () => {
     for (const c of new Set([...body.matchAll(/`(brain-[a-z]+)\b/g)].map((m) => m[1]!))) expect(Object.keys(handlers), c).toContain(c);
   });
-  it("the interview is still at most four questions, word for word", () => {
-    const section = step("### 3. Interview", "### 4. Layout");
-    const list = section.slice(0, section.indexOf("Do **not** ask about"));
-    const items = [...list.matchAll(/^\d\. /gm)];
-    expect(items).toHaveLength(4);
-    expect(list).toContain("1. Project name and a one-line purpose.");
-    expect(list).toContain("2. Modules, the stack per module, and (for a `new` project only) the layout");
-    expect(list).toContain("3. Agents to target, multi-select: `claude-code`, `copilot`.");
-    expect(list).toContain("4. **Git in the Build skill**");
-    expect(list).not.toMatch(/brain/i);
-    expect(section).toContain("the project brain (a lead turns it on with the Brain skill; here it only follows the config)");
+  it("Init no longer interviews: it starts the setup guide, and writes none of the project files itself in that mode", () => {
+    const section = step("## 2. Guided setup", "## 6. AGENTS.md files");
+    for (const x of ["bin/liftoff-ui.mjs", "Open: <address>", "Do not ask the\n   project questions yourself", "do not write `liftoff.yaml`, `AGENTS.md` or `CONSTRAINTS.md` in this mode"].map((t) => t.replace(/\s+/g, " "))) expect(section.replace(/\s+/g, " "), x).toContain(x);
+    expect(section).not.toMatch(/AskUserQuestion|multi-select/);
+    expect(flat).not.toContain("Interview mode");
   });
 });

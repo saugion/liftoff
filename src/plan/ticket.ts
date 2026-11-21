@@ -12,6 +12,7 @@ export interface Ticket {
   issueType: string;
   status?: string;
   description: string;
+  labels: string[];
   rendered?: string; // renderedFields.description, when present
   raw: Json;
 }
@@ -55,6 +56,10 @@ export function readTicket(text: string): Ticket | { error: string } {
     issueType: flatten(type),
     ...(lookup(raw, "status") !== undefined && { status: flatten(lookup(raw, "status")) }),
     description: flatten(lookup(raw, "description")),
+    labels: (() => {
+      const l = lookup(raw, "labels");
+      return Array.isArray(l) ? l.map(flatten).filter(Boolean) : typeof l === "string" ? l.split(/[\s,]+/).filter(Boolean) : [];
+    })(),
     ...(rendered && { rendered }),
     raw,
   };

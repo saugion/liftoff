@@ -35,7 +35,7 @@ export interface PilotConfig { metrics: boolean; required: boolean }
 export interface RawConfig {
   liftoff: 1;
   plugin: { version: string; required?: true };
-  project: { name: string; kind: "new" | "existing"; required?: boolean };
+  project: { name: string; kind: "new" | "existing"; setup?: "po" | "done"; required?: boolean };
   agents: { targets: Agent[]; required?: boolean };
   stack?: { languages?: string[]; frameworks?: string[]; required?: boolean };
   modules?: { items?: ModuleItem[]; required?: boolean };

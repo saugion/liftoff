@@ -1,6 +1,6 @@
 // Checks a batch of ticket drafts against the team config and turns each into the exact tool call that creates it.
 // Pure: JSON in, JSON out. The agent makes the calls, after the engineer approved the batch.
-import type { IssueType, ProjectInfo, TrackerConfig } from "../config/index.js";
+import { isCustomType, jiraTypeOf, typeLabel, type IssueType, type ProjectInfo, type TrackerConfig } from "../config/index.js";
 import { secretGuard } from "../config/secrets.js";
 import { checkPo, type PoField, type PoStatus } from "./review.js";
 import { headingTitles } from "./ticket.js";
@@ -63,7 +63,7 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
     else if (!info.stream && stream) err("module-in-stream", `module '${m}' belongs to stream ${stream}: its ticket goes in that stream's project; split the work into one ticket per project`);
   }
 
-  const isEpic = isEpicType(type?.name ?? str("type"));
+  const isEpic = isEpicType(type ? jiraTypeOf(type) : str("type"));
   const epic = t.epic;
   let epicValue: string | undefined; // the key to link, or the placeholder of an earlier ticket of this batch
   if (epic !== undefined) {
@@ -95,14 +95,16 @@ export function checkTicket(raw: unknown, index: number, tracker: TrackerConfig,
   const ok = errors.length === 0;
   const additional: Json = { ...(type?.createFields ?? {}), ...(isObj(fields) ? fields : {}) };
   if (isEpic && tracker.epicNameField && additional[tracker.epicNameField] === undefined && typeof summary === "string") additional[tracker.epicNameField] = summary.trim(); // the epic's own name: its summary, unless the draft gave `fields`
-  if (Array.isArray(labels) && labels.length > 0) additional.labels = labels;
+  // a type the team named itself is created as its Jira type plus a label, which is how it is recognised again
+  const allLabels = Array.isArray(labels) ? [...new Set([...(labels as string[]), ...(type && isCustomType(type) ? [typeLabel(type)] : [])])] : [];
+  if (allLabels.length > 0) additional.labels = allLabels;
   if (typeof priority === "string") additional.priority = { name: priority };
   const call = ok
-    ? { tool: "jira_create_issue" as const, args: { project_key: info.project, issue_type: type!.name, summary: summary!, description: description!, ...(Object.keys(additional).length > 0 && { additional_fields: additional }) } }
+    ? { tool: "jira_create_issue" as const, args: { project_key: info.project, issue_type: jiraTypeOf(type!), summary: summary!, description: description!, ...(Object.keys(additional).length > 0 && { additional_fields: additional }) } }
     : null;
   const after = ok && epicValue !== undefined && tracker.epicLinkField
     ? [{ tool: "jira_update_issue" as const, args: { issue_key: CREATED_KEY_PLACEHOLDER, fields: { [tracker.epicLinkField]: epicValue } } }]
     : [];
-  const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` · ${priority}` : ""}${Array.isArray(labels) && labels.length ? ` · ${labels.join(", ")}` : ""}${typeof epic === "string" ? ` · epic ${epic}` : ""}`, summary ?? ""].join("\n");
+  const preview = [`${type?.name ?? str("type") ?? "?"}${typeof priority === "string" ? ` · ${priority}` : ""}${allLabels.length ? ` · ${allLabels.join(", ")}` : ""}${typeof epic === "string" ? ` · epic ${epic}` : ""}`, summary ?? ""].join("\n");
   return { index, ok, errors, warnings, preview, isEpic, po: po.status, registerInStream: ok && isEpic && info.stream ? info.stream.id : null, call, after };
 }
