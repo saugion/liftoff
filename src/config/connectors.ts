@@ -9,10 +9,27 @@ export const MIN_BRAIN_PLUGIN = "0.4";
 export const MIN_HANDBOOK_PLUGIN = "0.5";
 export const MIN_PRACTICES_PLUGIN = "0.5";
 
+// The Jira type a LiftOff type is created as, and how a ticket of a team-named type is told apart again: Jira only
+// knows it as that type, so LiftOff adds the label liftoff-<name> when it creates one and reads that label back.
+export const jiraTypeOf = (t: { name: string; jiraType?: string }): string => t.jiraType ?? t.name;
+export const isCustomType = (t: { name: string; jiraType?: string }): boolean => t.jiraType !== undefined && t.jiraType.toLowerCase() !== t.name.toLowerCase();
+export const typeLabel = (t: { name: string }): string => `liftoff-${t.name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "type"}`;
+
+// The configured type of a ticket read from Jira: a type the team named itself by its label, any other by the Jira type name.
+// One place, so that Plan, the clean review, lessons and the brain read a ticket the way parse-ticket did.
+export const typeOfTicket = <T extends { name: string; jiraType?: string }>(types: T[], ticket: { issueType: string; labels?: string[] }): T | undefined =>
+  types.find((t) => isCustomType(t) && (ticket.labels ?? []).includes(typeLabel(t))) ?? types.find((t) => !isCustomType(t) && t.name.toLowerCase() === ticket.issueType.toLowerCase());
+
+// The conventional-commit word of a ticket type: what the person chose, else from the branch type (feature, bugfix, anything else).
+export const commitTypeOf = (type: { commitType?: string; branchType?: string } | undefined): string =>
+  type?.commitType ?? (type?.branchType === "feature" ? "feat" : type?.branchType === "bugfix" ? "fix" : "chore");
+
 export type Transition = { name: string; fields?: Record<string, unknown> };
 export type IssueType = {
   name: string;
+  jiraType?: string; // the Jira issue type it is created as, when the team's own name differs (an "e2e" that is a Task in Jira)
   branchType?: string;
+  commitType?: string; // the conventional-commit word for the merge request title: feat, fix, chore...
   readingMap: { acceptanceCriteria?: { heading: string } | { field: string }; fields: { id: string; label: string }[] };
   template?: string;
   createFields: Record<string, unknown>;
@@ -80,7 +97,9 @@ function normalizeIssueType(t: RawIssueType): IssueType {
   for (const role of ["start", "review", "done"] as const) if (t.transitions?.[role]) transitions[role] = normalizeTransition(t.transitions[role]);
   return {
     name: t.name,
+    ...(t.jiraType !== undefined && { jiraType: t.jiraType }),
     ...(t.branchType !== undefined && { branchType: t.branchType }),
+    ...(t.commitType !== undefined && { commitType: t.commitType }),
     readingMap: {
       ...(t.readingMap?.acceptanceCriteria && { acceptanceCriteria: t.readingMap.acceptanceCriteria }),
       fields: (t.readingMap?.fields ?? []).map((f) => ({ ...f })),
@@ -144,6 +163,9 @@ function issueTypeErrors(types: RawIssueType[], base: string): ConfigError[] {
   types.forEach((t, i) => {
     const key = t.name.toLowerCase();
     const first = seen.get(key);
+    const label = typeLabel(t);
+    const other = isCustomType(t) ? types.findIndex((o, j) => j < i && isCustomType(o) && typeLabel(o) === label) : -1; // only team-named types carry a label
+    if (other >= 0 && first === undefined) errors.push({ path: `${base}/${i}/name`, message: `'${t.name}' gives the same Jira label (${label}) as '${types[other]!.name}': rename one` });
     if (first === undefined) seen.set(key, i);
     else errors.push({ path: `${base}/${i}/name`, message: `duplicate issue type '${t.name}' (first at ${base}/${first}/name)` });
     const ids = new Map<string, number>();
@@ -197,8 +219,8 @@ export function connectorErrors(raw: RawConfig): ConfigError[] {
     const c = codeHost.conventions;
     const bp = c?.branchPattern !== undefined ? badPlaceholders(c.branchPattern, ["key", "slug", "type"]) : [];
     if (bp.length) errors.push({ path: "/codeHost/conventions/branchPattern", message: `unknown placeholder {${bp[0]}}; allowed: {key} {slug} {type}` });
-    const tp = c?.titlePattern !== undefined ? badPlaceholders(c.titlePattern, ["key", "summary", "type"]) : [];
-    if (tp.length) errors.push({ path: "/codeHost/conventions/titlePattern", message: `unknown placeholder {${tp[0]}}; allowed: {key} {summary} {type}` });
+    const tp = c?.titlePattern !== undefined ? badPlaceholders(c.titlePattern, ["key", "summary", "type", "commitType"]) : [];
+    if (tp.length) errors.push({ path: "/codeHost/conventions/titlePattern", message: `unknown placeholder {${tp[0]}}; allowed: {key} {summary} {type} {commitType}` });
   }
   const items = isConnector(raw.streams) ? ((raw.streams as RawStreams).items ?? []) : [];
   if (items.length > 0) {

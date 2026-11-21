@@ -1,19 +1,21 @@
 ---
 name: liftoff-init
 description: >
-  Make a repository AI-native for Claude Code and GitHub Copilot from one team config: writes liftoff.yaml,
+  Make a repository AI-native for Claude Code and GitHub Copilot from one team config. A new project starts LiftOff's
+  setup guide in the browser (a product owner, then a technical lead); a project with a team config applies it:
   AGENTS.md files, CONSTRAINTS.md and the thin per-agent files (CLAUDE.md, .github/copilot-instructions.md).
   Use when the user says "liftoff init", "init project", "set up this repo for AI agents", "apply the team config",
   or when a repo has a liftoff.yaml that was never applied on this machine.
 license: Apache-2.0
-allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff-ui.mjs" *)
 ---
 
 # LiftOff Init
 
-Turns a repo into an AI-native one. **No `liftoff.yaml` in the repo: interview mode.** One short interview, then you
-write `liftoff.yaml`, the `AGENTS.md` files and `CONSTRAINTS.md`, and render the per-agent files.
-**`liftoff.yaml` present: apply mode.** No questions: you create what is missing, render, and resolve file conflicts
+Turns a repo into an AI-native one. **No `liftoff.yaml` in the repo, or one whose `project.setup` is `po`: guided
+setup.** You do not interview anyone: you start LiftOff's setup guide, a page in the browser that asks a product owner
+about the project and its Jira tickets, then a technical lead about the code, and saves both to the team on their yes.
+**`liftoff.yaml` complete: apply mode.** No questions: you create what is missing, render, and resolve file conflicts
 with the user.
 
 You are the instructions; the `liftoff` CLI decides everything deterministic (validation, the plugin pin, hashes,
@@ -37,6 +39,9 @@ The CLI is `bin/liftoff.mjs` at the root of the plugin, shared with the other Li
 **If the path you are about to run still contains `${`, your host did not substitute it: build the absolute path
 from the directory this SKILL.md was loaded from (the CLI is `../../bin/liftoff.mjs` from there).**
 
+The setup guide is `bin/liftoff-ui.mjs`, next to the CLI (`../../bin/liftoff-ui.mjs` from here). It listens on this
+computer only, and prints one `Open: <address>` line.
+
 Commands: `validate`, `check-config`, `render [--overwrite <path>]...`, and, only when `liftoff.yaml` has a `brain` section, `brain-init [--write]` and `brain-check`. Stdout is always **one JSON document**; read it
 whatever the exit code (exit 1 is a normal state, e.g. the config is missing). Exit 2 or stdout that is not JSON
 means something is wrong with the environment: show `message` or stderr and stop.
@@ -53,7 +58,7 @@ runs PowerShell).
 2. `node --version` must be 22.12 or newer. If `node` is missing or older, stop with a clear message: the CLI would
    fail to start and print nothing.
 
-## 0b. A symlinked AGENTS.md (both modes, before anything is written)
+## 0b. A symlinked AGENTS.md (before anything is written)
 
 (Detect a symlink with `test -L <path>` or `ls -l`.)
 
@@ -70,79 +75,39 @@ Run `check-config`. Branch on `status` and on **every** entry of `reasons[].code
 |---|---|
 | exit 2, `usage` / `internal`, or stdout that is not JSON | Show `message` or stderr. Stop. |
 | `blocked` + `plugin-outdated` | Stop. Tell the user to update the plugin to at least `minimum`, and how: *Claude Code: run `/reload-plugins`, or `/plugin marketplace update liftoff`; VS Code: update or reload the plugin.* Change nothing. |
-| `blocked` + `config-missing` | **Interview mode.** Keep `installedVersion` for step 5. If `hint.nearestRoot` is set **and `<nearestRoot>/liftoff.yaml` exists**, ask whether to use that root instead of starting a second config (this question comes before the interview and is not one of its four). |
+| `blocked` + `config-missing` | **Guided setup** (step 2). If `hint.nearestRoot` is set **and `<nearestRoot>/liftoff.yaml` exists**, first ask whether to use that root instead of starting a second config. |
 | `blocked` + `config-invalid` | Show `errors` (`path`, `line`). Offer a fix **as a diff, with approval**. If `git ls-files --error-unmatch liftoff.yaml` says the file is tracked, say "ask the lead" instead of editing. |
-| `blocked` + `not-applied` or `required-changed` | **Apply mode.** |
+| `blocked` + `not-applied` or `required-changed` | **Apply mode**, unless `liftoff.yaml` has `setup: po` under `project`: then **guided setup** first (step 2), the technical lead's part. |
 | `warn` + `optional-changed` | Apply mode, no prompt: apply, and report what changed. |
 | `warn` + `unresolved-conflict` | Offer to resolve the listed files (step 8). Otherwise leave them. |
+| `ok` or `warn`, and `liftoff.yaml` has `setup: po` under `project` | **Guided setup** (step 2): the product owner's part is saved, the technical lead's is not. |
 | `ok` | Still run `render` (step 8): hashes do not see a deleted or hand-edited generated file, or a missing module `AGENTS.md`. `render` is idempotent. Say "already up to date" only if every file comes back `unchanged`. |
 
-## Interview mode (steps 2 to 5)
+## 2. Guided setup
 
-### 2. Detect
+The setup is a form, not a chat: a product owner can answer it without knowing anything technical. **Do not ask the
+project questions yourself, and do not write `liftoff.yaml`, `AGENTS.md` or `CONSTRAINTS.md` in this mode:** the page
+does, with the same templates, and shows the person every file before it is saved.
 
-Before asking anything, read the manifests to pre-fill modules, stack and commands (`references/stack-commands.md`
-next to this file): Gradle/Maven, `package.json` and its workspaces, Capacitor/React Native, test and e2e configs,
-Dockerfile, CI files, IaC. `project.kind` is `existing` if a manifest or a source directory exists, else `new`. Show
-what you found as the defaults.
+1. Start it in the background (your host's way of running a command without waiting for it):
+   `node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff-ui.mjs" --root "<root>"`. Read its first lines: `Open: <address>`.
+   Node older than 22.12, or no `Open:` line: show the error and stop.
+2. Tell the user, in two sentences: open that address in the browser (it works only on this computer, for this
+   session); it takes about ten minutes; a first-time setup asks about the project, Jira and the ticket templates, and
+   a second person (the technical lead) finishes the technical part later. If `setup: po` is already in the file, say
+   it is the technical part. Nothing leaves the computer until the last page, where they decide whether to save.
+3. Wait. The page will say when it is done. If the user comes back with a problem, read what they describe; do not
+   edit the files the page wrote.
+4. When they say they finished, stop the background process, run `check-config` and report: `ok`, or what it says.
+   Remind them that a branch `liftoff/setup-po` (or `-tl`) was saved and that the team gets it when it is merged.
 
-### 3. Interview: one round of at most 4 questions, then one confirmation
-
-1. Project name and a one-line purpose.
-2. Modules, the stack per module, and (for a `new` project only) the layout: monorepo (`backend/ frontend/ shared/
-   [infra/]`) or single-app. An existing repo keeps what it has.
-3. Agents to target, multi-select: `claude-code`, `copilot`. Default: the one you are running in.
-4. **Git in the Build skill** (a team rule, the lead decides): `assisted` (default) means the agent creates the
-   branch, commits per plan section and pushes the branch, each group only after the engineer approves a dry-run;
-   `manual` means the agent only edits files and runs checks, and **never** stages, commits, branches or pushes: it
-   hands the engineer the branch name, the commit messages and the exact commands. In both cases the engineer opens
-   the merge request and moves the ticket between lanes (always theirs). Ask, explain both in one line each, and
-   write the answer.
-
-Do **not** ask about: which sections are `required` (defaults: `constraints.required: true` and `build.required: true`, nothing else; a lead
-edits by hand), constraint thresholds (use the template defaults), or extras (subagents, hooks, CI, wiki are not part
-of this version), or the project brain (a lead turns it on with the Brain skill; here it only follows the config). Then print a recap table (the config values and the files you will create) and **get a yes before
-writing anything**.
-
-### 4. Layout
-
-`new`: create only the module folders that are in the config. `existing`: **never move or rename files**; modules map
-to paths that already exist.
-
-### 5. Write `liftoff.yaml`, then validate
-
-Fill `assets/liftoff-yaml-template.yaml`:
-
-| Placeholder | Value |
-|---|---|
-| `INSTALLED_VERSION` | `installedVersion` from `check-config` |
-| `PLUGIN_MIN_VERSION` | its `major.minor` (e.g. `0.1`) |
-| `PROJECT_NAME` | the name, with `\` and `"` escaped (it sits inside double quotes) |
-| `PROJECT_KIND` | `new` or `existing` |
-| `AGENT_TARGETS` | the chosen agents, comma-separated |
-| `LANGUAGES`, `FRAMEWORKS` | comma-separated, or empty when unknown |
-| `MODULE_ITEMS` | `[]` for a single-app repo, otherwise the items as a block starting on a new line: `\n    - id: api\n      path: src/api\n      description: HTTP layer` |
-| `CONSTRAINTS_FILE` | `CONSTRAINTS.md` |
-| `BUILD_GIT` | `assisted` or `manual`, the answer to question 4 |
-
-Module rules:
-- A single-app repo whose code sits at the root gets `modules.items` **empty** (the root `AGENTS.md` covers it).
-  Never write a path of `.`, and never two items with the same path.
-- `id` = kebab-case of the folder name (lowercase; `_` and `.` become `-`). If two folders share a name, use the full
-  path (`apps/web` becomes `apps-web`).
-- `path` is relative to the root, forward slashes, no `..`.
-
-Then **write, run `validate`, fix, repeat**, at most 5 rounds. Fix only by correcting what you derived or what the user
-gave; never delete a key to pass and never touch the schema. After 5 rounds, stop and show the errors. A `render-invalid`
-later (for example a path collision) is handled the same way: show `path`, fix the config, validate, render again.
-
-## 6. AGENTS.md files (both modes: create what is missing)
+## 6. AGENTS.md files (apply mode: create what is missing)
 
 - **Before the first backup of the run**, make sure `<root>/.liftoff/.gitignore` exists and contains `*` (create it with
   your file tools if missing), so backups can never be committed. **A backup never overwrites an existing one**: use
   `.liftoff/backup/<path>`, or `<path>.1`, `.2`, ... if that exists.
 - **Root:** fill `assets/agents-md-template.md`. Modules table (columns Module, Path, Stack, Description), commands table (columns Module, Task, Command; mark any command you did not run
-  `(unverified)`: a command counts as checked only when its script, task or wrapper exists; run one only with the
+  `(unverified)`; `references/stack-commands.md` lists what each manifest tells): a command counts as checked only when its script, task or wrapper exists; run one only with the
   user's consent), the agent files list (`CLAUDE.md` and each module's `CLAUDE.md` for `claude-code`;
   `.github/copilot-instructions.md` for `copilot`). Remove a placeholder line that has nothing to put in it
   (`EXTRA_RULES`, `EXTRA_PATHS`). In apply mode with no `AGENTS.md` (a lead wrote the config first): fill it from the
@@ -154,18 +119,15 @@ later (for example a path collision) is handled the same way: show `path`, fix t
   `AGENTS.md` by default; module files hold local specifics only.
 - **An existing `AGENTS.md` with any content is never replaced.** Show an additive diff (the missing sections
   appended), apply it on approval, back it up first.
-- Interview mode with an existing `CLAUDE.md` and no `AGENTS.md`: fold it into the new `AGENTS.md` here (rules in step
-  8), so the user sees **one** diff.
 
-## 6b. The project brain (both modes, **only when `liftoff.yaml` has a `brain` section**)
+## 6b. The project brain (**only when `liftoff.yaml` has a `brain` section**)
 
 No `brain` section: skip this whole step and every brain line in steps 10 and the apply-mode summary. Init never asks
 about the brain and never writes the `brain` section: the lead adds it with the Brain skill (Setup).
 
 1. Run `brain-init` without `--write`. Report `paths` and which `files` say `create`. The files are only added, never
    overwritten, and sit inside `<dir>` and `.liftoff/brain`.
-2. In interview mode the recap yes covers them (add them to the recap table); in apply mode show the list first and ask
-   once. Then run `brain-init --write`.
+2. Show the list first and ask once. Then run `brain-init --write`.
 3. **The `proposals` are the lead's, not yours.** They change files the whole team shares (the pointer block in the root
    `AGENTS.md`, the Claude and VS Code settings, the `.gitattributes` line), and the lead decided them in the Brain
    skill's Setup, including which to decline. Init **never edits them**, so a teammate is never asked a team question.
@@ -209,8 +171,8 @@ Run `render`. Handle each entry of `files[]` by `action`:
   8. If the user declines, leave the file as it is; it stays reported as unresolved.
 - `conflict` with `reason` `newer-generator`: tell the user to update the plugin (same wording as in step 1); do not overwrite.
 - `conflict` with `reason` `symlink` or `not-regular`: report it, do not touch it.
-- Fatal errors: `agents-md-missing` means go back to step 6 and render again; `agents-md-invalid` means step 0b;
-  `render-invalid` means step 5; `path-escape` means stop and show `file`; `write-failed` means show `file` and
+- Fatal errors: `agents-md-missing` means create it (step 6) and render again; `agents-md-invalid` means step 0b;
+  `render-invalid` means show `path` and ask the lead to fix `liftoff.yaml` (the control panel, or the setup guide); `path-escape` means stop and show `file`; `write-failed` means show `file` and
   `message`, and tell the user a second run will pick up where this one stopped. Anything else: show `code` and
   `message`, stop.
 
@@ -247,6 +209,9 @@ prompted to install the plugin and must install it by hand. Only `.claude/settin
   (commit `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, the generated `CLAUDE.md` and
   `.github/copilot-instructions.md`, and `.claude/settings.json`; `.liftoff/` ignores itself). Offer `git init` if there
   was no repo. **Never commit without asking.**
+- **A teammate (apply mode) whose config has a `tracker`:** end the summary with the next step, in these words: "Next: connect to
+  Jira. Say *connect me to Jira* (the Connect skill)". Do not tell them that Jira, `/liftoff-connect` or the Ticket and Plan skills
+  "do not work until the server connects": Connect is what connects it.
 
 ## Apply mode, in short
 

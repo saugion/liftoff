@@ -84,8 +84,12 @@ network that blocks PyPI the preflight (step 3.4) fails and the user may need a 
 
 1. **Is a token already available?** Run `credential.envCheck` (a presence test that prints nothing) and
    `credential.keychain.check` (prints nothing). If either succeeds: "found", without showing anything, go to 4.
-2. **Otherwise, in the user's own terminal.** Show `credential.createToken`, then show `credential.keychain.add` in
-   a copyable code block and say:
+2. **Otherwise, the user keeps the token in one of two places, and nowhere else: an environment variable or the
+   Keychain.** Show `credential.createToken`, then offer both:
+   - **Environment variable (the simplest):** the user sets the `LIFTOFF_JIRA_TOKEN` environment variable themselves, in the
+     terminal they start the agent from (or in their shell profile), and restarts the agent so the Jira server sees it.
+     You do not write the command with their token in it, and you do not ask for the value.
+   - **Keychain:** show `credential.keychain.add` in a copyable code block and say:
    - **Claude Code:** not with the `!` prefix (it runs inside the session, its output goes into the conversation).
      Open a **separate** Terminal or iTerm window.
    - **VS Code:** open a new terminal **yourself**, not the one the agent drives.
@@ -94,6 +98,8 @@ network that blocks PyPI the preflight (step 3.4) fails and the user may need a 
    - If the token was ever typed after `-w`, or into a chat message: **revoke** it in Jira now and make a new one.
 
    Then run `credential.keychain.check` again to confirm.
+   Either way the token is typed by the user in their own terminal, never to you. A token is **never** part of a
+   certificate, file or setting: if Jira refuses the certificate, that is a different problem (step 5).
 3. **You never see the token.** You do not run `credential.keychain.add`, do not ask for the token, do not accept it
    in the chat. If the user pastes one: stop, tell them to **revoke it in Jira now** and create a new one, and do not
    use the pasted value anywhere. The pasted copy stays in this session's history, so revoking is the fix; hold the other
@@ -122,6 +128,10 @@ exist, the lead never committed it: say so and suggest committing it. **Check `g
 (`.vscode/` is often ignored): if ignored, propose a `!.vscode/mcp.json` negation in `.gitignore` as a diff.
 Tell the user what comes next: **Claude Code** asks to approve the project server `liftoff-jira` the first time
 (approve it; `/mcp` shows its status) and may need a new session; **VS Code** shows its own trust prompt.
+**GitHub Copilot** has three homes: VS Code reads `.vscode/mcp.json`; the **Copilot command line** reads a project
+`.mcp.json` (the file Claude Code uses, when it exists); **IntelliJ** configures MCP servers in the IDE's own settings, not in a
+project file, so for an IntelliJ user show them the `liftoff-jira` entry from `mcp` as a code block to paste there (Copilot, MCP,
+Configure). The instructions files LiftOff writes (`AGENTS.md`, `.github/copilot-instructions.md`) are read by all three.
 
 ## 5. Verify Jira
 

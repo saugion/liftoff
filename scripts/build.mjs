@@ -3,23 +3,12 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import { buildCatalog } from "./build-catalog.mjs";
+import { packageVersionOnly } from "./version-only.mjs";
 
 const SKILL_SCRIPT = "plugin/bin/liftoff.mjs";
+const UI_SCRIPT = "plugin/bin/liftoff-ui.mjs";
 const DEFAULTS_OUT = "plugin/skills/liftoff-connect/assets/defaults.json";
 const ENTRY_FRAGMENT = "plugin/skills/liftoff-init/assets/marketplace-entry.json";
-
-// src/cli/version.ts imports package.json for its version. Embed the version only: not the scripts and the
-// devDependencies, and not a stale artifact every time someone edits an unrelated line of package.json.
-export const packageVersionOnly = {
-  name: "package-version-only",
-  setup(b) {
-    const file = resolve("package.json");
-    b.onLoad({ filter: /package\.json$/ }, (args) => {
-      if (args.path !== file) return undefined;
-      return { contents: JSON.stringify({ version: JSON.parse(readFileSync(file, "utf8")).version }), loader: "json" };
-    });
-  },
-};
 
 // One self-contained ESM file: no node_modules needed at runtime (the plugin ships no install step).
 async function bundle(outfile) {
@@ -101,6 +90,9 @@ export async function buildPlugin() {
   mkdirSync(dirname(SKILL_SCRIPT), { recursive: true });
   copyFileSync("dist/liftoff.mjs", SKILL_SCRIPT);
   chmodSync(SKILL_SCRIPT, 0o755);
+  const { buildUi } = await import("./build-ui.mjs");
+  copyFileSync(await buildUi("dist/liftoff-ui.mjs"), UI_SCRIPT); // the control panel ships in the plugin, the setup skill starts it
+  chmodSync(UI_SCRIPT, 0o755);
   copyFileSync("LICENSE", "plugin/LICENSE");
   write("plugin/THIRD_PARTY_NOTICES", thirdPartyNotices(bundledPackages(metafile)));
   write(ENTRY_FRAGMENT, json(marketplaceEntry(version)));

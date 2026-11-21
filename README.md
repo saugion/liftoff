@@ -1,367 +1,351 @@
 # LiftOff
 
-LiftOff is a plugin for AI coding agents (Claude Code, and GitHub Copilot in VS Code). Without it, every engineer
-tells their agent how the team works in their own words, and the agent doesn't know your Jira or your GitLab. With it,
-the team writes its rules down once, in one file, and every engineer's agent follows them. The agent can read a
-ticket, write a plan, write the code and prepare the merge request, all the way the team does it. The engineer approves
-every step and stays in charge.
+LiftOff is a plugin for AI coding agents: Claude Code, and GitHub Copilot in VS Code, IntelliJ and on the command
+line. It makes every engineer's agent work the way the team works.
 
-Current release: **v0.5.0**, built and tested, not yet piloted (the pilot runs on v0.3.0; the project brain is new in v0.4, and v0.5 adds the PO's review of tickets, the living handbook and the practices below). See [Status](#status-and-limits).
+**The problem.** Without it, each engineer explains the team's habits to their agent in their own words, on every
+project. The agent does not know where the team puts acceptance criteria in a Jira ticket, how branches and merge
+request titles are named, or which checks must pass. So the tickets and merge requests it writes need fixing by hand.
 
-**What a team gets**
+**What LiftOff does.** The team writes its rules once, in one file in the repo (`liftoff.yaml`). Every engineer's agent
+reads that file. The agent can then read a Jira ticket, write a plan, write the code and prepare the merge request, the
+team's way. The engineer approves every step that leaves the laptop and stays in charge.
 
-- **The same agent behavior across a mixed team.** One committed file, `liftoff.yaml`, holds the team's rules. Every
-  engineer's agent reads it, whichever agent they use.
-- **Tickets and merge requests that follow the team's conventions.** The agent reads tickets the way the team writes
-  them. It writes tickets on the team's templates and prepares merge requests on the team's branch, title and
-  description conventions.
-- **The engineer stays in charge.** LiftOff proposes, the engineer approves. LiftOff never merges, never opens the
-  merge request and never moves a ticket on the board.
-- **The lead sets it up once.** After that, a teammate needs a few minutes per machine: clone, apply, connect.
+Status: built and tested with automated tests, **not yet used by a real team**. See [Status and limits](#status-and-limits).
+
+## Contents
+
+- [A day with LiftOff](#a-day-with-liftoff)
+- [Who does what](#who-does-what)
+- [Try it with a fake Jira](#try-it-with-a-fake-jira)
+- [Quick start for a team](#quick-start-for-a-team)
+- [What LiftOff never does](#what-liftoff-never-does)
+- [Words you will see](#words-you-will-see)
+- [The setup guide, step by step](#the-setup-guide-step-by-step)
+- [Changing the setup later: the control panel](#changing-the-setup-later-the-control-panel)
+- [What `liftoff.yaml` holds](#what-liftoffyaml-holds)
+- [Optional extras](#optional-extras)
+- [Status and limits](#status-and-limits)
+- [Pilot](#pilot)
+- [More documentation, and working on LiftOff](#more-documentation-and-working-on-liftoff)
 
 ## A day with LiftOff
 
-A team of four builds a web app. They use Jira for tickets and GitLab for code. Nina is the lead. Marco is the product
-owner. Sara is an engineer. Each of them uses an AI agent.
+A team builds a web app, with tickets in Jira and code in GitLab. The setup is already done.
 
-**Once, for the team (Nina, about 30 minutes)**
+1. **The product owner asks for a ticket.** They type *"create a story: users can reset their password by email"*.
+   The agent asks the two things only the product owner can decide: why the story matters, and what is out of scope.
+   It writes the story on the team's template, lists anything it assumed, and creates `PROJ-123` in Jira only after
+   the product owner says yes.
+2. **An engineer plans it.** They type *"plan PROJ-123"*. The agent reads the ticket and the code and writes a plan in
+   short sections ("add the reset endpoint", "send the email", "tests"), with a check for each acceptance criterion.
+   The plan is a local file; nothing goes to Jira. The engineer edits it and approves it.
+3. **The engineer builds it.** They type *"build this plan"*. The agent works one section at a time and runs the team's
+   checks after each. It asks before it creates the branch and before it pushes. If the ticket changed in the
+   meantime, it stops and says so.
+4. **The agent hands back a ready merge request.** It checks its work against the acceptance criteria and prints the
+   title and description in the team's format, for example `feat(PROJ-123): users can reset their password by email`,
+   with the exact command to open it.
+5. **The engineer finishes.** They review the code, open the merge request and move the ticket on the board
+   themselves. LiftOff never does either.
 
-1. Nina runs `/liftoff:liftoff-init` in the repo. The agent asks a few questions (what the project is, its modules,
-   which agents the team uses) and writes the team's rules: `liftoff.yaml`, an `AGENTS.md` with instructions for the
-   agents, and `CONSTRAINTS.md` with the quality bar.
-2. Nina runs `/liftoff:liftoff-connect`. The agent looks at the team's real Jira tickets and GitLab merge requests and
-   learns how the team writes them: where the acceptance criteria go, how branches and titles are named, which
-   states a ticket moves through. It creates a few test tickets to prove it got them right.
-   Starting a brand-new project with no tickets or merge requests yet? Nina picks a built-in template or lists the
-   sections she wants, and answers a few questions about branch and title names. The rest works the same.
-3. Nina commits the files. That is the whole setup.
+## Who does what
 
-**Once per machine (Sara, about 5 minutes)**
+| Person | When | What they do | What they get |
+|---|---|---|---|
+| **Product owner** | once per project, about 10 minutes | Part 1 of the setup guide in the browser: the project, the Jira connection, the ticket types and how each ticket is written. Nothing technical. | Tickets written on the team's templates, from a sentence. |
+| **Technical lead** | once per project, after the product owner | Part 2 of the setup guide: the parts of the code, the agents the team uses, git, GitLab and the quality bar. | One set of rules that every engineer's agent follows. |
+| **Engineer (teammate)** | once per machine, a few minutes | Runs Init (no questions) and Connect (their own Jira token). | An agent that plans, builds and prepares merge requests the team's way. |
+| **Everyone** | every day | Asks in plain words: "create a bug", "plan PROJ-123", "build this plan". | Every step shown first, nothing sent without a yes. |
 
-Sara clones the repo, runs `/liftoff:liftoff-init` (no questions, it applies Nina's rules) and
-`/liftoff:liftoff-connect` (she makes her own Jira token and keeps it in her own keychain).
+## Try it with a fake Jira
 
-**Every day**
+The quickest way to see everything, with no real Jira, GitLab or token. You need macOS, Docker (running), Node 22.12
+or newer, git and Claude Code. From a clone of this repo:
 
-1. **Marco asks for a ticket.** He types: *"create a story: users can reset their password by email"*. The agent
-   writes it on the team's story template, shows him the full text, and creates it in Jira only after he says yes.
-   Result: `PROJ-123`, written the way Sara expects to read it.
-2. **Sara plans it.** She types *"plan PROJ-123"*. The agent reads the ticket and the code, and writes a plan in short
-   sections ("add the reset endpoint", "send the email", "tests") with a check for each acceptance criterion. The plan
-   is a local file. Nothing goes to Jira. Sara reads it, changes what she dislikes and approves it once.
-3. **Sara builds it.** She types *"build this plan"*. The agent works one section at a time and runs the team's checks
-   after each. In the default mode it shows a preview before every git step: create the branch, commit the section,
-   push. Sara approves each one. If the ticket changed in the meantime, or the plan no longer matches it, the agent
-   stops and says so.
-4. **The agent hands back a ready merge request.** The branch is pushed. The agent prints the merge request title and
-   description in the team's format and the exact `glab` command to open it, after checking its own work against the
-   acceptance criteria.
-5. **Sara finishes.** She reviews the code, opens the merge request with that command and moves the ticket to the
-   next column herself. LiftOff never opens the merge request, never merges and never moves a ticket.
-
-**With the project brain (optional, after a few weeks)**
-
-6. **The wiki already knows.** Nina turned on the brain. Sara's next *"plan PROJ-130"* starts from what the team's
-   agents wrote down before: the plan names the wiki pages it used, and says so when a page and the ticket disagree
-   (the ticket wins).
-7. **Sara finishes, and the agent offers a note.** After the build it offers to add the ticket, the plan and the merge
-   request text to the wiki, on the same branch, as a quote from each source. Sara reads the pages, says yes, and the
-   change reaches `main` in the same merge request that reviews her code.
-8. **A correction becomes a rule.** Twice, on different tickets, Sara told the agent to run the API tests with
-   `make test-api`. "Promote my lessons" shows the one-line rule and the diff; Sara commits it on a branch and opens a
-   merge request, and Nina and the team review it like code.
-
-At no point does the agent act alone. Everything that leaves the laptop (a ticket, a branch, a push) is shown first
-and waits for a yes.
-
-## The problem
-
-Teams that use AI agents rebuild the same setup on every project: agent instructions and a quality bar, once per
-agent the company allows, slightly different on each machine. The agent doesn't know where the team puts acceptance
-criteria, and the tickets and merge requests it writes don't match the team's habits. LiftOff turns that setup into a
-shared team config and connects the agent to the tracker and code host with the team's conventions built in.
-
-## How it works
-
-Six skills (a skill is a packaged set of instructions the agent follows). The skills call a small command-line tool
-bundled with the plugin, which checks the team's rules. That tool makes no network calls and never handles
-credentials. (The optional [control panel](#control-panel-optional) is a separate program that listens only on your own
-machine.) The agent talks to Jira through an MCP server (a standard way to give an agent access to an outside
-system) and to GitLab through the `glab` command-line tool.
-
-```
- Lead, once per team            Teammate, once per machine      Every day
- ───────────────────            ──────────────────────────      ─────────
- Init     the team's rules      Init     apply them (no        PO/PM or engineer:
-          in liftoff.yaml                questions)              Ticket  ──▶ tickets in Jira
- Connect  learn Jira and        Connect  own token, own                      │
-          GitLab conventions             machine                Engineer:    ▼
- Commit                                                          Plan ──▶ Build ──▶ merge request
-                                                                                    + ticket lane
-                                                                                    (engineer's)
+```bash
+scripts/fake-setup.sh
 ```
 
-| Skill | Who | What it does |
-|---|---|---|
-| **Init** | lead, then each teammate | Lead: a short interview that writes `liftoff.yaml`, the `AGENTS.md` instruction files, `CONSTRAINTS.md` (the quality bar) and the per-agent files (`CLAUDE.md`, `.github/copilot-instructions.md`). Teammate: applies the committed config with no questions. Never replaces a hand-written `AGENTS.md` or `CONSTRAINTS.md`: it shows additions as a diff. |
-| **Connect** | lead once, then each teammate | Teammate: checks prerequisites, stores a personal Jira token in the macOS Keychain (or reads it from an environment variable), adds the Jira server entry, verifies Jira and GitLab. Lead, once: sets the team's ticket templates, starting from real tickets, a built-in default or the lead's own sections (and can change one later), and learns the fields, test-creates one ticket per type until each one works, learns the workflow transitions, learns the merge-request conventions from past merge requests, and writes all of it to `liftoff.yaml`. Can also link work streams. |
-| **Plan** | engineer | Reads a ticket through the team's reading map (where acceptance criteria and key fields live), reads the repo's rules and code, and writes a local plan in sections. The engineer approves it once. Nothing is written to Jira. |
-| **Build** | engineer | Implements the approved plan section by section and runs the repo's checks. Then it self-checks against the acceptance criteria and prepares the branch name, commit messages, the merge-request description and the exact command to open it. |
-| **Brain** | lead (setup), engineer, anyone | Optional. The project's second brain: a wiki in the repo that the team's agents read before planning and keep up to date, and a personal layer that is never committed. The lead turns it on once. After that, "what do we know about X" is answered from the wiki, Build offers to add what a ticket taught, and "promote my lessons" turns repeated corrections into reviewed team rules. See [Project brain](#project-brain-optional). |
-| **Ticket** | PO/PM, engineer | Writes bugs, tasks, stories and epics on the team's templates, or breaks an epic into tickets. Before it drafts it asks the two things only the person can decide, the **why** and the **out of scope**, and writes them in the person's words (a skipped one stays a visible `_TBD_`); what it added itself is listed as numbered assumptions the person answers. The whole batch is shown together and approved once. Works in the team's Jira project or in a linked work stream. See [The PO decides](#the-po-decides-and-the-living-handbook). |
+The script builds the plugin, starts a fake Jira in Docker on `https://127.0.0.1:8443` (project `PROJ`, token
+`agent-run-PAT-do-not-leak`, both fake and public), and creates a small project with a git remote in
+`~/liftoff-sandbox/my-app`. It prints the command that starts Claude Code with the plugin and the fakes. Then:
 
-**Work streams** are optional. A stream is a time-boxed Kanban project (say a 3-6 week roadmap item or an MVP task
-force) that someone creates by hand in Jira. The lead links it in `liftoff.yaml` together with the code module it
-feeds. Plan, Build and Ticket then never assume a sprint or story points for it. One ticket lives in one project, so
-work that touches both a stream's module and a team module becomes two tickets, one per project.
+1. In Claude Code, say *"I want to set up liftoff for this project"*. The agent prints a local address: open it in
+   the browser.
+2. Do part 1 as the product owner. Jira address `https://127.0.0.1:8443`, the token above. The page says it does not
+   know the certificate and offers to skip the check because this Jira is on your computer: click it. Pick `PROJ` from
+   the list, choose ticket types, then **Save and share**.
+3. Do part 2 as the technical lead: run `/liftoff:liftoff-init` again, the page opens on the technical part.
+4. Try the daily work: *"create a story: ..."*, then *"plan PROJ-123"*.
 
-The template a PO/PM writes a ticket with is the same one the engineer's Plan reads it with. The team config is the
-contract between who writes tickets and who implements them.
+Stop the fake Jira with `scripts/fake-setup.sh --down`. The full walk-through, and what the fake cannot prove, are in
+[`docs/fake-jira.md`](docs/fake-jira.md).
 
-## The PO decides, and the living handbook
+## Quick start for a team
 
-Two habits of the engineers who use AI well, built into the flow so a team that has had no AI training gets them anyway.
+### Requirements
 
-- **The PO decides, the agent writes.** A ticket the agent writes and the PO approves with one quick yes can hide that the decisions were the
-  agent's. So the Ticket skill asks the **why** and the **out of scope** (Epic and Story both, Task the why, Bug neither), never writes them
-  itself, and leaves what nobody answered as `_TBD_`, which Plan then stops on. Everything else it added is a numbered assumption the PO
-  confirms, changes or drops; the batch is `ready` only when each one has an answer. `practices.ticket-po-review` is `on` by default; `nudge`
-  asks the same questions with one yes; `off` goes back to a single approval. A local counter (`pilot-metrics`, no key or text in it) shows how
-  many batches were approved with no question answered and no change.
-- **The living handbook** (optional, `brain.handbook`): thirteen shipped pages in the team's own repo, copied once so the team owns and
-  edits them: eleven practices (verify before you build, a clean-context reviewer, small slices, session hygiene, a pre-mortem on the plan,
-  context on demand, lean output, ...) and two stubs to fill in (how we test, how we review). The agents read a page only when a step needs it
-  and say once, in a line, why they did something (`handbook: verify-first`). A page is guidance, never a switch: it never lowers
-  `CONSTRAINTS.md`. Each page carries its origin and a fingerprint, so a new release brings an **update as a three-way diff**, one page at a
-  time, never applied automatically; a page the team retires stays retired. `brain-check` reports stale pages, how far behind the shipped
-  ones the team is, and **context hygiene** (an `AGENTS.md` over 200 lines, a skill over 500, too many hooks or MCP servers, shouting in
-  capitals): in lines, never tokens.
-- **Two steps off by default** (`practices` in `liftoff.yaml`, each `on`, `nudge` or `off`): `verify-first` (every acceptance criterion gets a
-  check, seen to fail before the code exists; Plan numbers the criteria AC1, AC2 and refuses the approval while one has none) and
-  `clean-review` (before the merge request, a read-only reviewer that has not seen the session re-reads the diff against the ticket and the
-  quality bar; the findings are the engineer's to fix or refuse).
+- macOS (the Jira token is kept in the macOS Keychain; Linux and Windows are not supported yet).
+- Node 22.12 or newer, and git.
+- Claude Code, or GitHub Copilot in VS Code, IntelliJ or on the command line.
+- Jira Server or Data Center (not Jira Cloud) and a personal access token. GitLab, for merge requests.
+- The Connect skill installs `uv` (it runs the Jira connection) and `glab` (the GitLab command-line tool) with
+  Homebrew, after you approve.
 
-## Project brain (optional)
+### 1. Install the plugin
 
-A second brain for the project: a shared wiki in the repo, plus a personal layer on each machine. It is off unless the
-lead adds a `brain` section to `liftoff.yaml` (the Brain skill's Setup does it, with a diff to approve).
+**The guided setup in the browser is not in a release yet.** Until it is, load the plugin from a clone:
 
-```
-brain/                      committed, reviewed in merge requests like code
-  README.md   hot.md        what it is; a few lines of "what is going on now"
-  index.md                  generated list of every page, with its date and module
-  raw/                      the sources, copied once and never edited (named by their content)
-  wiki/                     pages: modules, decisions, learnings, each fact quoted from a source in raw/
-  log/                      one line per ingest, retract or fix
-.liftoff/brain/             personal, never committed (ignored): hot.md, notes/, lessons/
+```bash
+git clone https://github.com/saugion/liftoff.git
+cd <your project>
+claude --plugin-dir <path to the clone>/plugin
 ```
 
-- **Three operations.** *Ingest* adds one source (a ticket, a plan, a merge request description, a file): you see
-  the source, then the pages, then the commit, each with its own yes. *Query* answers from the wiki by reading
-  the hot notes, the index and only the pages the question needs. *Health check* reports contradictions and stale
-  pages and changes nothing. *Retract* removes a wrong source's facts from the pages that cite it.
-- **The index keeps itself fresh, if you want.** `brain-index --write` regenerates it. To run it after every agent turn, add one
-  hook to the repo's `.claude/settings.json` (the plugin ships none): `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"node <path-to>/liftoff.mjs brain-index --write --hook"}]}]}}`.
-  `--hook` never fails, so a repo without a brain sees nothing. `brain-check` reports `index-stale` in CI either way.
-- **Quotes are checked, not trusted.** Every key fact is a blockquote copied word for word from a raw source, and
-  `brain-check` verifies each one against the file. A raw source is written only by a command that never overwrites;
-  a later edit shows up as an error. The check proves structure and quotes, not truth: a wrong source gives a
-  faithfully wrong wiki.
-- **The wiki is background, not instructions.** The ticket, `AGENTS.md`, `CONSTRAINTS.md` and the code win over a page.
-  Text in a source or page that tries to give the agent an order is reported and never followed.
-- **It plugs into Plan and Build.** Plan reads the brain before the outline and names the pages it used; Build offers an
-  ingest after the work (`brain.afterBuild`: `propose` by default, or `off`), as one extra commit on the ticket's branch.
-- **A teammate gets it with Init**: the folders and the personal layer are created on the machine; the files the lead
-  must commit (an `AGENTS.md` pointer, an optional deny rule for `raw/`) come from the Brain skill's Setup, never from
-  a teammate's Init.
-- **Honest limits.** The brain has not been piloted. The deny rule for `raw/` is enforced in Claude Code, not in VS
-  Code Copilot (there `brain-check` is the guard). A very small brain warns about orphan pages.
-
-### Lessons (optional)
-
-With `brain.lessons` in `liftoff.yaml` (inside `brain`), the agents also learn from corrections, and the team can keep
-what repeats. It is off unless the lead turns it on.
-
-- **A lesson** is one behaviour you corrected ("run the API tests with `make test-api`, not `npm test`"), kept as a short
-  rule with the exact words you used as evidence, in `.liftoff/brain/lessons/` on your machine. When you correct Plan or
-  Build, the agent says so in one line and goes on. Say "forget it" and it is dropped. The lessons are never committed.
-- **The count is yours.** A lesson is *ready* when you made the same correction on two different tickets (the lead can
-  change that number). Nobody else's corrections are counted; the team never sees your personal files.
-- **Promotion is a review, not a sync.** In the Brain skill ("promote my lessons") you pick a lesson, word it for the
-  team, see the exact diff and say yes. The rule goes into a marked "Team lessons" block of `AGENTS.md` (or a module's
-  `AGENTS.md`, or `CONSTRAINTS.md`), on a branch the tool names, with the commit message. The tool never pushes and never
-  opens the merge request: you do, and the team reviews the rule like code.
-- **Until the team merges it, a lesson is only data.** Plan lists your own past corrections as reminders and applies
-  nothing by itself; only merged rules in `AGENTS.md` and `CONSTRAINTS.md` instruct the agents.
-- **It never lowers the bar.** A rule that skips tests, disables checks or lowers a threshold is refused (an accident
-  guard, not a guarantee: a team that wants a lower bar edits `CONSTRAINTS.md` by hand). Retiring a rule from the
-  constraints block asks an explicit question first. The block holds at most `maxRules` rules (default 20), and rules
-  older than `reviewAfterDays` (default 90) are listed as "still true?" in the health check.
-- **Ticket text cannot become a rule.** A lesson whose words match the ticket is marked *tainted* and needs its own
-  confirmation, and a rule shaped like an instruction to an agent is refused.
-- **Pilot metrics** (`brain.lessons.metrics`, on by default): local counters of how many plan sections you changed before
-  approving and how many corrections you made. "Show my pilot metrics" prints them by month, with and without the brain
-  filled in, with no ticket key, rule, path or name, so you can paste them into the pilot results by hand. Nothing is sent
-  anywhere.
-
-## What the lead decides
-
-All of it lives in `liftoff.yaml`, committed in the repo:
-
-| Section | What it sets |
-|---|---|
-| `project`, `stack`, `modules` | The project, its languages and frameworks, and its modules (each one gets its own `AGENTS.md`). |
-| `agents` | Which agents the team uses: `claude-code`, `copilot`, or both. |
-| `constraints` | Where the quality bar lives (`CONSTRAINTS.md`). |
-| `tracker` | The Jira Data Center URL and project. For each issue type: the reading map, the ticket template, required creation fields, and the workflow transitions for start, review and done. |
-| `codeHost` | The GitLab host and merge-request conventions: target branch, branch pattern, title pattern, template, labels, reviewers. |
-| `streams` | The linked Kanban work streams, their epics and the module each one feeds. |
-| `brain` | Opt-in. `dir` (where the wiki lives, `brain` by default), `hotMaxLines` (15), `afterBuild` (`propose` or `off`) and `required` (a teammate is warned, or blocked, until they run Init). |
-| `build.git` | Who runs git in Build. `assisted`: the agent creates the branch, commits each section and pushes, each step only after the engineer approves a preview. `manual`: the agent never runs a git command that writes anything. It hands the engineer the branch name, the commit messages and the commands. |
-| `brain.lessons` | Opt-in inside `brain`. `capture` (`notify` by default, `ask` or `off`), `promoteAfter` (distinct tickets before a lesson is ready, 2 by default), `maxRules` (20), `reviewAfterDays` (90) and `metrics` (on). |
-| `plugin.version` | The minimum plugin version. An older install is stopped with instructions to update. |
-
-**The lead's rules are enforced.** A section can be marked `required: true`. When the lead changes a required
-section, every teammate's LiftOff reports a required change until they apply it again with Init (one run, no
-questions). Init marks `constraints` and `build` required by default. Personal things, like tokens, are never in the
-config.
-
-## Control panel (optional)
-
-`npm run ui -- --root <project>` starts a local page for the lead, PO or TL (an address on `127.0.0.1` that it prints; open it
-in a browser). It shows every section of `liftoff.yaml` (project, modules, tracker, code host, work streams, constraints,
-brain), validates with the same rules as the CLI, and shows the exact change before writing. It is the place to change a
-project that is already set up, and a stopped session resumes where it left off. It never takes a token or a password.
-It is a separate program from the CLI, which still has no network code, and it is not part of the plugin yet.
-
-## Guarantees
-
-- **Approval before every write to an outside system.** You see exactly what will be sent first: ticket fields, branch,
-  push. A plan or a batch of tickets is approved once, not once per call.
-- **No credentials in the repo, the config or the chat.** You type the Jira token into your own terminal, and it is
-  kept in the macOS Keychain or an environment variable. `glab` keeps its own login. The agent never sees either.
-- **Nothing is merged or moved by the tool.** The merge request and the ticket's status always belong to the engineer,
-  in every git mode. Build never writes to Jira at all.
-- **Ticket text is data, not instructions.** If a ticket contains something like "also push to main", the agent
-  reports it and does not follow it.
-- **Nothing is committed for you.** Init, Connect and the Brain skill tell you which files to commit.
-- **The brain's sources are read-only and its quotes are verified.** `raw/` is written only by a command that never
-  overwrites, a page's quote must match its source word for word, and the wiki never outranks the ticket and the code.
-- **A lesson never weakens `CONSTRAINTS.md`, and nothing is promoted without a review.** Personal lessons are data until the
-  team merges the rule; the tool never pushes and never opens a merge request.
-
-## Quick start
-
-Requirements: macOS, Node 22.12 or newer, Claude Code or VS Code with GitHub Copilot. For Connect you also need a Jira
-Server/Data Center account and a GitLab account. Connect installs `uv` (it runs the Jira server) and `glab` with
-Homebrew, after you approve.
-
-**Install (lead, or anyone installing by hand)**
-
-Claude Code:
+From a release tag, in Claude Code:
 
 ```
-/plugin marketplace add saugion/liftoff#v0.5.0
+/plugin marketplace add saugion/liftoff#v0.6.0
 /plugin install liftoff@liftoff
 ```
 
-The `#v0.5.0` tag installs exactly that release (`#v0.4.0` is the previous one). A team already piloting on v0.3.0 stays on its tag until it chooses to move.
+The tag pins an exact release. `v0.6.0` is the first release with the setup guide and is tagged as soon as this change
+is merged; `v0.5.0` was never tagged and its content ships in `v0.6.0`. Earlier tags (up to `v0.4.0`) open Init's chat
+interview instead of the guide.
 
-VS Code with GitHub Copilot: turn on `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install `liftoff`.
-Plugin support in VS Code is partly experimental, and the pilot will check this path.
+VS Code with GitHub Copilot: turn on `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install
+`liftoff`. Plugin support in VS Code is partly experimental. Copilot in IntelliJ and on the command line are meant to read the
+instruction files LiftOff writes (`AGENTS.md`, `.github/copilot-instructions.md`); this, and whether they can run
+LiftOff's skills, has not been checked.
 
-**Lead, once per team**
+### 2. Set up the project, once (product owner, then technical lead)
 
-1. In the repo, run `/liftoff:liftoff-init` (in VS Code, the `liftoff-init` skill). Answer up to four questions:
-   name and purpose, modules and stack, agents, git mode. Then approve the recap.
-2. Run `/liftoff:liftoff-connect` and say you are the lead. Give the Jira URL and project, and the GitLab host. Approve
-   each test ticket and each config change. If the agent asks you to restart it, restart and run the skill again: it
-   picks up where it stopped.
-3. Optional: run `/liftoff:liftoff-brain` and say you are the lead to turn on the project brain (a `brain` section, the folders,
-   an `AGENTS.md` pointer, each one a diff you approve), and add `lessons: {}` under `brain` if you want repeated corrections to become
-   reviewed rules.
-4. Optional: to set up or change `liftoff.yaml` in a form instead of through the skills, run `npm run ui -- --root <your repo>`
-   from a clone of LiftOff (see [Control panel](#control-panel-optional)).
-5. Commit what the skills list: `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, `CLAUDE.md`,
-   `.github/copilot-instructions.md`, `.claude/settings.json`, `.mcp.json`, `.vscode/mcp.json`.
+1. The product owner opens the repo in the agent and says *"set up LiftOff"* (or runs `/liftoff:liftoff-init`). The
+   agent starts the [setup guide](#the-setup-guide-step-by-step) and prints an address on `127.0.0.1`. The product
+   owner fills in part 1 and saves. The guide commits the setup files to a new branch, `liftoff/setup-po`, and pushes
+   it after a yes.
+2. The technical lead checks out that branch, runs Init again, and fills in part 2. It saves to `liftoff/setup-tl` the
+   same way.
+3. The team merges the branches like any other merge request.
+4. Optional, for the lead: run `/liftoff:liftoff-connect` and say you are the lead. The agent learns the Jira fields
+   and workflow by creating a few test tickets, each one approved. The guide does not do this part.
 
-**Teammate, once per machine**
+### 3. Each teammate, once per machine
 
-1. Clone the repo. In Claude Code, trust the folder: the committed `.claude/settings.json` registers the LiftOff
-   marketplace and loads the plugin.
-2. Run `/liftoff:liftoff-init`: it applies the team config with no questions.
-3. Run `/liftoff:liftoff-connect`: make a Jira token, store it from your own terminal, approve the Jira server.
+1. Clone the repo. In Claude Code, trust the folder: the committed `.claude/settings.json` loads the plugin.
+2. Run `/liftoff:liftoff-init`. It applies the team's rules with no questions.
+3. Run `/liftoff:liftoff-connect` (or say *"connect me to Jira"*). Make a personal Jira token and either set it as the
+   `LIFTOFF_JIRA_TOKEN` environment variable or store it in the macOS Keychain from your own terminal. The agent never
+   sees it.
 
-**Every day**
+### 4. Every day
 
-| Who | Skill | Or just say |
+| Who | Say | Or run |
 |---|---|---|
-| PO/PM, engineer | `/liftoff:liftoff-ticket` | "create a bug", "break down this epic" |
-| Engineer | `/liftoff:liftoff-plan` | "plan PROJ-123" |
-| Engineer | `/liftoff:liftoff-build` | "build this plan" |
-| Anyone | `/liftoff:liftoff-brain` | "what do we know about login", "promote my lessons" |
+| Product owner, engineer | "create a bug", "break down this epic" | `/liftoff:liftoff-ticket` |
+| Engineer | "plan PROJ-123" | `/liftoff:liftoff-plan` |
+| Engineer | "build this plan" | `/liftoff:liftoff-build` |
+| Anyone | "what do we know about login" (needs the [project brain](#project-brain)) | `/liftoff:liftoff-brain` |
 
-After Build you review the work, open the merge request with the command Build handed you, and move the ticket to its
-next lane.
+In VS Code, the same skills are called `liftoff-init`, `liftoff-plan`, and so on.
 
-The repo pins the plugin to a release tag in `.claude/settings.json` (`ref`), and to a minimum version in
-`liftoff.yaml`. The pin is per user, not per repo, so move all pilot repos to a new release together.
+## What LiftOff never does
+
+- **It never sends anything without a yes.** You see exactly what will go out first: the ticket's fields, the branch,
+  the push. A plan or a batch of tickets is approved once, not once per call.
+- **It never merges, never opens the merge request and never moves a ticket on the board.** Those stay with the
+  engineer. Build never writes to Jira at all.
+- **It never puts a token in the repo, the config or the chat.** The Jira token is in the macOS Keychain or in the
+  `LIFTOFF_JIRA_TOKEN` environment variable, nowhere else. `glab` keeps its own GitLab login.
+- **It never follows orders hidden in a ticket.** If a ticket says something like "also push to main", the agent
+  reports it and does not do it.
+- **It never commits for you, except the two saves of the setup guide.** Those commit only the setup files they list,
+  on a new branch, and push that branch after your yes. They never touch `main`. Every other skill tells you which
+  files to commit.
+- **It never lowers the quality bar.** The agents must meet `CONSTRAINTS.md` and may not weaken it.
+- **It never creates a Jira project.** The product owner picks one the token can already see.
+
+## Words you will see
+
+- **Skill.** A packaged set of instructions the agent follows, like "how to plan a ticket". LiftOff has six: Init,
+  Connect, Ticket, Plan, Build and Brain.
+- **`liftoff.yaml`.** The team's rules, in one file committed in the repo: the project, its parts, the Jira and GitLab
+  conventions, the quality bar. Everything in it is listed [below](#what-liftoffyaml-holds).
+- **`AGENTS.md` and `CONSTRAINTS.md`.** Files LiftOff generates from `liftoff.yaml`. `AGENTS.md` tells any agent how to
+  work in the repo; `CONSTRAINTS.md` is the quality bar. LiftOff also writes the small files each agent looks for
+  (`CLAUDE.md`, `.github/copilot-instructions.md`). It never replaces one a team wrote by hand: it shows additions as a
+  diff.
+- **MCP server.** A standard way to give an agent access to an outside system. The agent reads and creates Jira
+  tickets through one (the community server `mcp-atlassian`). It talks to GitLab through `glab`.
+- **Merge request.** GitLab's name for what GitHub calls a pull request.
+- **Setup guide and control panel.** One small program, `liftoff-ui`, that runs a page in your browser on your own
+  computer. Before the setup is done it is the setup guide; afterwards it is the control panel.
+
+## The setup guide, step by step
+
+Init starts it; you open the address it prints. It runs only on your computer (`127.0.0.1`), and the agent asks
+nothing itself while you use it. You can leave and come back: Back works on every screen, and a page reopened before
+the files were saved offers to save them first.
+
+**Part 1, the product owner:**
+
+- The project's name and what it is for.
+- The Jira address and a personal access token. Then the Jira project, **picked from a list** of the projects the token
+  can see.
+- Which ticket types the team uses. You can add types of your own: a name you make up, like "e2e", and the Jira type it
+  is created as, like Task. LiftOff tells them apart with the label `liftoff-<name>` (here `liftoff-e2e`) on each ticket
+  it creates.
+- For each type: how a ticket is written (a ready-made template, the sections of a real ticket, or your own), which
+  section holds the acceptance criteria, and what kind of change it is (`feat`, `fix`, `chore`...). The kind of change
+  can start the merge request title, as in `fix(PROJ-123): ...`.
+- **Save and share**: the page lists the files, commits only those on a new branch `liftoff/setup-po`, and pushes it
+  after your yes.
+
+**Part 2, the technical lead:**
+
+- The parts of the code LiftOff found (from `package.json`, Gradle, Maven, Python, Go and Rust files), with their
+  languages, frameworks and build, test and lint commands. Fix what is wrong.
+- The agents the team uses: Claude Code, GitHub Copilot (VS Code, IntelliJ or command line), or both.
+- Who runs git when an agent builds: the agent, with your approval of each step, or only you (the agent hands over
+  the commands).
+- The ticket types, with any to add.
+- The GitLab address and conventions: target branch, branch names, merge request titles (with `{commitType}`,
+  `{key}` and `{summary}`, and an example title for each type), labels, reviewers.
+- The quality bar (`CONSTRAINTS.md`).
+- Save to `liftoff/setup-tl`, the same way.
+
+**The Jira token.** You type it into the page once. It goes into the macOS Keychain, never into a file, a log or the
+page's answers. If `LIFTOFF_JIRA_TOKEN` is set, that is used instead.
+
+**A Jira whose certificate this computer does not know.** If Jira runs on this computer (a test Jira on `127.0.0.1`,
+`localhost` or `::1`), the page offers one click to skip the certificate check for it. For any other address it never
+skips the check: it tells you to have the company certificate installed on the computer (a company laptop usually has
+it already) or to ask the technical lead.
+
+**Not done by the guide:** the test tickets and the Jira workflow (the Connect skill's lead flow learns them), and
+the GitLab login (`glab` keeps its own).
+
+## Changing the setup later: the control panel
+
+The same program, once the setup is done. Start it with:
+
+- in the installed plugin: `node <plugin>/bin/liftoff-ui.mjs --root <your repo>`
+- from a clone of this repo: `npm run ui -- --root <your repo>`
+
+It shows every section of `liftoff.yaml`: project, parts of the code, Jira (including the ticket types and their
+templates: change a template, add a type Jira already has, or make up a new one), GitLab, work streams, quality bar,
+and the optional extras. It checks each change with the same rules as the rest of LiftOff and shows the exact change
+before it writes anything. What the Connect skill learned (fields, workflow) is kept. The control panel writes the
+files but does not commit them.
+
+## What `liftoff.yaml` holds
+
+| Section | What it sets |
+|---|---|
+| `project`, `stack`, `modules` | The project, its languages and frameworks, and its parts (each gets its own `AGENTS.md`). |
+| `agents` | Which agents the team uses: `claude-code`, `copilot`, or both. |
+| `constraints` | Where the quality bar lives (`CONSTRAINTS.md`). |
+| `tracker` | The Jira Data Center address and project. For each ticket type: its template, where the acceptance criteria are, the fields Jira requires, the workflow steps, and optionally its Jira type (`jiraType`) and kind of change (`commitType`). |
+| `codeHost` | GitLab and the merge request conventions: target branch, branch and title patterns, template, labels, reviewers. |
+| `build.git` | Who runs git in Build: `assisted` (the agent, after your yes) or `manual` (only you). |
+| `streams` | Optional linked work streams (see [Optional extras](#optional-extras)). |
+| `practices`, `brain`, `pilot` | The optional extras. |
+| `plugin.version` | The minimum plugin version. An older install is stopped with instructions to update. |
+
+**The lead's rules are enforced.** A section can be marked `required: true`. When the lead changes it, every
+teammate's LiftOff reports it until they run Init again (one run, no questions). The full list of fields is in
+[`schema/liftoff.schema.json`](schema/liftoff.schema.json).
+
+## Optional extras
+
+Each is off, or set to its default, until the lead changes it. None has been used by a real team yet.
+
+- **The product owner decides (on by default).** The Ticket skill asks the *why* and the *out of scope* and never
+  invents them. An unanswered one stays a visible `_TBD_` in the ticket, and Plan stops on it. Everything the agent
+  added itself is a numbered assumption the product owner answers. Setting: `practices.ticket-po-review` (`on`,
+  `nudge` for one quick yes, or `off`).
+- **Two extra checks in Plan and Build (off by default).** `verify-first`: each acceptance criterion gets a check that
+  is seen to fail before the code exists. `clean-review`: before the merge request, a reviewer that has not seen the
+  session re-reads the change against the ticket and the quality bar.
+- **Work streams.** A time-boxed Kanban project in Jira (say a 3-6 week roadmap item), created by hand and linked in
+  `liftoff.yaml` to the part of the code it feeds. LiftOff then assumes no sprint or story points for it.
+
+### Project brain
+
+A shared wiki in the repo (`brain/`) that the team's agents read before planning and keep up to date, plus personal
+notes on each machine that are never committed. The lead turns it on with `/liftoff:liftoff-brain` ("set up the
+brain"), each change shown as a diff.
+
+- Plan starts from what the wiki already knows and names the pages it used. If a page and the ticket disagree, the
+  ticket wins.
+- After a build, the agent offers to add what the ticket taught to the wiki, on the same branch, so the team reviews
+  it with the code.
+- Every key fact in the wiki is a word-for-word quote from a source kept in `brain/raw/`, and a check verifies each
+  quote. This proves the quote is faithful, not that the source is right.
+- **Lessons** (`brain.lessons`): the agent keeps your corrections as personal notes ("run the API tests with
+  `make test-api`"), never committed. Once you made the same correction on two different tickets, "promote my
+  lessons" shows it as a one-line team rule and the exact change; you commit it on a branch and the team reviews it
+  like code. A rule that would lower the quality bar is refused.
+- **The handbook** (`brain.handbook`): pages of good practice copied into the team's repo, which the team owns and
+  edits. A page is guidance; it never lowers `CONSTRAINTS.md`.
 
 ## Status and limits
 
-**Built in v0.4.0:** Init, Connect (member and lead flows), Plan, Build with the `build.git` option, Ticket (with
-epics), work streams, and the optional project brain (shared wiki, personal layer, lessons loop).
+**Built:** Init, Connect, Ticket, Plan, Build and Brain, and the optional extras above. Published tags go up to `v0.4.0`;
+`v0.6.0` carries everything below and is tagged when this change is merged.
 
-**Built in v0.5.0:** the [control panel](#control-panel-optional) (`liftoff-ui`); the [PO's review of tickets, the living handbook, `verify-first` and `clean-review`](#the-po-decides-and-the-living-handbook), `practices` and `pilot` in `liftoff.yaml`, and the context-hygiene checks. Nothing in them has been piloted, and the steps that add work to Plan and Build are off until the lead turns them on. Not checked anywhere: a real Jira (does `_TBD_` survive its markup?) and VS Code Copilot (the reviewer's fallback and the commands the pages mention): see `docs/pilot-checklist.md`.
+**New in `v0.6.0`:** the setup guide in the browser and the control panel inside the plugin, ticket types the team
+names itself, `{commitType}` in merge request titles, GitHub Copilot in IntelliJ and on the command line. See
+[`CHANGELOG.md`](CHANGELOG.md), "Unreleased".
 
-**Supported:** Jira Server/Data Center through the community MCP server `mcp-atlassian`, one Jira project per repo.
-GitLab through `glab`. macOS. Claude Code and GitHub Copilot in VS Code.
+**Tested:** 2,023 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
+Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
 
-**Tested:** 1,906 automated tests. These include end-to-end runs against a fake Jira, a fake `glab` and a real git
-remote, with a scripted stand-in for the agent. **Nothing has run yet against a real Jira Data Center, a real GitLab or
-a real agent following the skills** apart from scripted runs where an agent followed the brain and lessons skills against fakes. **The brain and the lessons loop have not been piloted.** Nothing has been measured. The control panel's server is tested end to end; its page has no automated browser test yet.
+**Not tested yet:**
 
-**Not yet:**
+- a real Jira Data Center, a real GitLab, or a real team using LiftOff day to day
+- the setup guide in a real browser, the real macOS Keychain, and the real `mcp-atlassian` with a company certificate
+- GitHub Copilot in IntelliJ and on the command line; VS Code has been looked at only partly
+- the control panel's page (its server is tested, the page is not)
 
-- Jira Cloud, Linear, GitHub
-- credential storage on Linux or Windows
-- sprint support (assigning sprints), and deadline or WIP warnings for streams
-- `doctor` (one command to check the whole setup)
-- a server so chat clients without a shell, like Claude Desktop, can run the Ticket flow
-- the optional Init add-ons: subagents, hooks, a CI workflow (the wiki is now the optional project brain)
-- a company-level shared config that repos inherit from
-- the control panel inside the plugin (today it runs from a clone of this repo)
+The manual checks for all of these are in [`docs/pilot-checklist.md`](docs/pilot-checklist.md).
 
-There is also no Close step, on purpose. Updating the ticket and linking the merge request stay with the engineer.
+**Supported:** macOS. Jira Server/Data Center through `mcp-atlassian`, one Jira project per repo. GitLab through
+`glab`. Claude Code, and GitHub Copilot in VS Code, IntelliJ and on the command line (the last two untested). VS Code
+and the Copilot command line take the Jira connection from a project file; in IntelliJ you paste it into the IDE's
+settings, and Connect shows you what to paste.
+
+**Not built:** Jira Cloud, Linear, GitHub; token storage on Linux or Windows; sprints, and deadline or WIP warnings for
+work streams; one command that checks the whole setup; a way for chat apps without a terminal (like Claude Desktop) to
+run the Ticket flow; a company-wide config that repos inherit. There is no "close the ticket" step, on purpose: the
+ticket and the merge request stay with the engineer.
 
 **What LiftOff is not:** not an autonomous agent (no "assign it to the AI and walk away", no auto-merge); not CI/CD or
-deploy (it stops at a merge request ready to open); not a code-review bot for teammates' work; not a new IDE or agent
-runtime. Plan and Build assume you can read and own the code. PO/PMs use Ticket.
+deployment (it stops at a merge request ready to open); not a review bot for teammates' code; not a new IDE. Plan and
+Build assume the engineer can read and own the code.
 
 ## Pilot
 
-The next step is an internal pilot: 3-5 engineers using both Claude Code and Copilot, on 1-2 new projects, for 2-4
-weeks. It covers Init, Connect, Plan, Build and Ticket on a real Jira Data Center and GitLab. What we watch:
+The next step is an internal pilot: 3-5 engineers using Claude Code and Copilot, on 1-2 new projects, for 2-4 weeks, on
+a real Jira Data Center and GitLab. We watch how long setup takes, whether people keep using Plan and Build afterwards,
+how often merge requests and tickets need edits, and when people go around LiftOff and why.
 
-- how long setup takes
-- whether people keep using Plan and Build after setup (the key signal)
-- how often merge requests and tickets need edits
-- when people bypass LiftOff, and why
+**Decision rule, set in advance:** if after 4 weeks fewer than half of the group uses Build, we revisit the product
+before adding anything else. The checks to run are in [`docs/pilot-checklist.md`](docs/pilot-checklist.md).
 
-Numbers this small are signals, not statistics, so we talk to every user. **Decision rule, set in advance:** if after
-4 weeks fewer than half of the group uses Build, we revisit the product before adding anything else. The manual
-checks are in [`docs/pilot-checklist.md`](docs/pilot-checklist.md).
+## More documentation, and working on LiftOff
 
-## More, and contributing
-
+- [`docs/fake-jira.md`](docs/fake-jira.md): the fake Jira in Docker, to try everything without a real one.
+- [`docs/pilot-checklist.md`](docs/pilot-checklist.md): the manual checks on a real Jira and GitLab.
 - [`docs/HANDOFF.md`](docs/HANDOFF.md): where the project stands and what is left.
-- [`docs/pilot-checklist.md`](docs/pilot-checklist.md): the manual checks to run on a real Jira and GitLab.
-- [`docs/design-notes.md`](docs/design-notes.md): the reasoning behind the choices that are not obvious from the code.
-- [`docs/decisions/DECISIONS.md`](docs/decisions/DECISIONS.md): decisions taken while building. The open ones are
-  listed at the top.
+- [`docs/design-notes.md`](docs/design-notes.md): the reasoning behind choices that are not obvious from the code.
+- [`docs/decisions/DECISIONS.md`](docs/decisions/DECISIONS.md): the decisions taken while building, open ones first.
+- [`CHANGELOG.md`](CHANGELOG.md): what changed in each release.
 - [`schema/liftoff.schema.json`](schema/liftoff.schema.json): everything `liftoff.yaml` can hold.
 
-To work on it: `npm ci`, `npm run build` (type check, bundle, regenerate `plugin/`), `npm test` (unit and end-to-end).
-CI checks that the committed `plugin/` matches a fresh build.
+To work on it: `npm ci`, `npm run build` (type check, bundle, regenerate `plugin/`), `npm test` (unit and end-to-end
+tests). CI checks that the committed `plugin/` matches a fresh build.
 
 Open source under the [Apache-2.0](LICENSE) license.

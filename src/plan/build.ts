@@ -1,4 +1,4 @@
-import type { CodeHostConfig, IssueType, TrackerConfig } from "../config/index.js";
+import { commitTypeOf, type CodeHostConfig, type IssueType, type TrackerConfig } from "../config/index.js";
 import { shQuote } from "../connect/shell.js";
 import type { Ticket } from "./ticket.js";
 
@@ -12,7 +12,7 @@ export function slugify(s: string, max = 40): string {
   return slug || "work";
 }
 
-const fill = (pattern: string, values: Record<string, string>) => pattern.replace(/\{(key|slug|type|summary)\}/g, (_m, k: string) => values[k] ?? "");
+const fill = (pattern: string, values: Record<string, string>) => pattern.replace(/\{(key|slug|type|summary|commitType)\}/g, (_m, k: string) => values[k] ?? "");
 
 // A git ref the shell and git both accept, whatever literal text the pattern had.
 function safeBranch(name: string): string {
@@ -38,7 +38,7 @@ export function buildInfo(t: Ticket, tracker: TrackerConfig, type: IssueType | u
   const conv = codeHost?.conventions;
   const typeWord = type?.branchType ?? slugify(t.issueType || "task");
   const branch = safeBranch(fill(conv?.branchPattern ?? "{key}-{slug}", { key: t.key, slug: slugify(t.summary), type: typeWord }));
-  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType });
+  const title = fill(conv?.titlePattern ?? "{key}: {summary}", { key: t.key, summary: t.summary.replace(/\s+/g, " ").trim().slice(0, 120), type: t.issueType, commitType: commitTypeOf(type) });
   const labels = conv?.labels ?? [];
   const reviewers = conv?.reviewers ?? [];
   const descFile = mrDescriptionFile(t.key);

@@ -3,7 +3,7 @@ import { basename, join, relative, resolve } from "node:path";
 import { brainPaths, symlinkProblem } from "../brain/paths.js";
 import { parseLesson } from "../brain/lesson.js";
 import { KINDS, type SourceKind, cleanText, lessonBody, sourceFile, ticketBody } from "../brain/source.js";
-import { connectors, projectsOf } from "../config/index.js";
+import { connectors, projectsOf, typeOfTicket } from "../config/index.js";
 import { secretGuard } from "../config/secrets.js";
 import { KEY_RE, slugify } from "../plan/build.js";
 import { readTicket, readWithMap } from "../plan/ticket.js";
@@ -74,7 +74,7 @@ export const brainSource: Handler = ({ root, file, key, kind, write }) => {
     const km = KEY_RE.exec(ticket.key);
     const project = km && projectsOf(config).find((p) => p.project === km[1]);
     if (!project) return fail("source-invalid", `${ticket.key} is not an issue key of a configured project`);
-    const type = project.issueTypes.find((t) => t.name.toLowerCase() === ticket.issueType.toLowerCase());
+    const type = typeOfTicket(project.issueTypes, ticket);
     const text = cleanText(Buffer.from(ticketBody({ key: ticket.key, summary: ticket.summary, issueType: ticket.issueType, description: ticket.description, criteria: readWithMap(ticket, type).acceptanceCriteria.text })));
     if ("error" in text) return fail("source-invalid", `the ticket text is ${text.error}`);
     id = ticket.key;

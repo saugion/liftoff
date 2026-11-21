@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 import { buildBundle, marketplaceEntry } from "../../scripts/build.mjs";
+import { buildUi } from "../../scripts/build-ui.mjs";
 import { INSTALLED_VERSION } from "../../src/cli/version.js";
 import { tempDir } from "../helpers.js";
 
@@ -43,6 +44,16 @@ describe("the committed artifact", () => {
     const fresh = join(tempDir("liftoff-fresh-"), "liftoff.mjs");
     await buildBundle(fresh); // built from the repo root: the path comments inside the bundle are relative to it
     expect(readFileSync(ARTIFACT, "utf8") === readFileSync(fresh, "utf8")).toBe(true);
+  });
+
+  it("the control panel in the plugin equals a fresh build too, and runs alone", async () => {
+    const fresh = join(tempDir("liftoff-fresh-ui-"), "liftoff-ui.mjs");
+    await buildUi(fresh);
+    const shipped = join(PLUGIN, "bin", "liftoff-ui.mjs");
+    expect(readFileSync(shipped, "utf8") === readFileSync(fresh, "utf8")).toBe(true);
+    const alone = join(tempDir("liftoff-alone-ui-"), "liftoff-ui.mjs");
+    copyFileSync(shipped, alone);
+    expect(spawnSync(process.execPath, [alone, "--help"], { encoding: "utf8" }).status).toBe(0);
   });
 
   it("embeds the package version only, not the whole package.json (scripts, devDependencies)", () => {
@@ -131,9 +142,9 @@ describe("plugin/ is small and clean", () => {
     expect(files.filter((f) => /(^|\/)(package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|tsconfig\.json)$/.test(f))).toEqual([]);
   });
 
-  it("is under 1 MB", () => {
+  it("is under 2 MB (two self-contained bundles, the plugin has no install step to share yaml and ajv)", () => {
     const bytes = walk(PLUGIN).reduce((sum, f) => sum + statSync(f).size, 0);
-    expect(bytes).toBeLessThan(1024 * 1024);
+    expect(bytes).toBeLessThan(2 * 1024 * 1024);
   });
 
   it("carries the license and the third-party notices of what the bundle contains", () => {
@@ -149,6 +160,7 @@ describe("plugin/ is small and clean", () => {
       "LICENSE",
       "THIRD_PARTY_NOTICES",
       "agents/liftoff-reviewer.md",
+      "bin/liftoff-ui.mjs",
       "bin/liftoff.mjs",
       "skills/liftoff-brain/SKILL.md",
       "skills/liftoff-brain/assets/page-template.md",
@@ -212,7 +224,7 @@ describe("the skill is loadable", () => {
 
   it("allowed-tools is the exact quoted rule that matches the command form the body tells the agent to run", () => {
     const rule = 'Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *)';
-    expect(front["allowed-tools"]).toBe(rule);
+    expect(front["allowed-tools"]).toBe(`${rule}, Bash(node "\${CLAUDE_PLUGIN_ROOT}/bin/liftoff-ui.mjs" *)`); // Init also starts the setup guide
     // Rules match the literal command text: the body must show the same prefix, quotes included.
     expect(body).toContain('node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" <command> --root "<abs path>"');
   });

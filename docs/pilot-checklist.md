@@ -10,7 +10,7 @@ After editing a skill on disk, run `/reload-plugins`. `claude plugin validate <r
 
 ## Init
 
-1. Empty new repo: at most 4 questions, one recap, nothing written before your yes; ends with `liftoff.yaml`, `AGENTS.md`,
+1. Empty new repo: Init asks nothing and starts the setup guide (see "The guided setup" below); when both parts are saved the repo has `liftoff.yaml`, `AGENTS.md`,
    `CONSTRAINTS.md`, the per-agent files, `.claude/settings.json`, `.liftoff/` (self-ignored). Time it (target < 10 min).
 2. `git status` shows no `.liftoff/`; nothing was committed. `check-config` says `ok`.
 3. Existing repo with a manifest: modules detected, no file moved, `project.kind: existing`. Single-app repo: `modules.items: []`.
@@ -23,7 +23,7 @@ After editing a skill on disk, run `/reload-plugins`. `claude plugin validate <r
 8. `plugin.version: "9.0"`: Init stops, changes nothing, says how to update. Old Node first in PATH: clear message.
 9. **The CLI path.** Both skills run `node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs"`. Confirm Claude Code substitutes the
    variable and that the fallback wording works where it does not (VS Code).
-10. The question 4 (git mode) is asked and written as `build.git`, `required: true`.
+10. The technical lead's page asks the git mode and writes it as `build.git`, `required: true`.
 
 ## Packaging
 
@@ -144,6 +144,35 @@ Start a volunteer repo on v0.4 after the first two weeks of the v0.3 pilot.
 6. Context hygiene: run `brain-check` on a real repo: which warnings fire, and are the defaults (200 lines, 40 hooks, 5 MCP servers) sensible?
 7. The nudge line (`I did X because ... (handbook: id)`): does the second time read as a pointer, not noise?
 8. The metric: after a PO week, `pilot-metrics` shows the share of batches approved with no question answered and no change.
+
+## The guided setup (unreleased, after 0.5.0)
+
+A PO who has never seen LiftOff, then a TL, on a real Jira DC and GitLab. Time each part (targets: PO under 10 minutes, TL under 10).
+
+1. Open the project in Claude Code, say "set up LiftOff": the skill starts the panel and prints one address, asks nothing. Does the host let it run the
+   command in the background? Does it find `bin/liftoff-ui.mjs` (also with the `${CLAUDE_PLUGIN_ROOT}` fallback in VS Code)?
+2. **In a real browser** (never tried: only a simulated DOM so far): every screen of both parts renders, the keyboard works, the dark theme reads well,
+   and the wording is understood by a PO without help. Write what they stumble on, in their words, in `tasks/newcomer-feedback.md`.
+3. A Jira with the company's own certificate, on a company laptop: `/mcp` shows `liftoff-jira` connected with the real `mcp-atlassian` 0.23.1 and the page
+   needs no click (the certificate is already in the system). Already known, from a run against the fake Jira: that server reads no certificate file, so
+   a private certificate the system does not know can only be skipped (`sslVerify: false`, offered for a Jira on this computer only) or installed in the system.
+4. The real macOS Keychain: the token saved through `security -i` is found by the MCP launcher; no token in `ps -Eww`, the logs or any file of the repo.
+5. A wrong token, a wrong project key, no VPN: each message is understood.
+6. Ticket types and templates on a real project: the sections taken from a real ticket are the right ones; the acceptance-criteria section is found.
+7. After the PO's save the lead runs the Connect skill (lead flow): it resumes from the config, learns `createFields` and the transitions, and does not ask
+   again what the form already settled.
+8. Save: the branch is pushed, `main` untouched, only the listed files in the commit, a colleague's work in progress left alone; no `origin`, no git identity,
+   a push refused: each says what to do.
+9. The TL opens the project after pulling the PO's branch: the page goes straight to the technical part; saving leaves `project.setup: done`.
+
+10. The project list: a token that sees many projects (the search box), none (the key typed by hand), and a project the person may not read.
+11. Ticket types after the setup: in the control panel, change a template and add a type Jira already has; make up one (like "e2e") created as a Task:
+    the ticket in Jira carries the label `liftoff-e2e`, and Plan reads it with the template of "e2e" and not of "Task" (the label is an assumption: if a
+    team dislikes it, the alternative is a title prefix).
+12. Merge request titles with `{commitType}`: `fix(PROJ-123): ...` for a Bug, `chore(...)` for a Task, in the title Build hands over.
+13. **GitHub Copilot on the command line and in IntelliJ:** the CLI reads `.github/copilot-instructions.md` and `AGENTS.md`; does it accept our project
+    `.mcp.json` (key `mcpServers`, started with `sh -c`)? IntelliJ: the entry pasted into its MCP settings (key `servers`) starts the server and finds the token.
+14. After Init a teammate says "connect me to Jira" and the Connect skill starts, with the token from `LIFTOFF_JIRA_TOKEN` or the Keychain.
 
 ## Open questions only the pilot answers
 

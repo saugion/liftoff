@@ -1,7 +1,7 @@
 import { chmodSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import { packageVersionOnly } from "./build.mjs";
+import { packageVersionOnly } from "./version-only.mjs";
 
 // The control panel is its own bundle: the CLI (src/, dist/liftoff.mjs) stays free of any network module, and
 // test/ui-guard.test.ts holds this one to "node:http, on 127.0.0.1, nothing else".

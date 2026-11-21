@@ -123,7 +123,7 @@ function fromConfig(c, constraints) {
     name: c.project?.name || "", kind: c.project?.kind || "new", targets: c.agents?.targets || ["claude-code"], langs: csvOf(c.stack?.languages), fw: csvOf(c.stack?.frameworks),
     mods: (c.modules?.items || []).map((m) => ({ id: m.id, path: m.path, desc: m.description || "", was: m.id })),
     tver: s.version || "", turl: t.url || "", tkey: t.project || "", readOnly: s.readOnly ?? true, ssl: s.sslVerify ?? true, elf: t.epicLinkField || "", enf: t.epicNameField || "",
-    its: (t.issueTypes || []).map((i) => ({ name: i.name, branch: i.branchType || "", was: i.name })),
+    its: (t.issueTypes || []).map((i) => ({ name: i.name, branch: i.branchType || "", jira: i.jiraType || "", commit: i.commitType || "", tpl: i.template || "", ac: i.readingMap?.acceptanceCriteria?.heading || "", acKind: i.readingMap?.acceptanceCriteria?.field ? "field" : i.readingMap?.acceptanceCriteria?.heading ? "heading" : "none", was: i.name })),
     host: h.host || "", tb: cv.targetBranch || "", bp: cv.branchPattern || "", tpat: cv.titlePattern || "", mrt: cv.mrTemplate || "", labels: csvOf(cv.labels), revs: csvOf(cv.reviewers), git: c.build?.git || "assisted",
     streams: (c.streams?.items || []).map((x) => ({ id: x.id, project: x.project, module: x.module || "", epics: csvOf(x.epics), was: x.id })),
     cfile: c.constraints?.file || constraints.file || "CONSTRAINTS.md", ctext: constraints.text || "",
@@ -155,7 +155,12 @@ function toPatch() {
     if (ch("tver") || ch("readOnly") || ch("ssl")) p.tracker.server = Object.assign({}, ch("tver") ? { version: F.tver } : {}, ch("readOnly") ? { readOnly: F.readOnly } : {}, ch("ssl") ? { sslVerify: F.ssl } : {});
     if (ch("elf")) set("tracker", "epicLinkField", clr(F.elf, t.epicLinkField));
     if (ch("enf")) set("tracker", "epicNameField", clr(F.enf, t.epicNameField));
-    if (ch("its")) set("tracker", "issueTypes", F.its.map((i) => ({ $was: i.was, name: i.name, branchType: clr(i.branch, (t.issueTypes || []).find((x) => x.name === i.was)?.branchType) })));
+    if (ch("its")) set("tracker", "issueTypes", F.its.map((i) => {
+      const old = (t.issueTypes || []).find((x) => x.name === i.was) || {}, fresh1 = !i.was;
+      // Only what the person can change here is sent; the fields Connect learned (createFields, transitions, other reading-map fields) are never in the patch, so they stay
+      return Object.assign({ $was: i.was, name: i.name, branchType: clr(i.branch, old.branchType), jiraType: clr(i.jira && i.jira.toLowerCase() !== i.name.toLowerCase() ? i.jira : "", old.jiraType), commitType: clr(i.commit, old.commitType), template: clr(i.tpl, old.template) },
+        i.acKind !== "field" && i.ac && (fresh1 || i.ac !== (old.readingMap?.acceptanceCriteria?.heading || "")) ? { readingMap: { acceptanceCriteria: { heading: i.ac } } } : {});
+    }));
   }
   const h = O.codeHost || {}, cv = h.conventions || {};
   if (["host", "tb", "bp", "tpat", "mrt", "labels", "revs"].some((k) => (fresh ? F[k] !== "" : !same(F[k], B[k])))) {
@@ -182,7 +187,7 @@ const MAP = [
   [/^\/project\/name/, 1, "name"], [/^\/project/, 1, "kind"], [/^\/agents/, 1, "targets"], [/^\/stack\/frameworks/, 1, "fw"], [/^\/stack/, 1, "langs"],
   [/^\/modules\/items\/(\d+)\/(id|path|description)/, 2, "mods.$1.$2"], [/^\/modules/, 2, "mods"],
   [/^\/tracker\/url/, 3, "turl"], [/^\/tracker\/project/, 3, "tkey"], [/^\/tracker\/server/, 3, "tver"], [/^\/tracker\/epicLinkField/, 3, "elf"], [/^\/tracker\/epicNameField/, 3, "enf"],
-  [/^\/tracker\/issueTypes\/(\d+)\/name/, 3, "its.$1.name"], [/^\/tracker\/issueTypes\/(\d+)\/branchType/, 3, "its.$1.branch"], [/^\/tracker/, 3, "tracker"],
+  [/^\/tracker\/issueTypes\/(\d+)\/name/, 3, "its.$1.name"], [/^\/tracker\/issueTypes\/(\d+)\/branchType/, 3, "its.$1.branch"], [/^\/tracker\/issueTypes\/(\d+)\/jiraType/, 3, "its.$1.jira"], [/^\/tracker\/issueTypes\/(\d+)\/commitType/, 3, "its.$1.commit"], [/^\/tracker\/issueTypes\/(\d+)\/template/, 3, "its.$1.tpl"], [/^\/tracker/, 3, "tracker"],
   [/^\/codeHost\/host/, 4, "host"], [/^\/codeHost\/conventions\/targetBranch/, 4, "tb"], [/^\/codeHost\/conventions\/branchPattern/, 4, "bp"], [/^\/codeHost\/conventions\/titlePattern/, 4, "tpat"],
   [/^\/codeHost\/conventions\/mrTemplate/, 4, "mrt"], [/^\/codeHost\/conventions\/labels/, 4, "labels"], [/^\/codeHost\/conventions\/reviewers/, 4, "revs"], [/^\/codeHost/, 4, "codehost"], [/^\/build/, 4, "git"],
   [/^\/streams\/items\/(\d+)\/(id|project|module|epics)/, 5, "streams.$1.$2"], [/^\/streams/, 5, "streams"],
@@ -235,32 +240,62 @@ const tog = (k, title, desc) => `<div class="box"><div><b>${title}</b><div class
 const segs = (k, opts) => `<div class="row" role="group">${opts.map(([v, l]) => `<button class="seg${F[k] === v ? " on" : ""}" style="flex:0 0 auto" data-a="set" data-k="${k}" data-v="${v}" aria-pressed="${F[k] === v}">${l}</button>`).join("")}</div>`;
 const rowIn = (list, i, f, label, ph, v) => `<div class="f"><label>${label}<input class="in${bad(list + "." + i + "." + f)}" style="margin-top:6px" data-l="${list}" data-i="${i}" data-f="${f}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false"></label>${E(list + "." + i + "." + f)}</div>`;
 
+const COMMITS = [["", "From the branch prefix"], ["feat", "A new feature (feat)"], ["fix", "A bug fix (fix)"], ["chore", "Maintenance or a task (chore)"], ["docs", "Documentation (docs)"], ["refactor", "A refactoring (refactor)"], ["test", "Tests (test)"]];
+const headsOf = (t) => [...String(t).matchAll(/^#{1,6}\s+(.+?)\s*$/gm)].map((m) => m[1]);
+let JP = { list: null, note: "", loading: false }; // the Jira projects this token can see (for a stream's project); not part of the form
+async function loadProjects() {
+  if (JP.loading || !F.turl) return;
+  JP.loading = true; draw();
+  const r = await api("POST", "/api/jira/projects", { url: F.turl });
+  JP = r.ok ? { list: r.projects, note: "", loading: false } : { list: null, note: r.message || "Jira could not be reached.", loading: false };
+  draw();
+}
+// A stream is a project of its own: the person picks one that exists. Typing the key is only the way out when Jira cannot be asked.
+const projectPick = (i, s) => {
+  const opts = (JP.list || []).filter((p) => p.key !== F.tkey); // not the team's own project
+  if (JP.list === null || !opts.length) return rowIn("streams", i, "project", "Jira project key", "e.g. CHK", s.project) + (JP.loading ? '<div class="hint">Asking Jira for your projects…</div>' : JP.note ? `<div class="hint">${esc(JP.note)} Type the key for now.</div>` : "");
+  const known = opts.some((p) => p.key === s.project) || !s.project;
+  return `<div class="f"><label>Jira project<select class="in${bad("streams." + i + ".project")}" style="margin-top:6px" data-l="streams" data-i="${i}" data-f="project"><option value="">Choose a project…</option>${opts.map((p) => `<option value="${esc(p.key)}"${p.key === s.project ? " selected" : ""}>${esc(p.name)} (${esc(p.key)})</option>`).join("")}${known ? "" : `<option value="${esc(s.project)}" selected>${esc(s.project)} (not in the list)</option>`}</select></label>${E("streams." + i + ".project")}</div>`;
+};
+// A list cannot grow while one of its entries is still wrong: the button waits for the input that is signalling an error.
+const addDis = (l) => ((errs().secs[keySec(l)] || []).length ? "disabled" : "");
+let JT = { list: null, note: "" }; // the ticket types Jira has, when the person asked; not part of the form
+const typeCard = (t, i) => `<div class="card">
+  <div class="row" style="align-items:flex-start">${rowIn("its", i, "name", "Name", "e.g. e2e", t.name)}${rowIn("its", i, "jira", "Created in Jira as", "empty: the name is the Jira type", t.jira)}</div>
+  <div class="row" style="align-items:flex-start"><div class="f"><label>Kind of change<select class="in" style="margin-top:6px" data-l="its" data-i="${i}" data-f="commit">${COMMITS.map(([v, l]) => `<option value="${v}" ${v === t.commit ? "selected" : ""}>${l}</option>`).join("")}</select></label><span class="hint">Starts the merge request title, when it uses {commitType}.</span></div>${rowIn("its", i, "branch", "Branch prefix", "e.g. fix", t.branch)}</div>
+  <div class="f"><label>Template<textarea class="in" style="margin-top:6px;min-height:140px;font-family:ui-monospace,Menlo,monospace" data-l="its" data-i="${i}" data-f="tpl" spellcheck="false">${esc(t.tpl)}</textarea></label>${E("its." + i + ".tpl")}</div>
+  ${t.acKind === "field" ? `<div class="hint">The acceptance criteria are read from a Jira field that Connect learned.</div>` : `<div class="f"><label>Section with the acceptance criteria<select class="in" style="margin-top:6px" data-l="its" data-i="${i}" data-f="ac">${headsOf(t.tpl).map((h) => `<option ${h === t.ac ? "selected" : ""}>${esc(h)}</option>`).join("") || "<option value=''>Add a section to the template first</option>"}</select></label></div>`}
+  <button class="btn sm" style="align-self:flex-start" data-a="del" data-l="its" data-i="${i}">Remove this type</button></div>`;
+
 const BODY = {
   1: () => `${field("name", "Project name", "e.g. payments-api")}
 <div class="f"><span class="lab">Is the codebase new or existing?</span>${segs("kind", [["new", "New project"], ["existing", "Existing codebase"]])}</div>
-<div class="f"><span class="lab">Agents LiftOff writes instructions for</span><div class="row">${[["claude-code", "Claude Code"], ["copilot", "GitHub Copilot"]].map(([v, l]) => `<button class="seg${F.targets.includes(v) ? " on" : ""}" style="flex:0 0 auto" data-a="target" data-v="${v}" aria-pressed="${F.targets.includes(v)}">${l}</button>`).join("")}</div>${E("targets")}</div>
+<div class="f"><span class="lab">Agents LiftOff writes instructions for</span><div class="row">${[["claude-code", "Claude Code"], ["copilot", "GitHub Copilot (VS Code, IntelliJ, CLI)"]].map(([v, l]) => `<button class="seg${F.targets.includes(v) ? " on" : ""}" style="flex:0 0 auto" data-a="target" data-v="${v}" aria-pressed="${F.targets.includes(v)}">${l}</button>`).join("")}</div>${E("targets")}</div>
 ${field("langs", "Languages", "e.g. typescript, java", ' <small>· comma separated</small>')}
 ${field("fw", "Frameworks", "e.g. spring, react", ' <small>· comma separated, optional</small>')}`,
   2: () => `${F.mods.length ? "" : '<div class="note n-info">No modules yet. Modules are the parts of your codebase tickets and streams can point to. Optional.</div>'}
 ${F.mods.map((m, i) => `<div class="card"><div class="row">${rowIn("mods", i, "id", "Id", "e.g. api", m.id)}${rowIn("mods", i, "path", "Folder", "e.g. services/api", m.path)}</div>${rowIn("mods", i, "description", "What it does <small>· optional</small>", "One line a new teammate would understand", m.desc)}<button class="btn sm" style="align-self:flex-start" data-a="del" data-l="mods" data-i="${i}">Remove module</button></div>`).join("")}
-<button class="btn" style="align-self:flex-start" data-a="add" data-l="mods">Add a module</button>`,
+<button class="btn" style="align-self:flex-start" data-a="add" data-l="mods" ${addDis("mods")}>Add a module</button>`,
   3: () => `${field("turl", "Jira Data Center URL", "https://jira.your-company.com")}
 <div class="row">${field("tver", "Jira version", "e.g. 9.12.4")}${field("tkey", "Project key", "e.g. PAY")}</div>
 ${tog("readOnly", "Read-only access", "LiftOff reads tickets but never writes to Jira. Safest for a first pilot.")}
 <div class="note n-warn">Your access token never goes in this file or this page. It stays in your environment or keychain.</div>
-${adv(3, tog("ssl", "Verify SSL certificate", "Turn off only for a self-signed test server.") + field("elf", "Epic link field", "e.g. customfield_10014") + field("enf", "Epic name field", "e.g. customfield_10011") +
-  `<div class="f"><span class="lab">Issue types</span><div class="hint">Templates, fields and transitions learned by Connect are kept exactly as they are. Here you only rename a type or set its branch prefix.</div>
-  ${F.its.map((t, i) => `<div class="row" style="align-items:flex-start">${rowIn("its", i, "name", "Name", "e.g. Bug", t.name)}${rowIn("its", i, "branch", "Branch prefix", "e.g. fix", t.branch)}<button class="btn sm" style="flex:0 0 auto;margin-top:30px" data-a="del" data-l="its" data-i="${i}">Remove</button></div>`).join("")}
-  <button class="btn sm" style="align-self:flex-start" data-a="add" data-l="its">Add an issue type</button></div>`)}`,
+${adv(3, tog("ssl", "Verify SSL certificate", "Turn off only for a self-signed test server.") + field("elf", "Epic link field", "e.g. customfield_10014") + field("enf", "Epic name field", "e.g. customfield_10011"))}
+<div class="f"><span class="lab">Ticket types and templates</span>
+<div class="hint">The kinds of ticket your team writes, and how each is written. You can change a template, add a type Jira already has, or make up your own (like “e2e”) and say which Jira type it is created as. What Connect learned (fields, workflow) is kept as it is.</div>
+${F.its.map((t, i) => typeCard(t, i)).join("")}
+<div class="row" style="flex:0 0 auto"><button class="btn sm" style="align-self:flex-start" data-a="add" data-l="its" ${addDis("its")}>Add a type of my own</button> <button class="btn sm" style="align-self:flex-start" data-a="jtypes">Look up the types in Jira</button></div>
+${JT.note ? `<div class="note n-warn">${esc(JT.note)}</div>` : ""}
+${(JT.list || []).filter((n) => !F.its.some((t) => t.name.toLowerCase() === n.toLowerCase())).map((n) => `<div class="box"><span>${esc(n)} <span class="hint">in Jira, not set up here yet</span></span><button class="btn sm" data-a="addjira" data-v="${esc(n)}">Add</button></div>`).join("")}</div>`,
   4: () => `${field("host", "GitLab host", "e.g. gitlab.your-company.com")}
 <div class="row">${field("tb", "Target branch", "e.g. main")}${field("bp", "Branch name pattern", "e.g. feature/{key}-{slug}")}</div>
 <div class="f"><span class="lab">Who runs git during Build?</span>${segs("git", [["assisted", "LiftOff, with my approval"], ["manual", "I run git myself"]])}<div class="hint">${F.git === "assisted" ? "LiftOff creates branches and commits, and pauses for your OK before each push." : "LiftOff only edits files. You create branches, commit and push."}</div></div>
 ${adv(4, field("tpat", "Merge request title pattern", "e.g. {key}: {summary}") + field("mrt", "Merge request template file", "e.g. .gitlab/merge_request_templates/default.md") + field("labels", "Labels", "e.g. liftoff, needs-review") + field("revs", "Default reviewers", "GitLab usernames, comma separated"))}`,
   5: () => `${F.streams.length ? "" : '<div class="note n-info">No work streams. A stream is a time-boxed Kanban Jira project linked to a module. Optional.</div>'}
-${F.streams.map((s, i) => `<div class="card"><div class="row">${rowIn("streams", i, "id", "Stream id", "e.g. mvp-checkout", s.id)}${rowIn("streams", i, "project", "Jira project key", "e.g. CHK", s.project)}
+${F.streams.map((s, i) => `<div class="card"><div class="row">${rowIn("streams", i, "id", "Stream id", "e.g. mvp-checkout", s.id)}${projectPick(i, s)}
 <div class="f"><label>Feeds module<select class="in${bad("streams." + i + ".module")}" style="margin-top:6px" data-l="streams" data-i="${i}" data-f="module"><option value="">None</option>${F.mods.filter((m) => m.id).map((m) => `<option value="${esc(m.id)}"${m.id === s.module ? " selected" : ""}>${esc(m.id)}</option>`).join("")}</select></label>${E("streams." + i + ".module")}</div></div>
 ${rowIn("streams", i, "epics", "Epics <small>· comma separated, optional</small>", "e.g. CHK-12, CHK-30", s.epics)}<button class="btn sm" style="align-self:flex-start" data-a="del" data-l="streams" data-i="${i}">Unlink stream</button></div>`).join("")}
-<button class="btn" style="align-self:flex-start" data-a="add" data-l="streams">Link a stream</button>`,
+<button class="btn" style="align-self:flex-start" data-a="add" data-l="streams" ${addDis("streams")}>Link a stream</button>`,
   6: () => `${field("cfile", "Constraints file", "CONSTRAINTS.md")}
 <div class="f"><label for="k-ctext">Contents <small>· Markdown. Agents must meet it and may not weaken it.</small></label><textarea id="k-ctext" class="in mono" data-k="ctext" spellcheck="false" placeholder="${S.constraints.text === null ? "This file does not exist yet. Init writes it from your stack; or write it here." : ""}">${val("ctext")}</textarea></div>`,
   7: () => `${tog("brain", "Project brain", "After each Build, LiftOff proposes what the project learned. You approve before anything is saved.")}
@@ -270,7 +305,7 @@ ${tog("metrics", "Pilot metrics", "Counts only, stored locally. No ticket keys, 
 ${F.brain && !O.brain ? '<div class="note n-warn">Turning the brain on writes its settings. Run the Brain skill once to create the wiki folder.</div>' : ""}`,
 };
 const adv = (n, inner) => `<button class="btn sm" style="align-self:flex-start" data-a="adv" data-n="${n}" aria-expanded="${advOpen[n] || advHasErr(n)}">${advOpen[n] || advHasErr(n) ? "Hide" : "Show"} advanced settings</button>${advOpen[n] || advHasErr(n) ? `<div class="adv">${inner}</div>` : ""}`;
-const advKeys = { 3: ["elf", "enf", "its."], 4: ["tpat", "mrt", "labels", "revs"] };
+const advKeys = { 3: ["elf", "enf"], 4: ["tpat", "mrt", "labels", "revs"] };
 const advHasErr = (n) => showErr(n) && Object.keys(errs().by).some((k) => advKeys[n].some((a) => k === a || (a.endsWith(".") && k.startsWith(a))));
 
 const COPY = [
@@ -350,8 +385,9 @@ function resultView() {
 function foot() {
   if (step === 0) return "";
   const blocked = V.errors.length > 0 || (S.exists && !changes().length);
-  const next = step === REVIEW ? `<button class="btn pri" data-a="apply" ${blocked ? "disabled" : ""}>${S.exists ? "Apply " + changes().length + " change" + (changes().length === 1 ? "" : "s") : "Write files"}</button>` : `<button class="btn pri" data-a="go" data-s="${step + 1}" data-check="1">${step === 7 ? "Review and apply" : "Continue"}</button>`;
-  return `<div class="foot"><button class="btn" data-a="go" data-s="${step - 1}">${step === 1 ? "Overview" : "Back"}</button><span class="err">${tried && (errs().secs[step] || []).length ? "Fix the highlighted fields to continue." : ""}</span>${next}</div>`;
+  const here = step === REVIEW ? [] : errs().secs[step] || [];
+  const next = step === REVIEW ? `<button class="btn pri" data-a="apply" ${blocked ? "disabled" : ""}>${S.exists ? "Apply " + changes().length + " change" + (changes().length === 1 ? "" : "s") : "Write files"}</button>` : `<button class="btn pri" data-a="go" data-s="${step + 1}" data-check="1" ${here.length ? "disabled" : ""}>${step === 7 ? "Review and apply" : "Continue"}</button>`;
+  return `<div class="foot"><button class="btn" data-a="go" data-s="${step - 1}">${step === 1 ? "Overview" : "Back"}</button><span class="err">${here.length ? "To continue: " + esc(here[0].message) + (here.length > 1 ? ` (and ${here.length - 1} more)` : "") : ""}</span>${next}</div>`;
 }
 function drawPreview() {
   const ch = changes();
@@ -393,6 +429,7 @@ async function saveDraft() {
 function setList(l, i, f, v) {
   const old = F[l][i][f];
   F[l][i][f] = v;
+  if (l === "its" && f === "tpl" && F[l][i].acKind !== "field" && !headsOf(v).includes(F[l][i].ac)) F[l][i].ac = headsOf(v).find((h) => /accept/i.test(h)) || headsOf(v)[0] || "";
   if (l === "mods" && f === "id") F.streams.forEach((x) => { if (x.module === old) x.module = v; }); // a rename follows its streams
 }
 document.addEventListener("input", (ev) => {
@@ -410,14 +447,19 @@ document.addEventListener("click", async (ev) => {
   if (a === "go") {
     const to = +d.s;
     if (d.check && (errs().secs[step] || []).length) { tried = true; return draw(); }
-    tried = false; step = to; if (to >= 1 && to <= 7) visited[to] = true; saveStep(); return draw();
+    tried = false; step = to; if (to >= 1 && to <= 7) visited[to] = true; saveStep(); if (to === 5 && JP.list === null && !JP.loading) loadProjects(); return draw();
   }
   if (a === "set") F[d.k] = d.v;
   else if (a === "flip") F[d.k] = !F[d.k];
   else if (a === "target") F.targets = F.targets.includes(d.v) ? F.targets.filter((x) => x !== d.v) : F.targets.concat([d.v]);
   else if (a === "adv") { advOpen[d.n] = !advOpen[d.n]; return draw(); }
   else if (a === "tab") { tab = +d.i; return drawPreview(); }
-  else if (a === "add") F[d.l].push(d.l === "mods" ? { id: "", path: "", desc: "" } : d.l === "its" ? { name: "", branch: "" } : { id: "", project: "", module: "", epics: "" });
+  else if (a === "jtypes") {
+    const r = await api("POST", "/api/jira/types", { url: F.turl, project: F.tkey });
+    if (r.ok) { JT = { list: r.issueTypes, note: "" }; } else JT = { list: null, note: r.message || "Jira could not be reached." };
+    return draw();
+  } else if (a === "addjira") F.its.push({ name: d.v, branch: "", jira: "", commit: "", tpl: "## Context\n\n## Acceptance criteria\n", ac: "Acceptance criteria", acKind: "heading", was: "" });
+  else if (a === "add") F[d.l].push(d.l === "mods" ? { id: "", path: "", desc: "" } : d.l === "its" ? { name: "", branch: "", jira: "", commit: "", tpl: "## Context\n\n## Acceptance criteria\n", ac: "Acceptance criteria", acKind: "heading", was: "" } : { id: "", project: "", module: "", epics: "" });
   else if (a === "del") {
     const gone = F[d.l].splice(+d.i, 1)[0];
     if (d.l === "mods") F.streams.forEach((s) => { if (s.module === gone.id) s.module = ""; });
