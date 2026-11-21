@@ -15496,7 +15496,7 @@ var CONFIG_FILE = "liftoff.yaml";
 var toCliError = (e) => ({ code: "config-invalid", ...e });
 
 // package.json
-var package_default = { version: "0.5.0" };
+var package_default = { version: "0.6.0" };
 
 // src/cli/version.ts
 var INSTALLED_VERSION = package_default.version;

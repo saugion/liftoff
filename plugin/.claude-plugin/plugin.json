@@ -1,8 +1,10 @@
 {
   "name": "liftoff",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Turn a repo into an AI-native one for Claude Code and GitHub Copilot: liftoff.yaml, AGENTS.md files, CONSTRAINTS.md and the per-agent files from one team config.",
-  "author": { "name": "saugion" },
+  "author": {
+    "name": "saugion"
+  },
   "license": "Apache-2.0",
   "repository": "https://github.com/saugion/liftoff"
 }
