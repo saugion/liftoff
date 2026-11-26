@@ -124,6 +124,8 @@ const wsView = (again) => {
 const ignoredView = (p) => ((p && p.ignored) || []).length ? `<div class="note n-warn"><b>Ignored by <span class="mono">.gitignore</span>, so not in this save:</b><br>${p.ignored.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}<br>To share one, add a line <span class="mono">!/its/path</span> at the end of <span class="mono">.gitignore</span>.</div>` : "";
 const elsewhereView = (p) => ((p && p.elsewhere) || []).length ? `<div class="note n-info"><b>These files are in other repositories, not in this save. Commit them there:</b><br>${p.elsewhere.map((e) => e.files.map((f) => `<span class="mono">${esc(e.repo + "/" + f)}</span>`).join("<br>")).join("<br>")}</div>` : "";
 
+const byHandView = (list) => (list || []).length ? `<div class="note n-warn"><b>These files were left as they are.</b> LiftOff could not read them (comments, a trailing comma or a typo?), so it did not write over them. Check that each holds what follows:${list.map((x) => `<br><span class="mono">${esc(x.file)}</span><pre class="mono" style="white-space:pre-wrap;word-break:break-all;margin:6px 0">${esc(JSON.stringify(x.add, null, 2))}</pre>`).join("")}</div>` : "";
+
 const VIEWS = {
   welcome() {
     if (W.stage === "po") return `<div class="eyebrow">Welcome</div><h1>Let's set up LiftOff for your project</h1>
@@ -254,24 +256,25 @@ const VIEWS = {
       ${nav("next")}`;
   },
   save() {
-    const p = W.preview, st = W.saveStage || W.stage;
+    const p = W.preview, st = W.saveStage || W.stage, left = byHandView(W.created && W.created.byHand);
     if (W.saved) {
       const r = W.saved;
       return `<div class="eyebrow">Done</div><h1>${r.pushed ? "Saved and shared" : "Saved"}</h1>
-        <div class="note n-ok">Your setup is in ${r.first ? "the first commit, on" : "the branch"} <b>${esc(r.branch)}</b>${r.pushed ? ", pushed to your team's repository" : ""}.${r.note ? " " + esc(r.note) : ""}</div>${elsewhereView(p)}${ignoredView(p)}
+        <div class="note n-ok">Your setup is in ${r.first ? "the first commit, on" : "the branch"} <b>${esc(r.branch)}</b>${r.pushed ? ", pushed to your team's repository" : ""}.${r.note ? " " + esc(r.note) : ""}</div>${left}${elsewhereView(p)}${ignoredView(p)}
         <p>${r.first ? (st === "po" ? "Next: ask the technical lead to open this repository with LiftOff to finish the technical part." : "Next: your team gets it by cloning this repository.") : st === "po" ? "Next: ask the technical lead to open this project with LiftOff to finish the technical part. They will also review your branch and merge it, which is how the team gets it." : "Next: open a merge request for this branch. When it is merged, the whole team can use LiftOff."}</p>
         <p class="hint">You can close this page.</p>`;
     }
     if (W.later) return `<div class="eyebrow">Not saved yet</div><h1>Your setup is not saved</h1>
       <div class="note n-warn">The files are in your project folder, but your team cannot see them yet. Nothing was sent anywhere.</div>
       <div class="foot"><button class="btn" data-act="back">Back</button><button class="btn pri" data-act="saveNow">Save now</button></div>`;
-    if (!p) return `<h1>Almost there</h1><p>Loading…</p>`;
+    if (!p) return `<h1>Almost there</h1>${left}<p>Loading…</p>`;
     if (!p.git) {
       const ask = S.workspace ? wsView(true) : `<div class="note n-warn">The files are created and safe in the folder. To share them, someone needs to run <span class="mono">git init</span> here (an engineer can do it in a minute), and then you can open this page again.</div>`;
-      return `<div class="eyebrow">Share</div><h1>This folder is not under git yet</h1>${ask}${elsewhereView(p)}${W.saveOnly ? "" : nav()}`;
+      return `<div class="eyebrow">Share</div><h1>This folder is not under git yet</h1>${left}${ask}${elsewhereView(p)}${W.saveOnly ? "" : nav()}`;
     }
     return `<div class="eyebrow">Share</div><h1>${W.saveOnly ? "Some setup files are not saved yet" : "Save and share with your team"}</h1>
       ${W.wsMade ? wsView(true) : ""}
+      ${left}
       ${p.note ? `<div class="note n-warn">${esc(p.note)}</div>` : ""}
       <p>${p.first ? `These files become the repository's <b>first commit</b>, on <span class="mono">${esc(p.branch)}</span>${p.remote ? ", and are sent to your team's repository" : ""}.` : `These files will be saved on a <b>new branch</b> called <span class="mono">${esc(p.branch)}</span>${p.remote ? " and sent to your team's repository" : ""}. The branch your team works on is not touched, and nothing is merged: your colleagues review it first.`}</p>
       ${p.files.length ? `<ul class="files">${p.files.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}</ul>` : `<div class="note n-info">There is nothing new to save.</div>`}

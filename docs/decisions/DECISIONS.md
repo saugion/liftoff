@@ -353,3 +353,7 @@ and three more requests from the walk-through led to these:
 92. **Build stops over other repositories.** The configuration repository makes `git rev-parse --show-toplevel` succeed where it failed before, so Build would
     branch there while the code sits in ignored folders. The skill now stops when a folder below the root has its own `.git` and is not listed in
     `.gitmodules`. It is an instruction to the agent, not a check in the CLI.
+93. **A file LiftOff cannot read is not LiftOff's to write.** Found on 2026-11-26: the writers of the agents' settings and MCP files read anything that is
+    not strict JSON as empty, then wrote over it, dropping a person's permission rules or other servers. Now only an absent or empty file, or a JSON object,
+    is merged; anything else stays byte for byte and the page shows what to add. LiftOff does not parse comments: keeping them through a rewrite is not
+    worth a new dependency.
