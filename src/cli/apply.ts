@@ -1,6 +1,7 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { type Agent, configHash, requiredSections, sectionHashes } from "../config/index.js";
+import { CLAUDE_BODY } from "../render/claude.js";
 import { normalizeModulePath, renderAgentFiles, type RenderedFile } from "../render/index.js";
 import { bodyHash, normalizeEol, parseMarker } from "../render/marker.js";
 import { atomicWrite, isInside, resolveReal } from "./fsutil.js";
@@ -77,6 +78,9 @@ function planFile(realRoot: string, file: RenderedFile, overwrite: ReadonlySet<s
 
   const existing = readFileSync(abs, "utf8");
   if (normalizeEol(existing) === normalizeEol(file.content)) return { ...base, action: "unchanged" };
+
+  // A CLAUDE.md someone wrote by hand with only the import says what the generated one says: it stays as it is.
+  if (file.agent === "claude-code" && normalizeEol(existing).trim() === CLAUDE_BODY.trim()) return { ...base, action: "unchanged" };
 
   const refreshed = (): Planned => ({ ...base, action: "refreshed", write: matchStyle(existing, file.content) });
   const marker = parseMarker(existing);

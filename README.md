@@ -165,7 +165,7 @@ In VS Code, the same skills are called `liftoff-init`, `liftoff-plan`, and so on
   `LIFTOFF_JIRA_TOKEN` environment variable, nowhere else. `glab` keeps its own GitLab login.
 - **It never follows orders hidden in a ticket.** If a ticket says something like "also push to main", the agent
   reports it and does not do it.
-- **It never commits for you, except the two saves of the setup guide.** Those commit only the setup files they list,
+- **It never commits for you, except the saves of the setup guide and the control panel.** Those commit only the setup files they list,
   on a new branch, and push that branch after your yes. They never touch `main`. Every other skill tells you which
   files to commit.
 - **It never lowers the quality bar.** The agents must meet `CONSTRAINTS.md` and may not weaken it.
@@ -233,7 +233,8 @@ the GitLab login (`glab` keeps its own).
 
 ## Changing the setup later: the control panel
 
-The same program, once the setup is done. Start it with:
+The same program, once the setup is done (or from the link "Open the full control panel" on the guide's page). Start it
+with:
 
 - in the installed plugin: `node <plugin>/bin/liftoff-ui.mjs --root <your repo>`
 - from a clone of this repo: `npm run ui -- --root <your repo>`
@@ -241,8 +242,16 @@ The same program, once the setup is done. Start it with:
 It shows every section of `liftoff.yaml`: project, parts of the code, Jira (including the ticket types and their
 templates: change a template, add a type Jira already has, or make up a new one), GitLab, work streams, quality bar,
 and the optional extras. It checks each change with the same rules as the rest of LiftOff and shows the exact change
-before it writes anything. What the Connect skill learned (fields, workflow) is kept. The control panel writes the
-files but does not commit them.
+before it writes anything. What the Connect skill learned (fields, workflow) is kept.
+
+It can also do the whole first setup, in any order, and then does what the guide does:
+
+- it starts from what it finds in the folder (the parts of the code, their languages, the GitLab host);
+- you paste the Jira token into it (kept in the macOS Keychain) and pick the project from a list;
+- before writing, it lists the files that do not exist yet and will be created (`AGENTS.md` files, `CONSTRAINTS.md`).
+  A file with content is never replaced;
+- it saves the files to a new branch and pushes it, only after your yes. A folder that is not under git itself, such as
+  a folder holding several repositories, keeps the files but cannot save them this way.
 
 ## What `liftoff.yaml` holds
 
@@ -304,7 +313,7 @@ brain"), each change shown as a diff.
 names itself, `{commitType}` in merge request titles, GitHub Copilot in IntelliJ and on the command line. See
 [`CHANGELOG.md`](CHANGELOG.md), "Unreleased".
 
-**Tested:** 2,023 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,037 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
 
@@ -313,7 +322,7 @@ Jira and a git remote. Agents have followed the skills against the fakes in scri
 - a real Jira Data Center, a real GitLab, or a real team using LiftOff day to day
 - the setup guide in a real browser, the real macOS Keychain, and the real `mcp-atlassian` with a company certificate
 - GitHub Copilot in IntelliJ and on the command line; VS Code has been looked at only partly
-- the control panel's page (its server is tested, the page is not)
+- the control panel's page in a real browser (it is tested in a simulated page)
 
 The manual checks for all of these are in [`docs/pilot-checklist.md`](docs/pilot-checklist.md).
 

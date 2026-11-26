@@ -11,11 +11,12 @@ import { INSTALLED_VERSION } from "../src/cli/version.js";
 import { validateConfig, type Config } from "../src/config/index.js";
 import defaults from "../src/connect/defaults.json" with { type: "json" };
 import { isLocal, listProjects, parseUrl, projectTypes, sampleHeadings, skipsCheck } from "./connect.js";
-import { detect } from "./detect.js";
+import { detect, hostOf } from "./detect.js";
 import { applyPatch } from "./merge.js";
 import { previewSave, recordWritten, save, type Stage } from "./persist.js";
 import { brainInit } from "../src/cli/brain-init.js";
-import { brainExtras, claudeSettings, mcpFiles, refreshRoot, scaffold, type ModuleInfo } from "./scaffold.js";
+import { brainExtras, claudeSettings, mcpFiles, refreshRoot, scaffold, stacksIn, toCreate, type ModuleInfo, type ScaffoldInput, type Scaffolded } from "./scaffold.js";
+import { checkConfig } from "../src/cli/check.js";
 
 export const DRAFT_FILE = ".liftoff/ui-draft.json";
 const MAX_BODY = 1_000_000;
@@ -54,10 +55,37 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const doc = parseDocument(text);
     if (doc.errors.length > 0) return { errors: [{ path: "", message: doc.errors[0]!.message.split("\n")[0]! }], yaml: text };
     if (patch === null || typeof patch !== "object" || Array.isArray(patch)) return { errors: [{ path: "", message: "patch must be an object" }], yaml: text };
-    applyPatch(doc, patch as Record<string, unknown>);
+    applyPatch(doc, withHost(patch as Record<string, any>));
     const result = validateConfig(doc.toJS());
-    return { errors: result.ok ? [] : result.errors, yaml: doc.toString() };
+    return { errors: result.ok ? [] : result.errors, yaml: doc.toString(), creates: creates(doc.toJS()) };
   }
+
+  // A pasted address becomes the host the config holds, whichever page sent it.
+  const withHost = (patch: Record<string, any>) =>
+    typeof patch.codeHost?.host === "string" && patch.codeHost.host.trim() !== "" ? { ...patch, codeHost: { ...patch.codeHost, host: hostOf(patch.codeHost.host) } } : patch;
+
+  // The files a setup would have to create for this config. It may be half typed, so nothing is assumed about it.
+  function creates(config: unknown): string[] {
+    const c = config as { modules?: { items?: unknown }; constraints?: { file?: unknown } } | null;
+    const items = Array.isArray(c?.modules?.items) ? (c.modules.items as ({ path?: unknown } | null)[]) : [];
+    const paths = items.flatMap((m) => (typeof m?.path === "string" && m.path !== "" && inside(m.path) ? [m.path] : []));
+    const file = typeof c?.constraints?.file === "string" && inside(c.constraints.file) ? c.constraints.file : DEFAULT_CONSTRAINTS;
+    return toCreate(root, paths, file);
+  }
+
+  // A module folder that cannot be one: a link that leaves the project, or a file where the folder should be.
+  const badFolder = (modules: { path?: string }[]) =>
+    modules.find((m) => {
+      if (!m.path) return false;
+      const abs = resolveReal(join(root, m.path));
+      if (!isInside(resolveReal(root), abs)) return true;
+      try {
+        return !statSync(abs).isDirectory();
+      } catch {
+        return false; // does not exist yet: it is created
+      }
+    });
+  const folderError = (path: string | undefined) => [422, { ok: false, code: "input-invalid", message: `the folder '${path}' is not a folder inside the project` }] as const;
 
   // A file named by the config, inside the project and not through a symlink that leaves it.
   function inside(rel: unknown): string | undefined {
@@ -91,20 +119,83 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     if ((text === undefined ? "" : sha(text)) !== body.baseHash) return [409, { ok: false, code: "changed-on-disk", message: `${CONFIG_FILE} changed since this page loaded. Reload to see it.` }] as const;
     const { errors, yaml } = preview(body.patch);
     if (errors.length > 0) return [422, { ok: false, code: "config-invalid", errors }] as const;
+    const before = text === undefined ? null : (parseDocument(text).toJS() as Record<string, any> | null);
+    const next = validateConfig(parseDocument(yaml).toJS());
+    const bad = next.ok ? badFolder(next.value.modules?.items ?? []) : undefined;
+    if (bad) return folderError(bad.path);
     const c = body.constraints as { file?: unknown; text?: unknown } | null | undefined;
     let constraintsPath: string | undefined;
     if (c) {
       constraintsPath = inside(c.file);
       if (!constraintsPath || typeof c.text !== "string" || c.text.length > MAX_TEXT) return [422, { ok: false, code: "constraints-invalid", message: "the constraints file must be inside the project, and under 200 KB" }] as const;
     }
-    if (yaml !== text) atomicWrite(configFile, yaml);
-    if (constraintsPath && c && typeof c.text === "string" && read(constraintsPath) !== c.text && c.text.trim() !== "") atomicWrite(constraintsPath, c.text);
+    const written: string[] = [];
+    if (yaml !== text) {
+      atomicWrite(configFile, yaml);
+      written.push(CONFIG_FILE);
+    }
+    if (constraintsPath && c && typeof c.text === "string" && read(constraintsPath) !== c.text && c.text.trim() !== "") {
+      atomicWrite(constraintsPath, c.text);
+      written.push(c.file as string);
+    }
     try {
       unlinkSync(draftFile);
     } catch {
       // no draft
     }
-    return [200, { ok: true, hash: sha(yaml), render: applyRender(root, { overwrite: [] }) }] as const;
+    const done = (render: unknown) => {
+      if (written.length > 0) {
+        ensureSelfIgnore(root);
+        recordWritten(root, [...new Set(written)]);
+      }
+      return [200, { ok: true, hash: sha(yaml), written: [...new Set(written)], render }] as const;
+    };
+    if (!assets() || !next.ok) return done(applyRender(root, { overwrite: [] }));
+    // The same files as the guide. Unlike the guide, a failure here keeps the config: the person is told, and can apply again.
+    try {
+      const config = next.value;
+      const d = detect(root);
+      const stacks = stacksIn(root);
+      const modules = (config.modules?.items ?? []).map((m): ModuleInfo => {
+        const path = m.path.replace(/^\.\/|\/+$/g, "");
+        const found = d.modules.find((x) => x.path === path);
+        return { id: m.id, path, stack: stacks.get(path) ?? (found ? [...found.languages, ...found.frameworks].join(", ") : ""), ...(found?.build && { build: found.build }), ...(found?.test && { test: found.test }), ...(found?.lint && { lint: found.lint }) };
+      });
+      // only what this apply changed is rewritten in the root AGENTS.md
+      const after = parseDocument(yaml).toJS() as Record<string, unknown>; // file against file: the validator may fill in defaults
+      const differs = (key: "modules" | "agents") => before !== null && JSON.stringify(before[key]) !== JSON.stringify(after[key]);
+      const refresh = [...(differs("modules") ? ["modules", "commands"] : []), ...(differs("agents") ? ["agents"] : [])];
+      const out = around(config, projectFiles(config, { name: config.project?.name ?? d.name, purpose: "", modules, commands: d.commands, refresh, newBrain: config.brain !== undefined && before?.brain === undefined }));
+      written.push(...out.written);
+      return done(out.render);
+    } catch (e) {
+      return done({ ok: false, errors: [{ message: e instanceof Error ? e.message : "the files could not be written" }] });
+    }
+  }
+
+  // The files around a config, written the same way by the guide and by the control panel: the AGENTS.md files and the
+  // quality bar from the templates (a file with content is never replaced), and the project brain when it was just asked for.
+  function projectFiles(config: Config, o: Pick<ScaffoldInput, "name" | "purpose" | "modules" | "commands"> & { refresh?: string[]; newBrain?: boolean }): Scaffolded {
+    const input: ScaffoldInput = { name: o.name, purpose: o.purpose, modules: o.modules, commands: o.commands, constraintsFile: config.constraints?.file ?? DEFAULT_CONSTRAINTS, targets: config.agents.targets };
+    const out = scaffold(root, assets()!, input);
+    if (o.refresh && o.refresh.length > 0 && refreshRoot(root, input, o.refresh)) out.written.push("AGENTS.md");
+    if (o.newBrain) {
+      const made = brainInit({ root, write: true } as never);
+      if (made.exitCode !== 0) throw new Error(`the project brain could not be set up: ${JSON.stringify((made.body as { errors?: { message: string }[] }).errors?.[0]?.message ?? "see liftoff brain-init")}`);
+      const body = made.body as { files: { path: string; action: string }[]; proposals: Parameters<typeof brainExtras>[1] };
+      out.written.push(...body.files.filter((f) => f.action === "created" && !f.path.startsWith(".liftoff/")).map((f) => f.path), ...brainExtras(root, body.proposals));
+    }
+    out.kept = out.kept.filter((f) => !out.written.includes(f));
+    return out;
+  }
+
+  // Then what the agents read: the plugin switch, the Jira server entry and the rendered files.
+  function around(config: Config, out: Scaffolded) {
+    const settings = assets() ? claudeSettings(root, assets()!) : undefined;
+    const mcp = mcpFiles(root, config);
+    const render = applyRender(root, { overwrite: [] });
+    const rendered = render.ok ? render.files.filter((f) => f.action === "created" || f.action === "refreshed").map((f) => f.path) : [];
+    return { written: [...new Set([...out.written, ...(settings ? [settings] : []), ...mcp, ...rendered])], kept: out.kept, render };
   }
 
 
@@ -132,6 +223,15 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     return { unsaved: saved.git ? saved.files : [], ok: true, root, exists: base.exists, hash: base.hash, stage: stageOf(config, base.exists), config, errors: base.errors, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion };
   }
 
+  // What the control panel needs on top of the file: what the folder holds, the default templates, what is not there yet
+  // and what the guide or the panel wrote that was not saved.
+  async function panelState() {
+    const base = state();
+    const unapplied = base.exists && checkConfig(root).reasons.some((r) => r.code === "not-applied" || r.code === "required-changed");
+    const missing = base.exists && base.config ? creates(base.config) : [];
+    return { ...base, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, creates: missing, needsApply: unapplied || missing.length > 0 };
+  }
+
   // Writes liftoff.yaml from a patch (same merge and validator as the panel), then the files around it. If anything after
   // the config fails, the config goes back to what it was: a half-written setup must not leave the guide switched off.
   function writeSetup(patch: Record<string, unknown>, files: (config: Config) => { written: string[]; kept: string[] }) {
@@ -146,18 +246,16 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
         undo();
         return [422, { ok: false, code: "config-invalid", errors: checked.errors }] as const;
       }
-      const out = files(checked.value);
-      const settings = assets() ? claudeSettings(root, assets()!) : undefined;
-      const mcp = mcpFiles(root, checked.value);
-      const rendered = applyRender(root, { overwrite: [] });
+      const out = around(checked.value, files(checked.value));
+      const rendered = out.render;
       if (!rendered.ok) {
         undo();
         return [422, { ok: false, code: "render-failed", message: (rendered.errors ?? []).map((e: { message: string }) => e.message).join("; ") || "the agent files could not be written" }] as const;
       }
-      const written = [CONFIG_FILE, ...out.written, ...(settings ? [settings] : []), ...mcp, ...rendered.files.filter((f) => f.action === "created" || f.action === "refreshed").map((f) => f.path)];
+      const written = [...new Set([CONFIG_FILE, ...out.written])];
       ensureSelfIgnore(root); // the list of what the guide wrote is personal: never committed
-      recordWritten(root, [...new Set(written)]);
-      return [200, { ok: true, written: [...new Set(written)], kept: out.kept, render: rendered }] as const;
+      recordWritten(root, written);
+      return [200, { ok: true, written, kept: out.kept, render: rendered }] as const;
     } catch (e) {
       try {
         undo();
@@ -198,27 +296,15 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       },
     };
     return writeSetup(patch, (config) =>
-      scaffold(root, assets()!, {
-        name, purpose: typeof input.purpose === "string" ? input.purpose.slice(0, 500) : "", constraintsFile: config.constraints?.file ?? DEFAULT_CONSTRAINTS, targets: config.agents.targets,
-        modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path, stack: "" })), commands: d.commands,
-      }));
+      projectFiles(config, { name, purpose: typeof input.purpose === "string" ? input.purpose.slice(0, 500) : "", modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path, stack: "" })), commands: d.commands }));
   }
 
   function tlSetup(input: Record<string, unknown>) {
     if (!assets()) return [500, { ok: false, code: "internal", message: "the panel was started without its templates" }] as const;
     const targets = list(input.targets).filter((t) => t === "claude-code" || t === "copilot");
     const modules = (Array.isArray(input.modules) ? input.modules : []).slice(0, 30).map((m: any) => ({ id: str(m?.id, 60), path: str(m?.path, 200), description: typeof m?.description === "string" ? m.description.slice(0, 200) : "", languages: list(m?.languages, 10), frameworks: list(m?.frameworks, 10), build: str(m?.build, 200), test: str(m?.test, 200), lint: str(m?.lint, 200) }));
-    const badFolder = modules.find((m) => {
-      if (!m.path) return false;
-      const abs = resolveReal(join(root, m.path));
-      if (!isInside(resolveReal(root), abs)) return true; // a link that leaves the project
-      try {
-        return !statSync(abs).isDirectory(); // a file where the folder should be
-      } catch {
-        return false; // does not exist yet: the guide creates it
-      }
-    });
-    if (badFolder) return [422, { ok: false, code: "input-invalid", message: `the folder '${badFolder.path}' is not a folder inside the project` }] as const;
+    const bad = badFolder(modules);
+    if (bad) return folderError(bad.path);
     if (targets.length === 0 || modules.some((m) => !m.id || !m.path || m.path.startsWith("/") || m.path.includes(".."))) return [422, { ok: false, code: "input-invalid", message: "choose at least one agent, and give every module a name and a folder inside the project" }] as const;
     const existing: string[] = ((state().config as any)?.tracker?.issueTypes ?? []).map((x: { name: string }) => x.name);
     const added = parseTypes(input.types);
@@ -248,24 +334,15 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const name = String((state().config as any)?.project?.name ?? d.name);
     return writeSetup(patch, (config) => {
       const info: ModuleInfo[] = modules.map((m) => ({ id: m.id!, path: m.path!, stack: [...m.languages, ...m.frameworks].join(", "), ...(m.build && { build: m.build }), ...(m.test && { test: m.test }), ...(m.lint && { lint: m.lint }) }));
-      const input2 = { name, purpose: "", constraintsFile: config.constraints?.file ?? DEFAULT_CONSTRAINTS, targets: config.agents.targets, modules: info, commands: d.commands };
-      const out = scaffold(root, assets()!, input2);
-      if (refreshRoot(root, input2)) out.written.push("AGENTS.md");
-      if (wantsBrain && !hadBrain) {
-        const made = brainInit({ root, write: true } as never);
-        if (made.exitCode !== 0) throw new Error(`the project brain could not be set up: ${JSON.stringify((made.body as { errors?: { message: string }[] }).errors?.[0]?.message ?? "see liftoff brain-init")}`);
-        const body = made.body as { files: { path: string; action: string }[]; proposals: Parameters<typeof brainExtras>[1] };
-        out.written.push(...body.files.filter((f) => f.action === "created" && !f.path.startsWith(".liftoff/")).map((f) => f.path), ...brainExtras(root, body.proposals));
-      }
-      const i = out.kept.indexOf("AGENTS.md");
-      if (i >= 0 && out.written.includes("AGENTS.md")) out.kept.splice(i, 1);
+      // what the lead typed for the quality bar goes first, so the template never takes its place
       const c = typeof input.constraintsText === "string" && input.constraintsText.length <= MAX_TEXT ? input.constraintsText : undefined;
-      const file = inside(config.constraints?.file ?? DEFAULT_CONSTRAINTS);
-      if (c !== undefined && c.trim() !== "" && file && read(file) !== c) {
-        atomicWrite(file, c);
-        out.written.push(config.constraints?.file ?? DEFAULT_CONSTRAINTS);
-      }
-      return out;
+      const file = config.constraints?.file ?? DEFAULT_CONSTRAINTS;
+      const abs = inside(file);
+      const typed = c !== undefined && c.trim() !== "" && abs !== undefined && read(abs) !== c;
+      if (typed) atomicWrite(abs, c);
+      const out = projectFiles(config, { name, purpose: "", modules: info, commands: d.commands, refresh: ["modules", "commands", "agents"], newBrain: wantsBrain && !hadBrain });
+      if (typed) out.written.push(file);
+      return { written: out.written, kept: out.kept.filter((f) => f !== file || !typed) };
     });
   }
 
@@ -312,7 +389,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       if (!url.pathname.startsWith("/api/")) return send(res, 404, { ok: false, message: "not found" });
       if (!same(String(req.headers["x-liftoff-token"] ?? ""), token)) return send(res, 403, { ok: false, message: "bad token" });
       const route = `${req.method} ${url.pathname}`;
-      if (route === "GET /api/state") return send(res, 200, state());
+      if (route === "GET /api/state") return send(res, 200, await panelState());
       if (route === "GET /api/setup") return send(res, 200, await setupState());
       if (req.method !== "POST" && req.method !== "PUT" && req.method !== "DELETE") return send(res, 405, { ok: false, message: "method not allowed" });
       if (req.method !== "DELETE" && !String(req.headers["content-type"] ?? "").startsWith("application/json")) return send(res, 415, { ok: false, message: "send JSON" });

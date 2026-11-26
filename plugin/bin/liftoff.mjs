@@ -15627,6 +15627,7 @@ function planFile(realRoot, file, overwrite) {
   if (!stat.isFile()) return conflict("not-regular");
   const existing = readFileSync3(abs, "utf8");
   if (normalizeEol(existing) === normalizeEol(file.content)) return { ...base, action: "unchanged" };
+  if (file.agent === "claude-code" && normalizeEol(existing).trim() === CLAUDE_BODY.trim()) return { ...base, action: "unchanged" };
   const refreshed = () => ({ ...base, action: "refreshed", write: matchStyle(existing, file.content) });
   const marker = parseMarker(existing);
   let reason;

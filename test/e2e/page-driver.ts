@@ -121,11 +121,27 @@ export function openPanel(pageFile: string, address: string) {
       handlers.input!({ target: { dataset: { l: list, i: String(i), f: field }, value, tagName: "INPUT" } });
       await api.settle();
     },
+    // a single field (data-k) or the token box (data-tk)
+    async fill(key: string, value: string) {
+      handlers.input!({ target: { dataset: key === "token" ? { tk: "" } : { k: key }, value, tagName: "INPUT" } });
+      await api.settle();
+    },
+    async pick(key: string, value: string) {
+      handlers.change!({ target: { dataset: { k: key }, value, tagName: "SELECT" } });
+      await api.settle();
+    },
     async choose(list: string, i: number, field: string, value: string) {
       handlers.change!({ target: { dataset: { l: list, i: String(i), f: field }, value, tagName: "SELECT" } });
       await api.settle();
     },
     state: <T>(expr: string) => vm.runInContext(expr, ctx) as T,
   };
-  return tick(300).then(() => api);
+  // loading takes several requests in a row: open once the page has drawn and nothing is pending (no fixed pause)
+  const opened = async () => {
+    const until = Date.now() + 15_000;
+    do await api.settle();
+    while (form() === "" && Date.now() < until);
+    return api;
+  };
+  return opened();
 }

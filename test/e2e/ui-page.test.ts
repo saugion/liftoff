@@ -144,6 +144,8 @@ describe("the technical lead, on the page", () => {
     expect(p.text).toContain("learn from their corrections"); // the lessons choice appears once the brain is on
     await p.click("next");
     expect(p.text).toContain("Project brain:");
+    expect(p.text).toContain("LiftOff creates them from its templates"); // said before they are created
+    expect(p.text).toContain("backend/AGENTS.md");
     await p.click("create");
     await p.settle();
     await p.click("save");

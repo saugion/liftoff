@@ -68,6 +68,16 @@ describe("conflicts are reported, never written", () => {
     expect(record(dir).conflicts).toEqual(["CLAUDE.md"]);
   });
 
+  it.each(["@AGENTS.md\n", "@AGENTS.md", "\uFEFF@AGENTS.md\r\n"])("a hand-written CLAUDE.md that only imports AGENTS.md (%j) is no conflict and is left as it is", (text) => {
+    const dir = only();
+    writeFileSync(join(dir, "CLAUDE.md"), text);
+    const { exitCode, body } = render(dir);
+    expect(exitCode).toBe(0);
+    expect(claude(body)).toMatchObject({ action: "unchanged" });
+    expect(sameText(dir, "CLAUDE.md")).toBe(text);
+    expect(record(dir).conflicts).toEqual([]);
+  });
+
   it("a marker whose hash no longer matches the body: reason hand-edited", () => {
     const dir = only();
     const edited = withMarker("0.0.1", BODY) + "One more rule I added.\n";

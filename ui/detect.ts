@@ -55,6 +55,16 @@ function inspect(dir: string): Omit<DetectedModule, "id" | "path"> | undefined {
   return undefined;
 }
 
+// What a person pastes for "the GitLab host": an address, a clone URL or the bare name. The config holds the host only.
+export function hostOf(text: string): string {
+  const t = text.trim();
+  const scp = /^[\w.-]+@([\w.-]+):/.exec(t);
+  if (scp) return scp[1]!.toLowerCase();
+  const scheme = /^([a-z][a-z0-9+.-]*):\/\//i.exec(t)?.[1]?.toLowerCase();
+  const host = t.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "").split(/[/?#]/)[0]!.replace(/^.*@/, "");
+  return (scheme === "ssh" ? host.replace(/:\d+$/, "") : host).toLowerCase(); // an ssh port is not the web address
+}
+
 // `.git` read directly: the branch and the origin URL, and the host the origin points to.
 export function gitInfo(root: string): GitInfo {
   const dot = join(root, ".git");
@@ -102,13 +112,19 @@ export function detect(root: string): Detected {
     pkgName = undefined;
   }
   const src = (n: string) => existsSync(join(root, n)) && statSync(join(root, n)).isDirectory();
+  // A folder of repositories that is not one itself: the GitLab host is theirs, when they all agree.
+  let git = gitInfo(root);
+  if (!git.isRepo) {
+    const hosts = uniq(readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).flatMap((e) => gitInfo(join(root, e.name)).host ?? []));
+    if (hosts.length === 1) git = { ...git, host: hosts[0]! };
+  }
   return {
     name: pkgName && !pkgName.startsWith("@") ? pkgName : basename(root),
     kind: all.length > 0 || src("src") || hasCommits(root) ? "existing" : "new",
     modules,
     languages: uniq(all.flatMap((m) => m.languages)),
     frameworks: uniq(all.flatMap((m) => m.frameworks)),
-    git: gitInfo(root),
+    git,
     commands: { ...(rootInfo?.build && { build: rootInfo.build }), ...(rootInfo?.test && { test: rootInfo.test }), ...(rootInfo?.lint && { lint: rootInfo.lint }) },
   };
 }

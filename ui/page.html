@@ -92,7 +92,7 @@ async function api(method, path, body) {
 
 // ---------- model
 const SECTIONS = [
-  { id: 1, label: "Project", sub: "Name, agents, stack", keys: ["name", "kind", "targets", "langs", "fw"] },
+  { id: 1, label: "Project", sub: "Name, agents, stack", keys: ["name", "kind", "targets", "langs", "fw", "done"] },
   { id: 2, label: "Modules", sub: "Parts of the codebase", keys: ["mods"] },
   { id: 3, label: "Tracker", sub: "Jira Data Center", keys: ["tver", "turl", "tkey", "readOnly", "ssl", "elf", "enf", "its"] },
   { id: 4, label: "Code host", sub: "GitLab and branches", keys: ["host", "tb", "bp", "tpat", "mrt", "labels", "revs", "git"] },
@@ -101,7 +101,7 @@ const SECTIONS = [
   { id: 7, label: "Brain", sub: "What the project learns", keys: ["brain", "cap", "metrics", "po"] },
 ];
 const REVIEW = 8;
-const LAB = { name: "Project name", kind: "Project kind", targets: "Agents", langs: "Languages", fw: "Frameworks", mods: "Modules", tver: "Jira version", turl: "Jira URL", tkey: "Project key", readOnly: "Read-only access", ssl: "Verify SSL", elf: "Epic link field", enf: "Epic name field", its: "Issue types", host: "GitLab host", tb: "Target branch", bp: "Branch pattern", tpat: "MR title pattern", mrt: "MR template", labels: "MR labels", revs: "Reviewers", git: "Git during Build", streams: "Work streams", cfile: "Constraints file", ctext: "Constraints text", brain: "Project brain", cap: "Correction capture", metrics: "Pilot metrics", po: "PO review of tickets" };
+const LAB = { done: "Technical setup complete", name: "Project name", kind: "Project kind", targets: "Agents", langs: "Languages", fw: "Frameworks", mods: "Modules", tver: "Jira version", turl: "Jira URL", tkey: "Project key", readOnly: "Read-only access", ssl: "Verify SSL", elf: "Epic link field", enf: "Epic name field", its: "Issue types", host: "GitLab host", tb: "Target branch", bp: "Branch pattern", tpat: "MR title pattern", mrt: "MR template", labels: "MR labels", revs: "Reviewers", git: "Git during Build", streams: "Work streams", cfile: "Constraints file", ctext: "Constraints text", brain: "Project brain", cap: "Correction capture", metrics: "Pilot metrics", po: "PO review of tickets" };
 
 let S = null; // server state
 let O = {};   // the config as saved
@@ -110,6 +110,8 @@ let F = null; // form being edited
 let V = { errors: [], yaml: "" }; // last validation
 let step = 0, tab = 0, tried = false, result = null, note = null, resume = null, saving = "", visited = {};
 let advOpen = { 3: false, 4: false };
+let TK = { token: "", busy: false, k: "", note: "" }; // the Jira token: never part of the form, so never in the draft
+let SV = null, SAVED = null; // what could be saved to the team, and how the last save went
 
 const csvOf = (a) => (a || []).join(", ");
 const csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
@@ -119,7 +121,8 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 function fromConfig(c, constraints) {
   const t = c.tracker || {}, h = c.codeHost || {}, cv = h.conventions || {}, s = t.server || {};
-  return {
+  const form = {
+    done: c.project?.setup !== "po",
     name: c.project?.name || "", kind: c.project?.kind || "new", targets: c.agents?.targets || ["claude-code"], langs: csvOf(c.stack?.languages), fw: csvOf(c.stack?.frameworks),
     mods: (c.modules?.items || []).map((m) => ({ id: m.id, path: m.path, desc: m.description || "", was: m.id })),
     tver: s.version || "", turl: t.url || "", tkey: t.project || "", readOnly: s.readOnly ?? true, ssl: s.sslVerify ?? true, elf: t.epicLinkField || "", enf: t.epicNameField || "",
@@ -129,6 +132,15 @@ function fromConfig(c, constraints) {
     cfile: c.constraints?.file || constraints.file || "CONSTRAINTS.md", ctext: constraints.text || "",
     brain: !!c.brain, cap: c.brain?.lessons?.capture || "ask", metrics: c.pilot?.metrics ?? c.brain?.lessons?.metrics ?? true, po: c.practices?.["ticket-po-review"] || "on",
   };
+  // nothing saved yet: start from what the folder shows and from the same defaults as the guide
+  if (!S.exists) {
+    const d = S.detected || {};
+    Object.assign(form, {
+      name: d.name || "", kind: d.kind || "new", langs: csvOf(d.languages), fw: csvOf(d.frameworks), mods: (d.modules || []).map((m) => ({ id: m.id, path: m.path, desc: "", was: "" })),
+      tver: S.serverVersion || "", readOnly: false, host: d.git?.host || "", tb: d.git?.defaultBranch || "main", bp: "{type}/{key}-{slug}", tpat: "{commitType}({key}): {summary}",
+    });
+  }
+  return form;
 }
 
 // The patch the server merges into liftoff.yaml. A field the user did not touch is left out, so saving never
@@ -142,13 +154,14 @@ function toPatch() {
   const set = (sec, key, val) => { if (val !== undefined) (p[sec] = p[sec] || {})[key] = val; };
   if (ch("name")) set("project", "name", F.name);
   if (ch("kind")) set("project", "kind", F.kind);
+  if (fresh || (ch("done") && F.done && O.project?.setup === "po")) set("project", "setup", "done");
   if (ch("targets")) set("agents", "targets", F.targets);
   if (ch("langs")) set("stack", "languages", list("langs", O.stack?.languages));
   if (ch("fw")) set("stack", "frameworks", list("fw", O.stack?.frameworks));
   if (ch("mods") && (F.mods.length || O.modules)) set("modules", "items", F.mods.map((m) => ({ $was: m.was, id: m.id, path: m.path, description: clr(m.desc, (O.modules?.items || []).find((x) => x.id === m.was)?.description) })));
   const t = O.tracker || {}, s = t.server || {};
   const trackerKeys = ["tver", "turl", "tkey", "readOnly", "ssl", "elf", "enf", "its"];
-  if (trackerKeys.some((k) => (fresh ? F[k] !== "" && F[k] !== undefined && !(k === "readOnly" || k === "ssl") && !(k === "its" && !F.its.length) : !same(F[k], B[k])))) {
+  if (fresh ? !!(F.turl || F.tkey || F.its.length) : trackerKeys.some((k) => !same(F[k], B[k]))) {
     if (!O.tracker) set("tracker", "kind", "jira-dc");
     if (ch("turl")) set("tracker", "url", F.turl);
     if (ch("tkey")) set("tracker", "project", F.tkey);
@@ -163,7 +176,7 @@ function toPatch() {
     }));
   }
   const h = O.codeHost || {}, cv = h.conventions || {};
-  if (["host", "tb", "bp", "tpat", "mrt", "labels", "revs"].some((k) => (fresh ? F[k] !== "" : !same(F[k], B[k])))) {
+  if (fresh ? F.host !== "" : ["host", "tb", "bp", "tpat", "mrt", "labels", "revs"].some((k) => !same(F[k], B[k]))) {
     if (!O.codeHost) set("codeHost", "kind", "gitlab");
     if (ch("host")) set("codeHost", "host", F.host);
     const conv = {};
@@ -174,7 +187,8 @@ function toPatch() {
   }
   if (ch("git") && (!fresh || F.git)) set("build", "git", F.git);
   if (ch("streams") && (F.streams.length || O.streams)) set("streams", "items", F.streams.map((x) => ({ $was: x.was, id: x.id, project: x.project, mode: "kanban", module: clr(x.module, (O.streams?.items || []).find((y) => y.id === x.was)?.module), epics: csv(x.epics) })));
-  if (ch("cfile") && (F.cfile !== "CONSTRAINTS.md" || O.constraints || F.ctext.trim())) set("constraints", "file", F.cfile);
+  if (fresh) { set("constraints", "required", true); set("build", "required", true); }
+  if (ch("cfile") && (fresh || F.cfile !== "CONSTRAINTS.md" || O.constraints || F.ctext.trim())) set("constraints", "file", F.cfile);
   if (F.brain && (ch("brain") || ch("cap") || ch("metrics"))) p.brain = Object.assign(O.brain ? {} : { afterBuild: "propose" }, { lessons: { capture: F.cap, metrics: F.metrics } });
   if (!F.brain && O.brain) p.brain = null;
   // Practices and pilot metrics (plugin.version 0.5): written only when the lead changed them from what is saved.
@@ -246,7 +260,7 @@ let JP = { list: null, note: "", loading: false }; // the Jira projects this tok
 async function loadProjects() {
   if (JP.loading || !F.turl) return;
   JP.loading = true; draw();
-  const r = await api("POST", "/api/jira/projects", { url: F.turl });
+  const r = await api("POST", "/api/jira/projects", { url: F.turl, token: TK.token, insecure: !F.ssl });
   JP = r.ok ? { list: r.projects, note: "", loading: false } : { list: null, note: r.message || "Jira could not be reached.", loading: false };
   draw();
 }
@@ -257,8 +271,62 @@ const projectPick = (i, s) => {
   const known = opts.some((p) => p.key === s.project) || !s.project;
   return `<div class="f"><label>Jira project<select class="in${bad("streams." + i + ".project")}" style="margin-top:6px" data-l="streams" data-i="${i}" data-f="project"><option value="">Choose a project…</option>${opts.map((p) => `<option value="${esc(p.key)}"${p.key === s.project ? " selected" : ""}>${esc(p.name)} (${esc(p.key)})</option>`).join("")}${known ? "" : `<option value="${esc(s.project)}" selected>${esc(s.project)} (not in the list)</option>`}</select></label>${E("streams." + i + ".project")}</div>`;
 };
+// The team's project is picked from what the token can see; the key is typed only until Jira has been asked.
+const teamProject = () => {
+  if (!JP.list || !JP.list.length) return field("tkey", "Project key", "e.g. PAY");
+  const known = JP.list.some((x) => x.key === F.tkey) || !F.tkey;
+  return `<div class="f"><label for="k-tkey">Project</label><select id="k-tkey" class="in${bad("tkey")}" data-k="tkey"><option value="">Choose a project…</option>${JP.list.map((x) => `<option value="${esc(x.key)}"${x.key === F.tkey ? " selected" : ""}>${esc(x.name)} (${esc(x.key)})</option>`).join("")}${known ? "" : `<option value="${esc(F.tkey)}" selected>${esc(F.tkey)} (not in the list)</option>`}</select>${E("tkey")}</div>`;
+};
+const tokenBox = () => `<div class="f"><label for="k-token">Personal access token</label><span class="hint">In Jira, click your picture, then <b>Profile</b>, <b>Personal Access Tokens</b>, <b>Create token</b>. It is kept in your Mac's keychain, never in the project and never in your draft. Leave it empty to use the one already on this computer (the keychain, or <b>LIFTOFF_JIRA_TOKEN</b>).</span><input id="k-token" class="in" type="password" data-tk="" value="${esc(TK.token)}" autocomplete="off"></div>
+<button class="btn sm" style="align-self:flex-start" data-a="connect" ${!F.turl || TK.busy ? "disabled" : ""}>${TK.busy ? "Connecting…" : "Connect to Jira"}</button>${TK.note ? `<div class="note n-${TK.k}">${esc(TK.note)}</div>` : ""}`;
+const plainPath = (p) => String(p || "").replace(/^\.\/|\/+$/g, "");
+const foundModules = () => (S.detected?.modules || []).filter((m) => !F.mods.some((x) => plainPath(x.path) === m.path));
+const foundList = () => {
+  const found = foundModules();
+  if (!found.length) return "";
+  return `<div class="f"><span class="lab">Found in this folder, not listed yet</span>${found.map((m) => `<div class="box"><span><span class="mono">${esc(m.path)}</span> <span class="hint">${esc([...m.languages, ...m.frameworks].join(", "))}</span></span><button class="btn sm" data-a="adddet" data-v="${esc(m.path)}">Add</button></div>`).join("")}<button class="btn sm" style="align-self:flex-start" data-a="alldet">Add all</button></div>`;
+};
+const createsNote = () => ((V.creates || []).length ? `<div class="note n-info"><b>These files do not exist yet (or are empty). Applying creates them from LiftOff's templates:</b><br>${V.creates.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}<br>A file that already has content is never replaced.</div>` : "");
+// A ticket type with the template and settings its name suggests, as in the guide.
+const newType = (name) => {
+  const t = S.templates || {}, tpl = t[name.toLowerCase()] || t.task || "## Context\n\n## Acceptance criteria\n";
+  const commit = !name ? "" : /bug|fix|defect|incident/i.test(name) ? "fix" : /task|chore|maint|support|e2e|test/i.test(name) ? "chore" : "feat";
+  const branch = commit === "feat" ? "feature" : commit === "fix" ? "bugfix" : commit ? "chore" : "";
+  return { name, branch, jira: "", commit, tpl, ac: headsOf(tpl).find((h) => /accept/i.test(h)) || headsOf(tpl)[0] || "", acKind: "heading", was: "" };
+};
+async function connect() {
+  TK = Object.assign(TK, { busy: true, note: "" }); draw();
+  const typed = TK.token;
+  const r = await api("POST", "/api/jira/projects", { url: F.turl, token: typed, insecure: !F.ssl });
+  TK.busy = false;
+  if (!r.ok) Object.assign(TK, { k: "bad", note: r.message || "Jira could not be reached." });
+  else {
+    JP = { list: r.projects, note: "", loading: false };
+    if (typed && !r.saved) Object.assign(TK, { k: "warn", note: "Connected, but the token could not be saved in the keychain, so keep it at hand." });
+    else Object.assign(TK, { token: "", k: "ok", note: "Connected. Choose the project." + (r.saved ? " The token is saved in your Mac's keychain. In Claude Code, run /mcp and reconnect liftoff-jira so it picks it up." : "") });
+  }
+  draw();
+}
+const stage = () => (O.project?.setup === "po" && !F.done ? "po" : "tl");
+async function previewShare() {
+  const r = await api("POST", "/api/save/preview", { stage: stage() }).catch(() => null);
+  SV = r && r.ok ? r : null;
+}
+async function share() {
+  SAVED = await api("POST", "/api/save", { stage: stage(), files: SV.files });
+  await previewShare();
+  draw();
+}
+function shareView() {
+  let h = SAVED ? (SAVED.ok ? `<div class="note n-ok"><b>Saved on the branch <span class="mono">${esc(SAVED.branch)}</span>${SAVED.pushed ? " and pushed" : ""}.</b> ${esc(SAVED.note || "The team gets it when it is merged.")}</div>` : `<div class="note n-bad">${esc(SAVED.message || "Not saved.")}</div>`) : "";
+  if (!SV) return h;
+  if (!SV.git) return result ? h + '<div class="note n-warn"><b>This folder is not under git.</b> The files are created and safe in the folder. To share them, someone needs to run <span class="mono">git init</span> here, then open this page again.</div>' : h;
+  if (!SV.files.length) return h;
+  return h + `<div class="card"><b>Save and share with your team</b><div class="hint">These files go on a new branch, <span class="mono">${esc(SV.branch)}</span>, which is pushed. Nothing is merged.</div>${SV.files.map((f) => `<span class="mono">${esc(f)}</span>`).join("")}${SV.note ? `<div class="note n-info">${esc(SV.note)}</div>` : ""}${SV.identity ? "" : '<div class="note n-warn">Git does not know who you are: set user.name and user.email first.</div>'}<button class="btn pri" style="align-self:flex-start" data-a="save" ${SV.identity ? "" : "disabled"}>Save and share</button></div>`;
+}
 // A list cannot grow while one of its entries is still wrong: the button waits for the input that is signalling an error.
-const addDis = (l) => ((errs().secs[keySec(l)] || []).length ? "disabled" : "");
+// The ticket types sit with the Jira fields: only an error of a type itself holds that list back.
+const addDis = (l) => ((errs().secs[keySec(l)] || []).some((e) => l !== "its" || e.key.startsWith("its.")) ? "disabled" : "");
 let JT = { list: null, note: "" }; // the ticket types Jira has, when the person asked; not part of the form
 const typeCard = (t, i) => `<div class="card">
   <div class="row" style="align-items:flex-start">${rowIn("its", i, "name", "Name", "e.g. e2e", t.name)}${rowIn("its", i, "jira", "Created in Jira as", "empty: the name is the Jira type", t.jira)}</div>
@@ -275,11 +343,12 @@ ${field("langs", "Languages", "e.g. typescript, java", ' <small>· comma separat
 ${field("fw", "Frameworks", "e.g. spring, react", ' <small>· comma separated, optional</small>')}`,
   2: () => `${F.mods.length ? "" : '<div class="note n-info">No modules yet. Modules are the parts of your codebase tickets and streams can point to. Optional.</div>'}
 ${F.mods.map((m, i) => `<div class="card"><div class="row">${rowIn("mods", i, "id", "Id", "e.g. api", m.id)}${rowIn("mods", i, "path", "Folder", "e.g. services/api", m.path)}</div>${rowIn("mods", i, "description", "What it does <small>· optional</small>", "One line a new teammate would understand", m.desc)}<button class="btn sm" style="align-self:flex-start" data-a="del" data-l="mods" data-i="${i}">Remove module</button></div>`).join("")}
-<button class="btn" style="align-self:flex-start" data-a="add" data-l="mods" ${addDis("mods")}>Add a module</button>`,
+<button class="btn" style="align-self:flex-start" data-a="add" data-l="mods" ${addDis("mods")}>Add a module</button>
+${foundList()}${createsNote()}`,
   3: () => `${field("turl", "Jira Data Center URL", "https://jira.your-company.com")}
-<div class="row">${field("tver", "Jira version", "e.g. 9.12.4")}${field("tkey", "Project key", "e.g. PAY")}</div>
+${tokenBox()}
+<div class="row">${teamProject()}${field("tver", "Jira version", "e.g. 9.12.4")}</div>
 ${tog("readOnly", "Read-only access", "LiftOff reads tickets but never writes to Jira. Safest for a first pilot.")}
-<div class="note n-warn">Your access token never goes in this file or this page. It stays in your environment or keychain.</div>
 ${adv(3, tog("ssl", "Verify SSL certificate", "Turn off only for a self-signed test server.") + field("elf", "Epic link field", "e.g. customfield_10014") + field("enf", "Epic name field", "e.g. customfield_10011"))}
 <div class="f"><span class="lab">Ticket types and templates</span>
 <div class="hint">The kinds of ticket your team writes, and how each is written. You can change a template, add a type Jira already has, or make up your own (like “e2e”) and say which Jira type it is created as. What Connect learned (fields, workflow) is kept as it is.</div>
@@ -287,7 +356,7 @@ ${F.its.map((t, i) => typeCard(t, i)).join("")}
 <div class="row" style="flex:0 0 auto"><button class="btn sm" style="align-self:flex-start" data-a="add" data-l="its" ${addDis("its")}>Add a type of my own</button> <button class="btn sm" style="align-self:flex-start" data-a="jtypes">Look up the types in Jira</button></div>
 ${JT.note ? `<div class="note n-warn">${esc(JT.note)}</div>` : ""}
 ${(JT.list || []).filter((n) => !F.its.some((t) => t.name.toLowerCase() === n.toLowerCase())).map((n) => `<div class="box"><span>${esc(n)} <span class="hint">in Jira, not set up here yet</span></span><button class="btn sm" data-a="addjira" data-v="${esc(n)}">Add</button></div>`).join("")}</div>`,
-  4: () => `${field("host", "GitLab host", "e.g. gitlab.your-company.com")}
+  4: () => `${field("host", "GitLab host", "e.g. gitlab.your-company.com", " <small>· the address or just the host</small>")}${S.detected?.git?.host && !F.host ? `<button class="btn sm" style="align-self:flex-start" data-a="set" data-k="host" data-v="${esc(S.detected.git.host)}">Use ${esc(S.detected.git.host)} (from git)</button>` : ""}
 <div class="row">${field("tb", "Target branch", "e.g. main")}${field("bp", "Branch name pattern", "e.g. feature/{key}-{slug}")}</div>
 <div class="f"><span class="lab">Who runs git during Build?</span>${segs("git", [["assisted", "LiftOff, with my approval"], ["manual", "I run git myself"]])}<div class="hint">${F.git === "assisted" ? "LiftOff creates branches and commits, and pauses for your OK before each push." : "LiftOff only edits files. You create branches, commit and push."}</div></div>
 ${adv(4, field("tpat", "Merge request title pattern", "e.g. {key}: {summary}") + field("mrt", "Merge request template file", "e.g. .gitlab/merge_request_templates/default.md") + field("labels", "Labels", "e.g. liftoff, needs-review") + field("revs", "Default reviewers", "GitLab usernames, comma separated"))}`,
@@ -297,12 +366,12 @@ ${F.streams.map((s, i) => `<div class="card"><div class="row">${rowIn("streams",
 ${rowIn("streams", i, "epics", "Epics <small>· comma separated, optional</small>", "e.g. CHK-12, CHK-30", s.epics)}<button class="btn sm" style="align-self:flex-start" data-a="del" data-l="streams" data-i="${i}">Unlink stream</button></div>`).join("")}
 <button class="btn" style="align-self:flex-start" data-a="add" data-l="streams" ${addDis("streams")}>Link a stream</button>`,
   6: () => `${field("cfile", "Constraints file", "CONSTRAINTS.md")}
-<div class="f"><label for="k-ctext">Contents <small>· Markdown. Agents must meet it and may not weaken it.</small></label><textarea id="k-ctext" class="in mono" data-k="ctext" spellcheck="false" placeholder="${S.constraints.text === null ? "This file does not exist yet. Init writes it from your stack; or write it here." : ""}">${val("ctext")}</textarea></div>`,
+<div class="f"><label for="k-ctext">Contents <small>· Markdown. Agents must meet it and may not weaken it.</small></label><textarea id="k-ctext" class="in mono" data-k="ctext" spellcheck="false" placeholder="${S.constraints.text === null ? "This file does not exist yet. Applying writes it from LiftOff's template; or write it here." : ""}">${val("ctext")}</textarea></div>`,
   7: () => `${tog("brain", "Project brain", "After each Build, LiftOff proposes what the project learned. You approve before anything is saved.")}
 <div class="f"><span class="lab">When a human corrects the agent</span>${segs("cap", [["ask", "Ask me"], ["notify", "Tell me"], ["off", "Ignore"]])}</div>
 ${tog("metrics", "Pilot metrics", "Counts only, stored locally. No ticket keys, rules, paths or names.")}
 <div class="f"><span class="lab">PO review of tickets</span>${segs("po", [["on", "Ask and review (default)"], ["nudge", "Ask, one yes"], ["off", "Off"]])}<div class="hint">${F.po === "on" ? "The agent asks the why and the out-of-scope and lists its assumptions; the PO answers each." : F.po === "nudge" ? "The same questions, but one yes approves the assumptions." : "One approval for the batch, as before."}</div></div>
-${F.brain && !O.brain ? '<div class="note n-warn">Turning the brain on writes its settings. Run the Brain skill once to create the wiki folder.</div>' : ""}`,
+${F.brain && !O.brain ? '<div class="note n-warn">Applying creates the brain/ folder, adds a short pointer to AGENTS.md, a rule that keeps the original sources read-only, and a merge rule for its log.</div>' : ""}`,
 };
 const adv = (n, inner) => `<button class="btn sm" style="align-self:flex-start" data-a="adv" data-n="${n}" aria-expanded="${advOpen[n] || advHasErr(n)}">${advOpen[n] || advHasErr(n) ? "Hide" : "Show"} advanced settings</button>${advOpen[n] || advHasErr(n) ? `<div class="adv">${inner}</div>` : ""}`;
 const advKeys = { 3: ["elf", "enf"], 4: ["tpat", "mrt", "labels", "revs"] };
@@ -333,7 +402,7 @@ function draw() {
   bar.innerHTML = bar.className ? `<span>${n} unsaved ${n === 1 ? "change" : "changes"}. Your draft is kept if you close this page.</span><span class="row" style="flex:0 0 auto"><button class="btn sm" data-a="discard">Discard changes</button><button class="btn sm pri" data-a="go" data-s="${REVIEW}">Review and apply</button></span>` : "";
   document.getElementById("nav").innerHTML = [{ n: "⌂", l: "Overview", s: S.exists ? "Project is configured" : "Setup progress", i: 0, c: "" }]
     .concat(SECTIONS.map((c) => { const st = status(c); return { n: c.id, l: c.label, s: st[0], i: c.id, c: st[1] === "saved" || st[1] === "ready" ? "done" : "" }; }))
-    .concat([{ n: "→", l: "Review and apply", s: n ? n + " to apply" : S.exists ? "Nothing to apply" : "Write the files", i: REVIEW, c: "" }])
+    .concat([{ n: "→", l: "Review and apply", s: n ? n + " to apply" : !S.exists ? "Write the files" : S.needsApply ? "Not applied yet" : "Nothing to apply", i: REVIEW, c: "" }])
     .map((x) => `<button class="step ${x.i === step ? "act" : x.c}" data-a="go" data-s="${x.i}" ${x.i === step ? 'aria-current="step"' : ""}><span class="badge">${x.n}</span><span><b>${x.l}</b><small>${esc(x.s)}</small></span></button>`).join("");
   const form = document.getElementById("form");
   const at = document.activeElement, keep = at && at.dataset && form.contains(at) ? Object.entries(at.dataset).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())}="${CSS.escape(v)}"]`).join("") : "";
@@ -361,6 +430,7 @@ function body() {
 }
 function overview() {
   let h = "";
+  if (S.needsApply) h += `<div class="note n-warn"><b>liftoff.yaml is saved but not fully applied in this folder.</b> <button class="btn sm" data-a="go" data-s="${REVIEW}">Review and apply</button></div>`;
   if (resume) h += `<div class="note n-info" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center"><span><b>Welcome back.</b> You left off at <b>${esc(resume.label)}</b> (${esc(new Date(resume.savedAt).toLocaleString())}). ${resume.stale ? "liftoff.yaml changed on disk since." : ""}</span><span class="row" style="flex:0 0 auto"><button class="btn sm" data-a="drop-draft">Discard draft</button><button class="btn sm pri" data-a="resume">Resume</button></span></div>`;
   h += '<div class="grid">' + SECTIONS.map((c) => { const st = status(c); return `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px"><b>${c.label}</b><span class="chip c-${st[1]}">${st[0]}</span></div><div style="color:var(--mut);word-break:break-word">${esc(summary(c.id))}</div><button class="btn sm" style="align-self:flex-start" data-a="go" data-s="${c.id}">${S.exists ? "Edit" : visited[c.id] ? "Continue" : "Start"}</button></div>`; }).join("") + "</div>";
   return h;
@@ -371,22 +441,25 @@ function review() {
   if (V.errors.length) h += `<div class="note n-bad"><b>Fix these before applying:</b><div class="row" style="margin-top:8px">${SECTIONS.filter((c) => (e.secs[c.id] || []).length).map((c) => `<button class="btn sm" style="flex:0 0 auto" data-a="go" data-s="${c.id}">Fix ${c.label}</button>`).join("")}</div></div>`;
   if (result) h += resultView();
   if (S.exists && ch.length) h += `<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">${ch.map((c) => `<div class="chg"><b>${c.label}</b><span class="a mono">${esc(c.a)}</span><span class="b mono">${esc(c.b)}</span></div>`).join("")}</div>`;
-  else if (S.exists && !result) h += '<p class="lede">Nothing to apply. The project matches what is saved.</p>';
+  else if (S.exists && !result) h += S.needsApply ? '<p class="lede">No changes, but liftoff.yaml is not fully applied here yet. Apply it to create what is missing.</p>' : '<p class="lede">Nothing to apply. The project matches what is saved.</p>';
+  if (!result) h += createsNote();
+  if (O.project?.setup === "po") h += tog("done", "The technical setup is complete", "Turn it on when the technical part is filled in, so Init stops sending people to the guide.");
   if (!S.exists) h += '<p class="lede">First write. This creates liftoff.yaml' + (F.ctext.trim() ? " and " + esc(F.cfile) : "") + ", then renders the agent files. The preview on the right is the exact text.</p>";
-  return h;
+  return h + shareView();
 }
 function resultView() {
   const r = result.render;
   let h = `<div class="note n-ok"><b>Applied.</b> liftoff.yaml is up to date.</div>`;
+  if ((result.written || []).length) h += `<div class="note n-info"><b>Written:</b><br>${result.written.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}</div>`;
   if (r && r.ok) h += `<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">${r.files.map((f) => `<div class="chg"><b class="mono" style="flex:1 1 auto;word-break:break-all">${esc(f.path)}</b><span class="chip c-${f.action === "conflict" ? "dirty" : "saved"}">${esc(f.action)}${f.reason ? ": " + esc(f.reason) : ""}</span></div>`).join("")}</div>` + (r.files.some((f) => f.action === "conflict") ? '<div class="note n-warn">A file marked conflict was left untouched because someone edited it by hand. Resolve it with the Init skill.</div>' : "") + (r.notices || []).map((x) => `<div class="note n-info">${esc(x)}</div>`).join("");
   else if (r) h += `<div class="note n-warn"><b>The config is saved, but the agent files were not rendered:</b><br>${(r.errors || []).map((x) => esc(x.message)).join("<br>")}</div>`;
   return h;
 }
 function foot() {
   if (step === 0) return "";
-  const blocked = V.errors.length > 0 || (S.exists && !changes().length);
+  const blocked = V.errors.length > 0 || (S.exists && !changes().length && !S.needsApply);
   const here = step === REVIEW ? [] : errs().secs[step] || [];
-  const next = step === REVIEW ? `<button class="btn pri" data-a="apply" ${blocked ? "disabled" : ""}>${S.exists ? "Apply " + changes().length + " change" + (changes().length === 1 ? "" : "s") : "Write files"}</button>` : `<button class="btn pri" data-a="go" data-s="${step + 1}" data-check="1" ${here.length ? "disabled" : ""}>${step === 7 ? "Review and apply" : "Continue"}</button>`;
+  const next = step === REVIEW ? `<button class="btn pri" data-a="apply" ${blocked ? "disabled" : ""}>${!S.exists ? "Write files" : !changes().length && S.needsApply ? "Apply the saved config" : "Apply " + changes().length + " change" + (changes().length === 1 ? "" : "s")}</button>` : `<button class="btn pri" data-a="go" data-s="${step + 1}" data-check="1" ${here.length ? "disabled" : ""}>${step === 7 ? "Review and apply" : "Continue"}</button>`;
   return `<div class="foot"><button class="btn" data-a="go" data-s="${step - 1}">${step === 1 ? "Overview" : "Back"}</button><span class="err">${here.length ? "To continue: " + esc(here[0].message) + (here.length > 1 ? ` (and ${here.length - 1} more)` : "") : ""}</span>${next}</div>`;
 }
 function drawPreview() {
@@ -406,17 +479,24 @@ function drawPreview() {
 // ---------- changes -> validation -> draft
 let vt = 0, dt = 0;
 function changed() {
-  note = null; result = null;
+  note = null; result = null; SAVED = null;
   clearTimeout(vt); vt = setTimeout(validate, 250);
   clearTimeout(dt); dt = setTimeout(saveDraft, 600);
   saving = "saving…";
   hdr();
 }
 const hdr = () => { document.getElementById("hdr").textContent = "127.0.0.1 · local only · " + (saving || "draft saved"); };
+// What the guide asks for: a first setup needs a Jira and its project, and a Jira always needs at least one ticket type.
+const needed = () => [
+  !S.exists && !F.turl && { path: "/tracker/url", message: "Type the address of your Jira" },
+  !S.exists && !F.tkey && { path: "/tracker/project", message: "Choose the Jira project" },
+  (!S.exists || F.turl) && !F.its.length && { path: "/tracker/issueTypes", message: "Add at least one ticket type, each with a template" },
+].filter(Boolean);
 async function validate() {
   const r = await api("POST", "/api/validate", { patch: toPatch() }).catch(() => null);
   if (!r || !r.ok) { note = { k: "bad", html: "Lost connection to liftoff-ui. Restart it; your draft is saved." }; return draw(); }
-  V = { errors: r.errors, yaml: r.yaml };
+  const need = needed(); // said in plain words, in place of the validator's own on the same field
+  V = { errors: need.concat(r.errors.filter((e) => !need.some((n) => n.path === e.path))), yaml: r.yaml, creates: r.creates || [] };
   draw();
 }
 async function saveDraft() {
@@ -434,12 +514,20 @@ function setList(l, i, f, v) {
 }
 document.addEventListener("input", (ev) => {
   const t = ev.target;
-  if (t.dataset.k) F[t.dataset.k] = t.value;
+  if (t.dataset.tk !== undefined) return void (TK.token = t.value); // nothing else depends on it: the page is not redrawn
+  if (t.dataset.k) { F[t.dataset.k] = t.value; if (t.dataset.k === "turl") { JP = { list: null, note: "", loading: false }; TK.note = ""; } }
   else if (t.dataset.l) setList(t.dataset.l, +t.dataset.i, t.dataset.f, t.value);
   else return;
   changed(); drawPreview();
 });
-document.addEventListener("change", (ev) => { const t = ev.target; if (t.tagName === "SELECT" && t.dataset.l) { setList(t.dataset.l, +t.dataset.i, t.dataset.f, t.value); changed(); } });
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (t.tagName !== "SELECT") return;
+  if (t.dataset.l) setList(t.dataset.l, +t.dataset.i, t.dataset.f, t.value);
+  else if (t.dataset.k) F[t.dataset.k] = t.value;
+  else return;
+  changed();
+});
 document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-a]");
   if (!b) return;
@@ -454,12 +542,15 @@ document.addEventListener("click", async (ev) => {
   else if (a === "target") F.targets = F.targets.includes(d.v) ? F.targets.filter((x) => x !== d.v) : F.targets.concat([d.v]);
   else if (a === "adv") { advOpen[d.n] = !advOpen[d.n]; return draw(); }
   else if (a === "tab") { tab = +d.i; return drawPreview(); }
+  else if (a === "connect") return connect();
+  else if (a === "save") return share();
+  else if (a === "adddet" || a === "alldet") F.mods.push(...foundModules().filter((m) => a === "alldet" || m.path === d.v).map((m) => ({ id: m.id, path: m.path, desc: "", was: "" })));
   else if (a === "jtypes") {
-    const r = await api("POST", "/api/jira/types", { url: F.turl, project: F.tkey });
+    const r = await api("POST", "/api/jira/types", { url: F.turl, project: F.tkey, token: TK.token, insecure: !F.ssl });
     if (r.ok) { JT = { list: r.issueTypes, note: "" }; } else JT = { list: null, note: r.message || "Jira could not be reached." };
     return draw();
-  } else if (a === "addjira") F.its.push({ name: d.v, branch: "", jira: "", commit: "", tpl: "## Context\n\n## Acceptance criteria\n", ac: "Acceptance criteria", acKind: "heading", was: "" });
-  else if (a === "add") F[d.l].push(d.l === "mods" ? { id: "", path: "", desc: "" } : d.l === "its" ? { name: "", branch: "", jira: "", commit: "", tpl: "## Context\n\n## Acceptance criteria\n", ac: "Acceptance criteria", acKind: "heading", was: "" } : { id: "", project: "", module: "", epics: "" });
+  } else if (a === "addjira") F.its.push(newType(d.v));
+  else if (a === "add") F[d.l].push(d.l === "mods" ? { id: "", path: "", desc: "" } : d.l === "its" ? newType("") : { id: "", project: "", module: "", epics: "" });
   else if (a === "del") {
     const gone = F[d.l].splice(+d.i, 1)[0];
     if (d.l === "mods") F.streams.forEach((s) => { if (s.module === gone.id) s.module = ""; });
@@ -489,7 +580,8 @@ async function load(keepStep) {
     const d = s.draft;
     if (d && d.form && !same(Object.assign(clone(B), d.form), B)) resume = { form: d.form, step: d.step || 0, savedAt: d.savedAt, stale: d.baseHash !== s.hash, label: d.step === REVIEW ? "Review and apply" : (SECTIONS.find((c) => c.id === d.step) || { label: "the overview" }).label };
   }
-  V = { errors: s.errors, yaml: "" };
+  V = { errors: s.errors, yaml: "", creates: s.creates || [] };
+  await previewShare();
   await validate();
 }
 load(false).catch(() => {});

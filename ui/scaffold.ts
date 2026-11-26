@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { atomicWrite, isInside, resolveReal } from "../src/cli/fsutil.js";
 import { buildInfo } from "../src/connect/info.js";
@@ -27,14 +27,36 @@ const commandsText = (i: ScaffoldInput) =>
     ? ["| Task | Command |", "|---|---|", `| Build | ${cmd(i.commands.build)} |`, `| Test | ${cmd(i.commands.test)} |`, `| Lint/format | ${cmd(i.commands.lint)} |`].join("\n")
     : "Each module lists its own commands in its `AGENTS.md`.";
 
+// Not there, or there with nothing in it: an empty file holds no team's words, so the template may fill it.
+export const isMissing = (file: string): boolean => {
+  try {
+    const st = lstatSync(file);
+    return st.isFile() && readFileSync(file, "utf8").trim() === "";
+  } catch {
+    return !existsSync(file);
+  }
+};
+
+// The files the guide and the control panel will create, to say so before they do.
+export const toCreate = (root: string, modulePaths: string[], constraintsFile: string): string[] =>
+  [...new Set(["AGENTS.md", ...modulePaths.map((p) => `${p.replace(/^\.\/|\/+$/g, "")}/AGENTS.md`), constraintsFile])].filter((rel) => isMissing(join(root, rel)));
+
+// The stack each module has in the root table today: what someone confirmed wins over what files suggest.
+export const stacksIn = (root: string): Map<string, string> => {
+  const file = join(root, "AGENTS.md");
+  const text = existsSync(file) ? readFileSync(file, "utf8") : "";
+  return new Map([...text.matchAll(/^\| [^|\n]+? \| `([^`\n]+)` \| ([^|\n]*?) \|$/gm)].filter((m) => m[2] !== "-").map((m) => [m[1]!, m[2]!]));
+};
+
 // Brings the root AGENTS.md up to date after the technical lead confirmed the modules. It touches only the marked
 // blocks: anything a team wrote or changed stays as it is. Returns true when the file changed.
-export function refreshRoot(root: string, input: ScaffoldInput): boolean {
+export function refreshRoot(root: string, input: ScaffoldInput, only: string[] = ["modules", "commands", "agents"]): boolean {
   const file = join(root, "AGENTS.md");
   if (!existsSync(file)) return false;
   const before = readFileSync(file, "utf8");
   let text = before;
   for (const [name, now] of [["modules", modulesText(input)], ["commands", commandsText(input)], ["agents", agentsText(input)]] as const) {
+    if (!only.includes(name)) continue;
     const re = new RegExp(`<!-- liftoff:${name} -->\\n[\\s\\S]*?\\n<!-- /liftoff:${name} -->`);
     if (re.test(text)) text = text.replace(re, () => block(name, now));
   }
@@ -50,7 +72,7 @@ export function scaffold(root: string, assetsDir: string, input: ScaffoldInput):
     const file = join(root, rel);
     // a folder that is a link leading out of the project must not take a file with it
     if (!isInside(resolveReal(root), resolveReal(file))) throw new Error(`${rel} leads outside the project`);
-    if (existsSync(file)) return void out.kept.push(rel);
+    if (!isMissing(file)) return void out.kept.push(rel);
     mkdirSync(dirname(file), { recursive: true });
     atomicWrite(file, text);
     out.written.push(rel);
