@@ -340,7 +340,7 @@ repositories can get a repository for the configuration alone; a Jira token alre
 without asking; and settings files that LiftOff cannot read are no longer overwritten. See
 [`CHANGELOG.md`](CHANGELOG.md), "0.7.0".
 
-**Tested:** 2,082 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,084 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
 
