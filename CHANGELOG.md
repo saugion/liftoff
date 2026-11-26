@@ -3,7 +3,7 @@
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 `0.5.0` was never tagged: its content (below) ships in `0.6.0`.
 
-## Unreleased
+## 0.7.0
 
 ### The control panel sets a project up like the guide
 
@@ -23,6 +23,7 @@ Found on the first run on a real project (a folder of repositories).
 
 ### Fixed
 
+- Changing the product owner's ticket review in the control panel no longer lowers the plugin version the config asks for.
 - A settings file that is not plain JSON (comments, a trailing comma, a typo) is no longer overwritten, in `.claude/settings.json`, `.mcp.json`,
   `.vscode/mcp.json` and `.vscode/settings.json`: 0.6.0 read it as empty and wrote over it. It is now left as it is, and both pages show what to add by hand.
 
@@ -36,7 +37,7 @@ Found on the first run on a real project (a folder of repositories).
 - Build stops in such a configuration repository instead of branching there while the code is elsewhere; Init no longer offers a plain `git init` in a
   folder of repositories.
 
-## 0.6.0 (tagged when the pull request is merged)
+## 0.6.0
 
 ### A guided setup, product owner first, then the technical lead
 
