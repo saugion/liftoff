@@ -93,7 +93,7 @@ describe("a first setup in the control panel", () => {
     expect(p.html).toContain("no-docs/AGENTS.md");
     await p.press("Write files");
     expect(p.text).toContain("Applied.");
-    expect(p.text).toContain("not under git");
+    expect(p.text).toContain("holds several repositories and is not one itself"); // offers the configuration repository
 
     const yaml = text(root, "liftoff.yaml");
     expect(yaml).toContain("host: gitlab.example.com\n");

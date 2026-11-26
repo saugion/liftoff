@@ -112,9 +112,9 @@ export function detect(root: string): Detected {
     pkgName = undefined;
   }
   const src = (n: string) => existsSync(join(root, n)) && statSync(join(root, n)).isDirectory();
-  // A folder of repositories that is not one itself: the GitLab host is theirs, when they all agree.
+  // A folder of repositories, with no origin of its own: the GitLab host is theirs, when they all agree.
   let git = gitInfo(root);
-  if (!git.isRepo) {
+  if (!git.originUrl) {
     const hosts = uniq(readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).flatMap((e) => gitInfo(join(root, e.name)).host ?? []));
     if (hosts.length === 1) git = { ...git, host: hosts[0]! };
   }

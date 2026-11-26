@@ -1,10 +1,15 @@
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ensureSelfIgnore } from "../src/cli/state.js";
+import { isMissing } from "./scaffold.js";
+import { childRepos, configIgnore, MAY_HOLD_KEYS, WORKSPACE_DOC, workspaceDoc } from "./workspace.js";
 
 // Saving the setup to the team: the one place the panel runs git, and only after the person has seen the exact files and
-// said yes. It commits those files to a new branch and pushes that branch; it never merges, never rebases and never opens
-// the merge request. What it may commit is the intersection of two lists: the files the setup guide itself wrote (kept in
+// said yes. It commits those files to a new branch and pushes that branch (in a repository with no commit yet there is no
+// branch to leave alone: they become its first commit); it never merges, never rebases and never opens
+// the merge request. The one other thing it does, also on a click: `git init` in a folder of repositories, for a repository
+// that holds the setup alone. What it may commit is the intersection of two lists: the files the setup guide itself wrote (kept in
 // .liftoff/ui-written.json, personal and ignored) and what git says is new or changed. A person's own edit of some other
 // AGENTS.md, or any file the guide did not write, is never swept in.
 export type Stage = "po" | "tl";
@@ -42,7 +47,8 @@ const git = (root: string, args: string[], timeout = 30_000): Promise<{ code: nu
   );
 const line = (r: { out: string; err: string }) => (r.err || r.out).trim().split("\n")[0] ?? "";
 
-export interface Preview { git: boolean; branchNow?: string; remote?: string; files: string[]; branch?: string; base?: string; note?: string; message: string; identity: boolean }
+export interface Elsewhere { repo: string; files: string[] }
+export interface Preview { git: boolean; first?: boolean; branchNow?: string; remote?: string; files: string[]; elsewhere?: Elsewhere[]; ignored?: string[]; branch?: string; base?: string; note?: string; message: string; identity: boolean }
 
 // The paths git reports as new or changed under `root`, relative to `root` (git reports them from the repository's top,
 // and a rename comes as the new path followed by the old one).
@@ -74,26 +80,54 @@ async function startPoint(root: string, hasRemote: boolean): Promise<{ start?: s
   return {};
 }
 
+// What the guide wrote inside the repositories below this folder, still uncommitted there. A save here cannot take them:
+// they are named, so that nobody believes they were shared.
+async function inOtherRepos(root: string, files: string[]): Promise<Elsewhere[]> {
+  const out: Elsewhere[] = [];
+  for (const { path } of childRepos(root)) {
+    const wrote = files.filter((f) => f.startsWith(`${path}/`)).map((f) => f.slice(path.length + 1));
+    if (wrote.length === 0) continue;
+    const dirty = new Set(await changed(join(root, path)));
+    const left = wrote.filter((f) => dirty.has(f)).sort();
+    if (left.length > 0) out.push({ repo: path, files: left });
+  }
+  return out;
+}
+
+// What the guide wrote here and .gitignore keeps out of git: named too, never forced in.
+async function keptOut(root: string, files: string[]): Promise<string[]> {
+  const repos = childRepos(root).map((r) => `${r.path}/`);
+  const here = files.filter((f) => SAFE.test(f) && !f.startsWith(".liftoff/") && !repos.some((r) => f.startsWith(r)) && existsSync(join(root, f)));
+  return here.length === 0 ? [] : (await git(root, ["check-ignore", "--", ...here])).out.split("\n").filter(Boolean).sort();
+}
+
 // What would be saved: the setup files the guide wrote that git sees as new or changed, nothing else.
 export async function previewSave(root: string, stage: Stage): Promise<Preview> {
   const message = MESSAGE[stage];
-  if ((await git(root, ["rev-parse", "--is-inside-work-tree"])).code !== 0) return { git: false, files: [], message, identity: false };
   const rec = readRecord(root);
+  const other = await inOtherRepos(root, rec.files);
+  const elsewhere = other.length > 0 ? { elsewhere: other } : {};
+  if ((await git(root, ["rev-parse", "--is-inside-work-tree"])).code !== 0) return { git: false, files: [], ...elsewhere, message, identity: false };
   const dirty = new Set(await changed(root));
   const files = rec.pending ? rec.files.filter((f) => SAFE.test(f) && !f.startsWith(".liftoff/") && !f.startsWith(".git/") && dirty.has(f)).sort() : [];
+  const out = await keptOut(root, rec.files);
+  const left = { ...elsewhere, ...(out.length > 0 && { ignored: out }) };
   const branchNow = (await git(root, ["symbolic-ref", "--short", "-q", "HEAD"])).out.trim() || undefined;
   const remote = (await git(root, ["remote", "get-url", "origin"])).out.trim() || undefined;
   const identity = (await git(root, ["config", "user.email"])).out.trim() !== "";
+  if (branchNow && (await git(root, ["rev-parse", "-q", "--verify", "HEAD"])).code !== 0) {
+    return { git: true, first: true, branchNow, ...(remote && { remote }), files, ...left, branch: branchNow, message, identity };
+  }
   let branch = `liftoff/setup-${stage}`;
   for (let n = 2; (await git(root, ["rev-parse", "--verify", "-q", `refs/heads/${branch}`])).code === 0; n++) {
-    if (n > 50) return { git: true, files, message, identity, ...(branchNow && { branchNow }), note: "There are too many old setup branches here: delete some and try again." };
+    if (n > 50) return { git: true, files, ...left, message, identity, ...(branchNow && { branchNow }), note: "There are too many old setup branches here: delete some and try again." };
     branch = `liftoff/setup-${stage}-${n}`;
   }
   const { start, note } = await startPoint(root, remote !== undefined);
-  return { git: true, ...(branchNow && { branchNow }), ...(remote && { remote }), files, branch, ...(start && { base: start }), ...(note && { note }), message, identity };
+  return { git: true, ...(branchNow && { branchNow }), ...(remote && { remote }), files, ...left, branch, ...(start && { base: start }), ...(note && { note }), message, identity };
 }
 
-export type Saved = { ok: true; branch: string; files: string[]; pushed: boolean; remote?: string; note?: string } | { ok: false; code: "no-git" | "no-identity" | "nothing" | "changed" | "git-error"; message: string };
+export type Saved = { ok: true; first?: boolean; branch: string; files: string[]; pushed: boolean; remote?: string; note?: string } | { ok: false; code: "no-git" | "no-identity" | "nothing" | "changed" | "git-error"; message: string };
 
 // `expected` is the list the person approved: if the working tree has changed since, nothing is committed. If any step
 // fails after the branch was made, the person is put back where they were and the empty branch is removed.
@@ -105,12 +139,13 @@ export async function save(root: string, stage: Stage, expected: unknown): Promi
   if (!p.branch || JSON.stringify(expected) !== JSON.stringify(p.files)) return { ok: false, code: "changed", message: p.note ?? "The files changed since you looked at the list. Look at it again." };
   const branch = p.branch;
   const head = (await git(root, ["rev-parse", "-q", "--verify", "HEAD"])).out.trim();
-  const made = await git(root, ["checkout", "-q", "-b", branch, ...(p.base ? [p.base] : [])]);
+  const first = p.first ? { first: true } : {};
+  const made = p.first ? { code: 0, out: "", err: "" } : await git(root, ["checkout", "-q", "-b", branch, ...(p.base ? [p.base] : [])]);
   if (made.code !== 0) return { ok: false, code: "git-error", message: `git checkout failed: ${line(made)}` };
   for (const s of [["add", "--", ...p.files], ["commit", "-q", "-m", p.message, "--", ...p.files]]) {
     const r = await git(root, s);
     if (r.code !== 0) {
-      await git(root, ["restore", "--staged", "--", ...p.files]);
+      await git(root, head ? ["restore", "--staged", "--", ...p.files] : ["rm", "--cached", "-q", "--ignore-unmatch", "--", ...p.files]);
       if (head) await git(root, p.branchNow ? ["checkout", "-q", p.branchNow] : ["checkout", "-q", "--detach", head]);
       if (head) await git(root, ["branch", "-D", branch]);
       return { ok: false, code: "git-error", message: `git ${s[0]} failed, nothing was saved: ${line(r)}` };
@@ -118,11 +153,40 @@ export async function save(root: string, stage: Stage, expected: unknown): Promi
   }
   markSaved(root);
   const note = p.note;
-  if (!p.remote) return { ok: true, branch, files: p.files, pushed: false, note: "There is no remote called origin, so nothing was pushed. An engineer can push the branch later." };
+  const later = p.first
+    ? `There is no remote called origin, so nothing was pushed. Create an empty project on your GitLab, then run in this folder: git remote add origin <its address> and git push -u origin ${branch}`
+    : "There is no remote called origin, so nothing was pushed. An engineer can push the branch later.";
+  if (!p.remote) return { ok: true, ...first, branch, files: p.files, pushed: false, note: later };
   const pushed = await git(root, ["push", "-u", "origin", branch], 60_000);
   return pushed.code === 0
-    ? { ok: true, branch, files: p.files, pushed: true, remote: p.remote, ...(note && { note }) }
-    : { ok: true, branch, files: p.files, pushed: false, remote: p.remote, note: `The save is committed on ${branch}, but the push failed: ${line(pushed)}` };
+    ? { ok: true, ...first, branch, files: p.files, pushed: true, remote: p.remote, ...(note && { note }) }
+    : { ok: true, ...first, branch, files: p.files, pushed: false, remote: p.remote, note: `The save is committed on ${branch}, but the push failed: ${line(pushed)}` };
+}
+
+// A repository for the setup alone, in a folder of repositories: `git init` on `main`, a .gitignore that lets through only
+// what LiftOff writes (what the file already says stays), and the clone addresses written down. Nothing is committed or
+// sent, and nothing is written inside the repositories below. `existing` are setup files already there, so that the first
+// save can take them; `paths` are where the config puts the quality bar and the brain.
+export async function createConfigRepo(root: string, existing: string[], paths: { constraints: string; brain: string }): Promise<{ ok: true; files: string[] } | { ok: false; message: string }> {
+  const repos = childRepos(root);
+  if (existsSync(join(root, ".git"))) return { ok: false, message: "This folder is a git repository already." };
+  if (repos.length === 0) return { ok: false, message: "There is no repository below this folder." };
+  const ignore = join(root, ".gitignore");
+  if (lstatSync(ignore, { throwIfNoEntry: false })?.isSymbolicLink()) return { ok: false, message: ".gitignore is a link: replace it with a file first, so that nothing outside this folder is changed." };
+  const made = await git(root, ["init", "-q"]);
+  const named = made.code === 0 ? await git(root, ["symbolic-ref", "HEAD", "refs/heads/main"]) : made;
+  if (named.code !== 0) return { ok: false, message: `git init failed: ${line(named)}` };
+  const had = existsSync(ignore) ? readFileSync(ignore, "utf8") : "";
+  // a settings file that is there already, and that LiftOff did not write, may hold the person's own keys: it stays out
+  const mine = new Set(readRecord(root).files);
+  const keepOut = MAY_HOLD_KEYS.filter((f) => !mine.has(f) && existsSync(join(root, f)));
+  writeFileSync(ignore, configIgnore(had, repos, { files: [paths.constraints], brain: paths.brain, keepOut }));
+  const doc = isMissing(join(root, WORKSPACE_DOC));
+  if (doc) writeFileSync(join(root, WORKSPACE_DOC), workspaceDoc(repos));
+  const files = [".gitignore", ...(doc ? [WORKSPACE_DOC] : []), ...existing];
+  ensureSelfIgnore(root);
+  recordWritten(root, files);
+  return { ok: true, files };
 }
 
 export const hasRecord = (root: string) => existsSync(join(root, RECORD));

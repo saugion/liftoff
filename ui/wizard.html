@@ -74,7 +74,7 @@ function init(s) {
   W = {
     stage: s.stage,
     name: c.project?.name || d.name || "", purpose: "",
-    url: c.tracker?.url || "", project: c.tracker?.project || "", token: "", own: false, insecure: c.tracker?.server?.sslVerify === false, projects: null, manual: false, filter: "", local: false, found: [], typesFor: "", later: false, saveOnly: false, saveStage: "", brain: "off", addName: "", addBase: "", typesNote: "", loadedTl: false,
+    url: c.tracker?.url || "", project: c.tracker?.project || "", token: "", own: false, wsMade: false, insecure: c.tracker?.server?.sslVerify === false, projects: null, manual: false, filter: "", local: false, found: [], typesFor: "", later: false, saveOnly: false, saveStage: "", brain: "off", addName: "", addBase: "", typesNote: "", loadedTl: false,
     types: [],
     modules: (d.modules || []).map((m) => ({ id: m.id, path: m.path, languages: (m.languages || []).join(", "), frameworks: (m.frameworks || []).join(", "), build: m.build || "", test: m.test || "", lint: m.lint || "" })),
     languages: (c.stack?.languages || d.languages || []).join(", "), frameworks: (c.stack?.frameworks || d.frameworks || []).join(", "),
@@ -110,15 +110,29 @@ const tokenField = () => {
   return `<div class="f"><span class="lab">Personal access token</span><div class="note n-ok"><b>A token is already set in LIFTOFF_JIRA_TOKEN.</b> LiftOff uses it: you type nothing, and nothing is saved in the keychain.</div>${swap("ownToken", "Type a different token")}</div>`;
 };
 
+// A folder of repositories: what does not work there, and a repository for the setup alone. `again` is the place where
+// saving needs it, so it is offered even after "Skip".
+const wsView = (again) => {
+  const w = S.workspace;
+  if (W.wsMade) return `<div class="note n-ok"><b>Configuration repository created.</b> Nothing is committed yet: the last step saves the setup here. To send it to your team, first create an empty project on your GitLab, then run <span class="mono">git remote add origin &lt;its address&gt;</span> in this folder (an engineer can do it).</div>`;
+  if (!w || w.isRepo || (w.skipped && !again)) return "";
+  const n = w.repos.length;
+  const head = again ? "This folder holds several repositories and is not one itself." : `This folder holds ${n === 1 ? "1 repository" : n + " repositories"} and is not one itself.`;
+  return `<div class="note n-warn"><b>${head}</b><br>LiftOff is made for one repository (a monorepo): building and merge requests do not work across repositories yet.<br>To share the setup, LiftOff can make this folder a repository for the configuration only: it runs <span class="mono">git init</span>, writes a <span class="mono">.gitignore</span> that ignores everything except the files LiftOff writes (your other files and the repositories stay out), and writes the clone addresses in <span class="mono">WORKSPACE.md</span>. Nothing is committed or sent, and the repositories are not touched.</div>
+    ${again ? note() : ""}<div class="row"><button class="btn pri" data-act="wsInit">Create the configuration repository</button>${again ? "" : `<button class="btn" data-act="wsSkip">Skip</button>`}</div>`;
+};
+const ignoredView = (p) => ((p && p.ignored) || []).length ? `<div class="note n-warn"><b>Ignored by <span class="mono">.gitignore</span>, so not in this save:</b><br>${p.ignored.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}<br>To share one, add a line <span class="mono">!/its/path</span> at the end of <span class="mono">.gitignore</span>.</div>` : "";
+const elsewhereView = (p) => ((p && p.elsewhere) || []).length ? `<div class="note n-info"><b>These files are in other repositories, not in this save. Commit them there:</b><br>${p.elsewhere.map((e) => e.files.map((f) => `<span class="mono">${esc(e.repo + "/" + f)}</span>`).join("<br>")).join("<br>")}</div>` : "";
+
 const VIEWS = {
   welcome() {
     if (W.stage === "po") return `<div class="eyebrow">Welcome</div><h1>Let's set up LiftOff for your project</h1>
       <p class="lede">LiftOff makes your team's AI assistants work the way your team works, and write tickets the way your team writes them.</p>
       <p>You will: <b>describe the project</b>, <b>connect Jira</b> and <b>decide how your tickets are written</b>. It takes about 10 minutes. You do not need to know anything technical: a colleague will take care of that part afterwards.</p>
-      <div class="note n-info">Nothing leaves this computer until the last step, where you decide whether to save and share it with your team.</div>${nav("next", "Start")}`;
+      <div class="note n-info">Nothing leaves this computer until the last step, where you decide whether to save and share it with your team.</div>${wsView(false)}${W.wsMade ? "" : note()}${nav("next", "Start")}`;
     return `<div class="eyebrow">Welcome back</div><h1>The technical side</h1>
       <p class="lede">The project owner has already described <b>${esc(S.config?.project?.name)}</b> and its Jira tickets (${esc((S.config?.tracker?.issueTypes || []).map((t) => t.name).join(", ") || "no ticket types yet")}).</p>
-      <p>Now you confirm what LiftOff found about the code: its parts, the assistants your team uses, how git is used and how the quality bar reads. Everything is a suggestion you can change.</p>${nav("next", "Start")}`;
+      <p>Now you confirm what LiftOff found about the code: its parts, the assistants your team uses, how git is used and how the quality bar reads. Everything is a suggestion you can change.</p>${wsView(false)}${W.wsMade ? "" : note()}${nav("next", "Start")}`;
   },
   project() {
     return `<div class="eyebrow">The project</div><h1>What is this project?</h1>
@@ -244,20 +258,25 @@ const VIEWS = {
     if (W.saved) {
       const r = W.saved;
       return `<div class="eyebrow">Done</div><h1>${r.pushed ? "Saved and shared" : "Saved"}</h1>
-        <div class="note n-ok">Your setup is in the branch <b>${esc(r.branch)}</b>${r.pushed ? ", pushed to your team's repository" : ""}.${r.note ? " " + esc(r.note) : ""}</div>
-        <p>${st === "po" ? "Next: ask the technical lead to open this project with LiftOff to finish the technical part. They will also review your branch and merge it, which is how the team gets it." : "Next: open a merge request for this branch. When it is merged, the whole team can use LiftOff."}</p>
+        <div class="note n-ok">Your setup is in ${r.first ? "the first commit, on" : "the branch"} <b>${esc(r.branch)}</b>${r.pushed ? ", pushed to your team's repository" : ""}.${r.note ? " " + esc(r.note) : ""}</div>${elsewhereView(p)}${ignoredView(p)}
+        <p>${r.first ? (st === "po" ? "Next: ask the technical lead to open this repository with LiftOff to finish the technical part." : "Next: your team gets it by cloning this repository.") : st === "po" ? "Next: ask the technical lead to open this project with LiftOff to finish the technical part. They will also review your branch and merge it, which is how the team gets it." : "Next: open a merge request for this branch. When it is merged, the whole team can use LiftOff."}</p>
         <p class="hint">You can close this page.</p>`;
     }
     if (W.later) return `<div class="eyebrow">Not saved yet</div><h1>Your setup is not saved</h1>
       <div class="note n-warn">The files are in your project folder, but your team cannot see them yet. Nothing was sent anywhere.</div>
       <div class="foot"><button class="btn" data-act="back">Back</button><button class="btn pri" data-act="saveNow">Save now</button></div>`;
     if (!p) return `<h1>Almost there</h1><p>Loading…</p>`;
-    if (!p.git) return `<div class="eyebrow">Share</div><h1>This folder is not under git yet</h1><div class="note n-warn">The files are created and safe in the folder. To share them, someone needs to run <span class="mono">git init</span> here (an engineer can do it in a minute), and then you can open this page again.</div>${W.saveOnly ? "" : nav()}`;
+    if (!p.git) {
+      const ask = S.workspace ? wsView(true) : `<div class="note n-warn">The files are created and safe in the folder. To share them, someone needs to run <span class="mono">git init</span> here (an engineer can do it in a minute), and then you can open this page again.</div>`;
+      return `<div class="eyebrow">Share</div><h1>This folder is not under git yet</h1>${ask}${elsewhereView(p)}${W.saveOnly ? "" : nav()}`;
+    }
     return `<div class="eyebrow">Share</div><h1>${W.saveOnly ? "Some setup files are not saved yet" : "Save and share with your team"}</h1>
+      ${W.wsMade ? wsView(true) : ""}
       ${p.note ? `<div class="note n-warn">${esc(p.note)}</div>` : ""}
-      <p>These files will be saved on a <b>new branch</b> called <span class="mono">${esc(p.branch)}</span>${p.remote ? " and sent to your team's repository" : ""}. The branch your team works on is not touched, and nothing is merged: your colleagues review it first.</p>
+      <p>${p.first ? `These files become the repository's <b>first commit</b>, on <span class="mono">${esc(p.branch)}</span>${p.remote ? ", and are sent to your team's repository" : ""}.` : `These files will be saved on a <b>new branch</b> called <span class="mono">${esc(p.branch)}</span>${p.remote ? " and sent to your team's repository" : ""}. The branch your team works on is not touched, and nothing is merged: your colleagues review it first.`}</p>
       ${p.files.length ? `<ul class="files">${p.files.map((f) => `<li class="mono">${esc(f)}</li>`).join("")}</ul>` : `<div class="note n-info">There is nothing new to save.</div>`}
       ${p.remote ? "" : `<div class="note n-warn">This project has no shared repository set up yet (no “origin”), so the branch will be saved here only.</div>`}
+      ${elsewhereView(p)}${ignoredView(p)}
       ${p.identity ? "" : `<div class="note n-warn">Git does not know your name yet. Ask an engineer to run <span class="mono">git config --global user.name</span> and <span class="mono">user.email</span>, then come back.</div>`}
       ${note()}
       <div class="foot">${W.saveOnly ? "<span></span>" : `<button class="btn" data-act="back">Back</button>`}<span class="row" style="flex:0 0 auto"><button class="btn" data-act="later">${W.saveOnly ? "Not now, go on" : "Not now"}</button><button class="btn pri" data-act="save" ${busy || !p.files.length || !p.identity ? "disabled" : ""}>${busy ? "Saving…" : "Save and share"}</button></span></div>`;
@@ -373,6 +392,16 @@ const ACTS = {
     const r = await api("POST", "/api/save", { stage: W.saveStage || W.stage, files: W.preview.files });
     busy = false;
     if (r.ok) W.saved = r; else say("bad", r.message || "Could not save.");
+  },
+  async wsInit() {
+    const r = await api("POST", "/api/workspace/init", {});
+    if (!r.ok) return say("bad", r.message || "That did not work.");
+    S.workspace = r.workspace; W.wsMade = true; msg = null;
+    if (W.preview) W.preview = await api("POST", "/api/save/preview", { stage: W.saveStage || W.stage });
+  },
+  async wsSkip() {
+    const r = await api("POST", "/api/workspace/skip", {});
+    if (r.ok) S.workspace = r.workspace; else say("bad", r.message || "That did not work.");
   },
   later() { if (W.saveOnly) { W.saveOnly = false; msg = null; } else W.later = true; },
   saveNow() { W.later = false; msg = null; },

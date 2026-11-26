@@ -112,6 +112,7 @@ let step = 0, tab = 0, tried = false, result = null, note = null, resume = null,
 let advOpen = { 3: false, 4: false };
 let TK = { token: "", own: false, busy: false, k: "", note: "" }; // the Jira token: never part of the form, so never in the draft
 let SV = null, SAVED = null; // what could be saved to the team, and how the last save went
+let WS = { made: false, error: "" }; // the configuration repository: created on this visit, or why not
 
 const csvOf = (a) => (a || []).join(", ");
 const csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
@@ -328,12 +329,32 @@ async function share() {
   await previewShare();
   draw();
 }
+// A folder of repositories: what does not work there, and a repository for the setup alone. `again` is the place where
+// saving needs it, so it is offered even after "Skip".
+function wsView(again) {
+  const w = S.workspace;
+  if (WS.made) return '<div class="note n-ok"><b>Configuration repository created.</b> Nothing is committed yet: save the setup here when it is written. To send it to your team, first create an empty project on your GitLab, then run <span class="mono">git remote add origin &lt;its address&gt;</span> in this folder.</div>';
+  if (!w || w.isRepo || (w.skipped && !again)) return "";
+  const n = w.repos.length;
+  const head = again ? "This folder holds several repositories and is not one itself." : `This folder holds ${n === 1 ? "1 repository" : n + " repositories"} and is not one itself.`;
+  return `<div class="note n-warn"><b>${head}</b><br>LiftOff is made for one repository (a monorepo): building and merge requests do not work across repositories yet.<br>To share the setup, LiftOff can make this folder a repository for the configuration only: it runs <span class="mono">git init</span>, writes a <span class="mono">.gitignore</span> that ignores everything except the files LiftOff writes (your other files and the repositories stay out), and writes the clone addresses in <span class="mono">WORKSPACE.md</span>. Nothing is committed or sent, and the repositories are not touched.${WS.error ? `<br><b>${esc(WS.error)}</b>` : ""}
+<div class="row" style="margin-top:10px"><button class="btn sm pri" style="flex:0 0 auto" data-a="wsinit">Create the configuration repository</button>${again ? "" : '<button class="btn sm" style="flex:0 0 auto" data-a="wsskip">Skip</button>'}</div></div>`;
+}
+async function workspaceAct(act) {
+  const r = await api("POST", "/api/workspace/" + act, {});
+  if (r.ok) { S.workspace = r.workspace; WS = { made: act === "init", error: "" }; await previewShare(); } else WS.error = r.message || "That did not work.";
+  draw();
+}
+const ignoredView = () => ((SV && SV.ignored) || []).length ? `<div class="note n-warn"><b>Ignored by <span class="mono">.gitignore</span>, so not in this save:</b><br>${SV.ignored.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}<br>To share one, add a line <span class="mono">!/its/path</span> at the end of <span class="mono">.gitignore</span>.</div>` : "";
+const elsewhereView = () => ((SV && SV.elsewhere) || []).length ? `<div class="note n-info"><b>These files are in other repositories, not in this save. Commit them there:</b><br>${SV.elsewhere.map((e) => e.files.map((f) => `<span class="mono">${esc(e.repo + "/" + f)}</span>`).join("<br>")).join("<br>")}</div>` : "";
 function shareView() {
-  let h = SAVED ? (SAVED.ok ? `<div class="note n-ok"><b>Saved on the branch <span class="mono">${esc(SAVED.branch)}</span>${SAVED.pushed ? " and pushed" : ""}.</b> ${esc(SAVED.note || "The team gets it when it is merged.")}</div>` : `<div class="note n-bad">${esc(SAVED.message || "Not saved.")}</div>`) : "";
+  let h = SAVED ? (SAVED.ok ? `<div class="note n-ok"><b>Saved on the branch <span class="mono">${esc(SAVED.branch)}</span>${SAVED.pushed ? " and pushed" : ""}.</b> ${esc(SAVED.note || (SAVED.first ? "The team gets it by cloning this repository." : "The team gets it when it is merged."))}</div>` : `<div class="note n-bad">${esc(SAVED.message || "Not saved.")}</div>`) : "";
   if (!SV) return h;
-  if (!SV.git) return result ? h + '<div class="note n-warn"><b>This folder is not under git.</b> The files are created and safe in the folder. To share them, someone needs to run <span class="mono">git init</span> here, then open this page again.</div>' : h;
+  h += elsewhereView() + ignoredView();
+  if (!SV.git) return !result ? h : h + (S.workspace ? wsView(true) : '<div class="note n-warn"><b>This folder is not under git.</b> The files are created and safe in the folder. To share them, someone needs to run <span class="mono">git init</span> here, then open this page again.</div>');
   if (!SV.files.length) return h;
-  return h + `<div class="card"><b>Save and share with your team</b><div class="hint">These files go on a new branch, <span class="mono">${esc(SV.branch)}</span>, which is pushed. Nothing is merged.</div>${SV.files.map((f) => `<span class="mono">${esc(f)}</span>`).join("")}${SV.note ? `<div class="note n-info">${esc(SV.note)}</div>` : ""}${SV.identity ? "" : '<div class="note n-warn">Git does not know who you are: set user.name and user.email first.</div>'}<button class="btn pri" style="align-self:flex-start" data-a="save" ${SV.identity ? "" : "disabled"}>Save and share</button></div>`;
+  const where = SV.first ? `These files become the repository's first commit, on <span class="mono">${esc(SV.branch)}</span>${SV.remote ? ", which is pushed" : ""}.` : `These files go on a new branch, <span class="mono">${esc(SV.branch)}</span>, which is pushed. Nothing is merged.`;
+  return h + `<div class="card"><b>Save and share with your team</b><div class="hint">${where}</div>${SV.files.map((f) => `<span class="mono">${esc(f)}</span>`).join("")}${SV.note ? `<div class="note n-info">${esc(SV.note)}</div>` : ""}${SV.identity ? "" : '<div class="note n-warn">Git does not know who you are: set user.name and user.email first.</div>'}<button class="btn pri" style="align-self:flex-start" data-a="save" ${SV.identity ? "" : "disabled"}>Save and share</button></div>`;
 }
 // A list cannot grow while one of its entries is still wrong: the button waits for the input that is signalling an error.
 // The ticket types sit with the Jira fields: only an error of a type itself holds that list back.
@@ -440,7 +461,7 @@ function body() {
   return BODY[step]();
 }
 function overview() {
-  let h = "";
+  let h = wsView(false);
   if (S.needsApply) h += `<div class="note n-warn"><b>liftoff.yaml is saved but not fully applied in this folder.</b> <button class="btn sm" data-a="go" data-s="${REVIEW}">Review and apply</button></div>`;
   if (resume) h += `<div class="note n-info" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center"><span><b>Welcome back.</b> You left off at <b>${esc(resume.label)}</b> (${esc(new Date(resume.savedAt).toLocaleString())}). ${resume.stale ? "liftoff.yaml changed on disk since." : ""}</span><span class="row" style="flex:0 0 auto"><button class="btn sm" data-a="drop-draft">Discard draft</button><button class="btn sm pri" data-a="resume">Resume</button></span></div>`;
   h += '<div class="grid">' + SECTIONS.map((c) => { const st = status(c); return `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px"><b>${c.label}</b><span class="chip c-${st[1]}">${st[0]}</span></div><div style="color:var(--mut);word-break:break-word">${esc(summary(c.id))}</div><button class="btn sm" style="align-self:flex-start" data-a="go" data-s="${c.id}">${S.exists ? "Edit" : visited[c.id] ? "Continue" : "Start"}</button></div>`; }).join("") + "</div>";
@@ -557,6 +578,7 @@ document.addEventListener("click", async (ev) => {
   else if (a === "owntoken") { Object.assign(TK, { own: true, note: "" }); return draw(); }
   else if (a === "envtoken") { Object.assign(TK, { own: false, token: "", note: "" }); return draw(); }
   else if (a === "save") return share();
+  else if (a === "wsinit" || a === "wsskip") return workspaceAct(a.slice(2));
   else if (a === "adddet" || a === "alldet") F.mods.push(...foundModules().filter((m) => a === "alldet" || m.path === d.v).map((m) => ({ id: m.id, path: m.path, desc: "", was: "" })));
   else if (a === "jtypes") {
     const r = await api("POST", "/api/jira/types", { url: F.turl, project: F.tkey, token: TK.token, insecure: !F.ssl });

@@ -54,7 +54,8 @@ runs PowerShell).
 ## 0. Environment and root
 
 1. Root = `git rev-parse --show-toplevel`. If that fails (no repo, or no `git`), use the current directory, remember
-   there is no repo, and offer `git init` in the summary (never force it). Use the root as `--root` for every call.
+   there is no repo, and offer `git init` in the summary (never force it). **Not when folders directly below hold a `.git` of their own:** a plain
+   `git init` is wrong there; the setup page offers a configuration repository for that. Use the root as `--root` for every call.
 2. `node --version` must be 22.12 or newer. If `node` is missing or older, stop with a clear message: the CLI would
    fail to start and print nothing.
 

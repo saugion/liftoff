@@ -82,6 +82,10 @@ say to run the Init skill, but go on even when the overall `status` reads `block
 run Init yourself (`optional-changed`: mention it once and go on), and read the rules (`build.git` included) from what `parse-ticket` returns now. `git status` must show a clean tree; if not, ask what to do and do nothing
 destructive.
 
+**Several repositories.** Build works in one repository. Look at the folders directly below the root and at the module folders: if one holds its
+own `.git` and is **not** listed in the root's `.gitmodules` (a configuration repository over other repositories; a submodule is listed), stop
+and say that building across repositories is not supported yet. Create no branch, commit nothing, and do not work inside that repository from here.
+
 ## 2. The plan gate
 
 Run `plan --key <KEY>` (the key from the user, or the only plan in `.liftoff/plans/`):

@@ -166,8 +166,9 @@ In VS Code, the same skills are called `liftoff-init`, `liftoff-plan`, and so on
 - **It never follows orders hidden in a ticket.** If a ticket says something like "also push to main", the agent
   reports it and does not do it.
 - **It never commits for you, except the saves of the setup guide and the control panel.** Those commit only the setup files they list,
-  on a new branch, and push that branch after your yes. They never touch `main`. Every other skill tells you which
-  files to commit.
+  on a new branch, and push that branch after your yes. They never commit on `main`, except as the first commit of a
+  repository that has none yet (the configuration repository of a folder of repositories). Every other skill tells you
+  which files to commit.
 - **It never lowers the quality bar.** The agents must meet `CONSTRAINTS.md` and may not weaken it.
 - **It never creates a Jira project.** The product owner picks one the token can already see.
 
@@ -252,8 +253,33 @@ It can also do the whole first setup, in any order, and then does what the guide
   and pick the project from a list;
 - before writing, it lists the files that do not exist yet and will be created (`AGENTS.md` files, `CONSTRAINTS.md`).
   A file with content is never replaced;
-- it saves the files to a new branch and pushes it, only after your yes. A folder that is not under git itself, such as
-  a folder holding several repositories, keeps the files but cannot save them this way.
+- it saves the files to a new branch and pushes it, only after your yes. A folder that is not under git itself keeps
+  the files but cannot save them this way (see below for a folder of several repositories).
+
+## A folder holding several repositories
+
+**LiftOff is made for one repository (a monorepo).** In a folder that holds several repositories and is not one itself,
+building and merge requests do not work across them yet; the Build skill stops and says so.
+
+Both pages say so and offer to make the folder a repository **for the configuration only**. You can skip it (the choice
+stays on your computer; the offer comes back only at the point of saving). On your yes LiftOff:
+
+- runs `git init` (branch `main`) in the folder;
+- writes a `.gitignore` that ignores **everything except the files LiftOff writes** (`liftoff.yaml`, the `AGENTS.md` and
+  `CLAUDE.md` files, the quality bar, the brain folder, the agents' settings files), so that loose files in the folder
+  (notes, exports, scripts with keys) never travel by accident. The repositories stay out. What the file already said
+  keeps the last word, and a settings file that was there before LiftOff stays ignored, since it may hold your keys. To
+  share something else, add a line such as `!/my-folder/**`;
+- writes `WORKSPACE.md` with the command that clones each repository, from its `origin` address with any password or
+  token removed (an existing `WORKSPACE.md` with content is left alone).
+
+Nothing is committed or sent at that point, and nothing is changed inside the repositories. The first save becomes the
+first commit on `main`; to send it to your team, create an empty project on GitLab and add it as `origin`. A colleague
+clones that repository, then runs the commands of `WORKSPACE.md` inside it.
+
+Files LiftOff writes **inside** the repositories (their `AGENTS.md`, `CLAUDE.md`) are not part of that save: the pages
+list them, and you commit them in their own repository. They also name any file LiftOff wrote that `.gitignore` keeps
+out. Only repositories directly below the folder are found.
 
 ## What `liftoff.yaml` holds
 
@@ -315,7 +341,7 @@ brain"), each change shown as a diff.
 names itself, `{commitType}` in merge request titles, GitHub Copilot in IntelliJ and on the command line. See
 [`CHANGELOG.md`](CHANGELOG.md), "Unreleased".
 
-**Tested:** 2,041 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,073 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
 

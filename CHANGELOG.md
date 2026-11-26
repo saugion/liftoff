@@ -21,6 +21,16 @@ Found on the first run on a real project (a folder of repositories).
   comes from theirs when they agree.
 - An empty `AGENTS.md` or `CONSTRAINTS.md` counts as missing. A hand-written `CLAUDE.md` that only says `@AGENTS.md` is no longer a conflict.
 
+### A folder of several repositories
+
+- Both pages say that LiftOff is made for one repository, and that building and merge requests do not work across several yet.
+- On a yes they make the folder a repository for the configuration only: `git init`, a `.gitignore` that ignores everything except the files LiftOff
+  writes, and the clone addresses (no password or token) in `WORKSPACE.md`. Nothing is committed or sent, and the repositories are not touched. "Skip" is remembered.
+- In a repository with no commit yet, the save is its first commit, on the current branch, instead of a new setup branch.
+- The save lists the files that live in other repositories and are still to be committed there, and the files `.gitignore` keeps out.
+- Build stops in such a configuration repository instead of branching there while the code is elsewhere; Init no longer offers a plain `git init` in a
+  folder of repositories.
+
 ## 0.6.0 (tagged when the pull request is merged)
 
 ### A guided setup, product owner first, then the technical lead

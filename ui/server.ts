@@ -13,7 +13,8 @@ import defaults from "../src/connect/defaults.json" with { type: "json" };
 import { isLocal, listProjects, parseUrl, projectTypes, sampleHeadings, skipsCheck, tokenInEnv } from "./connect.js";
 import { detect, hostOf } from "./detect.js";
 import { applyPatch } from "./merge.js";
-import { previewSave, recordWritten, save, type Stage } from "./persist.js";
+import { createConfigRepo, previewSave, recordWritten, save, type Stage } from "./persist.js";
+import { choiceFile, workspaceState } from "./workspace.js";
 import { brainInit } from "../src/cli/brain-init.js";
 import { brainExtras, claudeSettings, mcpFiles, refreshRoot, scaffold, stacksIn, toCreate, type ModuleInfo, type ScaffoldInput, type Scaffolded } from "./scaffold.js";
 import { checkConfig } from "../src/cli/check.js";
@@ -220,7 +221,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const base = state();
     const config = base.config as Record<string, any> | null;
     const saved = await previewSave(root, "po");
-    return { unsaved: saved.git ? saved.files : [], ok: true, root, exists: base.exists, hash: base.hash, stage: stageOf(config, base.exists), config, errors: base.errors, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, tokenInEnv: tokenInEnv() };
+    return { unsaved: saved.git ? saved.files : [], ok: true, root, exists: base.exists, hash: base.hash, stage: stageOf(config, base.exists), config, errors: base.errors, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, tokenInEnv: tokenInEnv(), workspace: workspaceState(root) };
   }
 
   // What the control panel needs on top of the file: what the folder holds, the default templates, what is not there yet
@@ -229,7 +230,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const base = state();
     const unapplied = base.exists && checkConfig(root).reasons.some((r) => r.code === "not-applied" || r.code === "required-changed");
     const missing = base.exists && base.config ? creates(base.config) : [];
-    return { ...base, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, creates: missing, needsApply: unapplied || missing.length > 0, tokenInEnv: tokenInEnv() };
+    return { ...base, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, creates: missing, needsApply: unapplied || missing.length > 0, tokenInEnv: tokenInEnv(), workspace: workspaceState(root) };
   }
 
   // Writes liftoff.yaml from a patch (same merge and validator as the panel), then the files around it. If anything after
@@ -411,6 +412,23 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
         const stage: Stage = input.stage === "tl" ? "tl" : "po";
         if (route.endsWith("/preview")) return send(res, 200, { ok: true, ...(await previewSave(root, stage)) });
         return send(res, 200, await save(root, stage, input.files));
+      }
+      if (route === "POST /api/workspace/init") {
+        // the setup already there goes into the first save; files that may hold a person's own keys only when LiftOff wrote them
+        const config = state().config as { constraints?: { file?: string }; brain?: { dir?: string } } | null;
+        const file = config?.constraints?.file ?? DEFAULT_CONSTRAINTS;
+        const existing = [CONFIG_FILE, "AGENTS.md", "CLAUDE.md", file].filter((f) => {
+          const abs = inside(f);
+          return abs !== undefined && read(abs) !== undefined;
+        });
+        const brain = config?.brain?.dir ?? "brain";
+        const made = await createConfigRepo(root, existing, { constraints: inside(file) ? file : DEFAULT_CONSTRAINTS, brain: inside(brain) ? brain : "brain" });
+        return send(res, 200, made.ok ? { ...made, workspace: workspaceState(root) } : made);
+      }
+      if (route === "POST /api/workspace/skip") {
+        ensureSelfIgnore(root); // the choice is personal: never committed
+        atomicWrite(choiceFile(root), JSON.stringify({ skipped: true }) + "\n");
+        return send(res, 200, { ok: true, workspace: workspaceState(root) });
       }
       if (route === "POST /api/validate") return send(res, 200, { ok: true, ...preview(input.patch) });
       if (route === "POST /api/apply") {
