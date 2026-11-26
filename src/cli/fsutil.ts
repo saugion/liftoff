@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { closeSync, mkdirSync, openSync, realpathSync, renameSync, unlinkSync, writeSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, realpathSync, renameSync, unlinkSync, writeSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 
 const errno = (e: unknown) => (e as NodeJS.ErrnoException).code;
@@ -24,6 +24,14 @@ export function resolveReal(abs: string): string {
 export function isInside(root: string, path: string): boolean {
   const rel = relative(root, path);
   return rel === "" || (rel !== ".." && !rel.startsWith(".." + sep) && !isAbsolute(rel));
+}
+
+// The folders directly below `root` that are repositories of their own (a `.git` folder, or file for a worktree).
+export function repoFolders(root: string): string[] {
+  return readdirSync(root, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !/[\r\n]/.test(e.name) && existsSync(join(root, e.name, ".git")))
+    .map((e) => e.name)
+    .sort();
 }
 
 const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);

@@ -241,6 +241,19 @@ describe("the skill is loadable", () => {
     for (const rel of new Set(referenced)) expect(existsSync(join(SKILL, rel)), rel).toBe(true);
   });
 
+  it("offers the setup page for every gap check-config can report, and never sends the person to a terminal", () => {
+    const union = /export type SetupGap =([^;]+);/.exec(readFileSync(join("src", "cli", "check.ts"), "utf8"));
+    const gaps = [...union![1]!.matchAll(/"([a-z-]+)"/g)].map((m) => m[1]!);
+    expect(gaps.length).toBeGreaterThan(1);
+    for (const gap of gaps) expect(body, gap).toContain(`\`${gap}\``);
+    const page = body.slice(body.indexOf("## 2b."), body.indexOf("## 6."));
+    expect(page).toContain("hint.setupGaps");
+    expect(page.replace(/\s+/g, " ")).toContain("Never ask the person to type a command");
+    expect(front.description).toContain("open LiftOff");
+    // a committed config is the team's: whoever clones it is told what to pass on, not asked
+    for (const s of ["git ls-files --error-unmatch liftoff.yaml", "ask nothing", "tell the lead: no ticket type is set up"]) expect(page.replace(/\s+/g, " "), s).toContain(s);
+  });
+
   it("names the three CLI commands and the plugin-recommendation settings file", () => {
     for (const c of ["validate", "check-config", "render"]) expect(body).toContain(c);
     expect(body).toContain(".claude/settings.json");

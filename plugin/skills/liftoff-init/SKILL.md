@@ -4,8 +4,9 @@ description: >
   Make a repository AI-native for Claude Code and GitHub Copilot from one team config. A new project starts LiftOff's
   setup guide in the browser (a product owner, then a technical lead); a project with a team config applies it:
   AGENTS.md files, CONSTRAINTS.md and the thin per-agent files (CLAUDE.md, .github/copilot-instructions.md).
+  It also opens LiftOff's page in the browser to see or change the setup.
   Use when the user says "liftoff init", "init project", "set up this repo for AI agents", "apply the team config",
-  or when a repo has a liftoff.yaml that was never applied on this machine.
+  "open LiftOff", "change the LiftOff setup", or when a repo has a liftoff.yaml that was never applied on this machine.
 license: Apache-2.0
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff.mjs" *), Bash(node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff-ui.mjs" *)
 ---
@@ -16,7 +17,8 @@ Turns a repo into an AI-native one. **No `liftoff.yaml` in the repo, or one whos
 setup.** You do not interview anyone: you start LiftOff's setup guide, a page in the browser that asks a product owner
 about the project and its Jira tickets, then a technical lead about the code, and saves both to the team on their yes.
 **`liftoff.yaml` complete: apply mode.** No questions: you create what is missing, render, and resolve file conflicts
-with the user.
+with the user. A config never applied here that still has holes, or a person who asks to see or change the setup: the
+same page in the browser (step 2b).
 
 You are the instructions; the `liftoff` CLI decides everything deterministic (validation, the plugin pin, hashes,
 rendering, safe writes). Never guess what the CLI can tell you. Read its JSON, not your expectations.
@@ -70,7 +72,9 @@ it up first). Do not continue until none is a symlink. (The CLI's `agents-md-inv
 
 ## 1. Route by `check-config`
 
-Run `check-config`. Branch on `status` and on **every** entry of `reasons[].code` (it lists them all):
+Run `check-config`. Branch on `status` and on **every** entry of `reasons[].code` (it lists them all).
+**If the person asked to open LiftOff, or to see or change the setup**, and `liftoff.yaml` is there, valid, and not
+`setup: po`: go to step 2b instead of the table (`plugin-outdated` still stops you).
 
 | Result | What you do |
 |---|---|
@@ -78,7 +82,7 @@ Run `check-config`. Branch on `status` and on **every** entry of `reasons[].code
 | `blocked` + `plugin-outdated` | Stop. Tell the user to update the plugin to at least `minimum`, and how: *Claude Code: run `/reload-plugins`, or `/plugin marketplace update liftoff`; VS Code: update or reload the plugin.* Change nothing. |
 | `blocked` + `config-missing` | **Guided setup** (step 2). If `hint.nearestRoot` is set **and `<nearestRoot>/liftoff.yaml` exists**, first ask whether to use that root instead of starting a second config. |
 | `blocked` + `config-invalid` | Show `errors` (`path`, `line`). Offer a fix **as a diff, with approval**. If `git ls-files --error-unmatch liftoff.yaml` says the file is tracked, say "ask the lead" instead of editing. |
-| `blocked` + `not-applied` or `required-changed` | **Apply mode**, unless `liftoff.yaml` has `setup: po` under `project`: then **guided setup** first (step 2), the technical lead's part. |
+| `blocked` + `not-applied` or `required-changed` | **Apply mode**, unless `liftoff.yaml` has `setup: po` under `project`: then **guided setup** first (step 2), the technical lead's part. Otherwise, if the result has `hint.setupGaps`: **step 2b** first. |
 | `warn` + `optional-changed` | Apply mode, no prompt: apply, and report what changed. |
 | `warn` + `unresolved-conflict` | Offer to resolve the listed files (step 8). Otherwise leave them. |
 | `ok` or `warn`, and `liftoff.yaml` has `setup: po` under `project` | **Guided setup** (step 2): the product owner's part is saved, the technical lead's is not. |
@@ -101,6 +105,30 @@ does, with the same templates, and shows the person every file before it is save
    edit the files the page wrote.
 4. When they say they finished, stop the background process, run `check-config` and report: `ok`, or what it says.
    Remind them that a branch `liftoff/setup-po` (or `-tl`) was saved and that the team gets it when it is merged.
+
+## 2b. The setup page, for a project that already has a config
+
+The people who set LiftOff up may never use a terminal. **Never ask the person to type a command:** you start the page.
+
+1. **Only when you come from `hint.setupGaps`.** First, if the only entry is `no-ticket-types` and
+   `git ls-files --error-unmatch liftoff.yaml` says the file is tracked, the config is the team's: ask nothing, go on
+   with apply mode and add one line to the summary, "tell the lead: no ticket type is set up". Otherwise ask one
+   question, in everyday words (no file names, no codes). Say what is missing, one sentence per entry:
+   - `no-ticket-types`: "Jira is connected, but no ticket type is set up, so LiftOff does not know yet how to write
+     your tickets."
+   - `repos-without-git`: "This folder holds several repositories and is not one itself, so the setup cannot be shared
+     with the team yet."
+
+   Two choices: **Open the setup page in the browser (recommended)**, or **Use the setup as it is** (go on with apply
+   mode; do not ask again in this run). When the person asked for the page themselves, skip this question.
+2. Start it in the background, as in step 2:
+   `node "${CLAUDE_PLUGIN_ROOT}/bin/liftoff-ui.mjs" --root "<root>"`, and read the `Open: <address>` line.
+3. Give the address as a link and say: it works only on this computer, and nothing changes until they press the apply
+   button on the last page. For `no-ticket-types`, the ticket types are in the Jira section. For `repos-without-git`,
+   after applying, the page offers to make a repository for the setup alone.
+4. Wait. When they say they finished, stop the background process and run `check-config`. `ok`: report it. `warn` with
+   `unresolved-conflict`: step 8. Still `not-applied`: say that the page did not apply the setup, and ask whether to
+   open it again or to apply it here.
 
 ## 6. AGENTS.md files (apply mode: create what is missing)
 
@@ -211,13 +239,14 @@ prompted to install the plugin and must install it by hand. Only `.claude/settin
   (commit `liftoff.yaml`, the `AGENTS.md` files, `CONSTRAINTS.md`, the generated `CLAUDE.md` and
   `.github/copilot-instructions.md`, and `.claude/settings.json`; `.liftoff/` ignores itself). Offer `git init` if there
   was no repo. **Never commit without asking.**
+- Say that to see or change the setup later they can ask you to *open LiftOff*.
 - **A teammate (apply mode) whose config has a `tracker`:** end the summary with the next step, in these words: "Next: connect to
   Jira. Say *connect me to Jira* (the Connect skill)". Do not tell them that Jira, `/liftoff-connect` or the Ticket and Plan skills
   "do not work until the server connects": Connect is what connects it.
 
 ## Apply mode, in short
 
-No questions (this version has no personal ones). Create the `AGENTS.md` files that are missing (step 6), create the brain structure when `brain` is set (step 6b), run `render`
+No questions (this version has no personal ones; the one question of step 2b comes before this mode). Create the `AGENTS.md` files that are missing (step 6), create the brain structure when `brain` is set (step 6b), run `render`
 (step 8), resolve conflicts with the user, add the plugin recommendation if it is missing (step 9), verify (step 10).
 A teammate whose agent is not in `agents.targets` gets no file for it: say so, and suggest asking the lead to add it.
 Expect the agent to ask for approval of shell calls; those are not your questions.

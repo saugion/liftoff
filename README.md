@@ -100,14 +100,6 @@ Stop the fake Jira with `scripts/fake-setup.sh --down`. The full walk-through, a
 
 ### 1. Install the plugin
 
-**The guided setup in the browser is not in a release yet.** Until it is, load the plugin from a clone:
-
-```bash
-git clone https://github.com/saugion/liftoff.git
-cd <your project>
-claude --plugin-dir <path to the clone>/plugin
-```
-
 In Claude Code:
 
 ```
@@ -141,7 +133,7 @@ claude plugin install liftoff@liftoff
 A project set up with LiftOff 0.7.0 or older names a tag in its `.claude/settings.json`
 (`extraKnownMarketplaces.liftoff.source.ref`): change it to `stable` there.
 
-To stay on one release instead, use its tag (`saugion/liftoff#v0.7.0`) and move it by hand. `v0.6.0` was the first
+To stay on one release instead, use its tag (`saugion/liftoff#v0.7.1`) and move it by hand. `v0.6.0` was the first
 release with the setup guide; `v0.5.0` was never tagged and its content shipped in `v0.6.0`. Earlier tags (up to
 `v0.4.0`) open Init's chat interview instead of the guide. `v0.6.0` can overwrite a settings file that has comments in
 it: do not stay on it.
@@ -179,6 +171,7 @@ LiftOff's skills, has not been checked.
 | Engineer | "plan PROJ-123" | `/liftoff:liftoff-plan` |
 | Engineer | "build this plan" | `/liftoff:liftoff-build` |
 | Anyone | "what do we know about login" (needs the [project brain](#project-brain)) | `/liftoff:liftoff-brain` |
+| Product owner, technical lead | "open LiftOff", to see or change the setup | `/liftoff:liftoff-init` |
 
 In VS Code, the same skills are called `liftoff-init`, `liftoff-plan`, and so on.
 
@@ -262,11 +255,15 @@ the GitLab login (`glab` keeps its own).
 
 ## Changing the setup later: the control panel
 
-The same program, once the setup is done (or from the link "Open the full control panel" on the guide's page). Start it
-with:
+The same program, once the setup is done (or from the link "Open the full control panel" on the guide's page). In the
+agent, say *"open LiftOff"*: Init starts it and gives you the link. Nothing to type in a terminal.
 
-- in the installed plugin: `node <plugin>/bin/liftoff-ui.mjs --root <your repo>`
-- from a clone of this repo: `npm run ui -- --root <your repo>`
+Init also offers it by itself, before applying a setup this computer never applied, when something a finished setup has
+is missing: a Jira with no ticket type, or a folder of several repositories that is not one itself. You choose between
+the page and using the setup as it is. A teammate who cloned a committed setup is not asked: for missing ticket types,
+Init only says to tell the lead.
+
+To start it by hand (from a clone of this repo): `npm run ui -- --root <your repo>`.
 
 It shows every section of `liftoff.yaml`: project, parts of the code, Jira (including the ticket types and their
 templates: change a template, add a type Jira already has, or make up a new one), GitLab, work streams, quality bar,
@@ -361,22 +358,25 @@ brain"), each change shown as a diff.
 
 ## Status and limits
 
-**Built:** Init, Connect, Ticket, Plan, Build and Brain, and the optional extras above. Published tags go up to `v0.4.0`;
-**New in `v0.7.0`:** the control panel can do the whole first setup, as the guide does; a folder holding several
-repositories can get a repository for the configuration alone; a Jira token already in `LIFTOFF_JIRA_TOKEN` is used
-without asking; and settings files that LiftOff cannot read are no longer overwritten. See
-[`CHANGELOG.md`](CHANGELOG.md), "0.7.0".
+**Built:** Init, Connect, Ticket, Plan, Build and Brain, and the optional extras above.
 
-**Tested:** 2,084 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**New in `v0.7.1`:** nobody has to type a command to reach the setup page: say *"open LiftOff"*. Init also offers the
+page before applying a half-filled setup, and installs and updates now follow the `stable` branch. See
+[`CHANGELOG.md`](CHANGELOG.md), "0.7.1".
+
+**Tested:** 2,091 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
-Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
+Jira and a git remote. By hand, the pages were also checked in a real browser (headless Chrome), with the real macOS
+Keychain and the real `mcp-atlassian` against the fake Jira. Agents have followed the skills against the fakes in
+scripted runs.
 
 **Not tested yet:**
 
 - a real Jira Data Center, a real GitLab, or a real team using LiftOff day to day
-- the setup guide in a real browser, the real macOS Keychain, and the real `mcp-atlassian` with a company certificate
+- the real `mcp-atlassian` with a company certificate
+- an agent offering the setup page by itself, or opening it on "open LiftOff" (new in `v0.7.1`)
 - GitHub Copilot in IntelliJ and on the command line; VS Code has been looked at only partly
-- the control panel's page in a real browser (it is tested in a simulated page)
+- the setup guide and the control panel in Safari or Firefox
 
 The manual checks for all of these are in [`docs/pilot-checklist.md`](docs/pilot-checklist.md).
 

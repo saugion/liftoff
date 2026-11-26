@@ -3,7 +3,16 @@
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 `0.5.0` was never tagged: its content (below) ships in `0.6.0`.
 
-## Unreleased
+## 0.7.1
+
+### The setup page, without a terminal
+
+Found on a real project: a half-filled setup made Init ask technical questions in the chat instead of showing the page.
+
+- Before applying a setup this computer never applied, Init offers the page when the Jira has no ticket type, or the folder holds several
+  repositories and is not one itself. `check-config` reports it as `hint.setupGaps`. A complete setup asks nothing, as before, and a teammate who cloned a committed one is only
+  told what to pass on to the lead.
+- Say "open LiftOff" to see or change the setup: Init starts the page and gives the link. Nobody has to type a command.
 
 ### Updating gets easier
 
