@@ -110,7 +110,7 @@ let F = null; // form being edited
 let V = { errors: [], yaml: "" }; // last validation
 let step = 0, tab = 0, tried = false, result = null, note = null, resume = null, saving = "", visited = {};
 let advOpen = { 3: false, 4: false };
-let TK = { token: "", busy: false, k: "", note: "" }; // the Jira token: never part of the form, so never in the draft
+let TK = { token: "", own: false, busy: false, k: "", note: "" }; // the Jira token: never part of the form, so never in the draft
 let SV = null, SAVED = null; // what could be saved to the team, and how the last save went
 
 const csvOf = (a) => (a || []).join(", ");
@@ -277,8 +277,17 @@ const teamProject = () => {
   const known = JP.list.some((x) => x.key === F.tkey) || !F.tkey;
   return `<div class="f"><label for="k-tkey">Project</label><select id="k-tkey" class="in${bad("tkey")}" data-k="tkey"><option value="">Choose a project…</option>${JP.list.map((x) => `<option value="${esc(x.key)}"${x.key === F.tkey ? " selected" : ""}>${esc(x.name)} (${esc(x.key)})</option>`).join("")}${known ? "" : `<option value="${esc(F.tkey)}" selected>${esc(F.tkey)} (not in the list)</option>`}</select>${E("tkey")}</div>`;
 };
-const tokenBox = () => `<div class="f"><label for="k-token">Personal access token</label><span class="hint">In Jira, click your picture, then <b>Profile</b>, <b>Personal Access Tokens</b>, <b>Create token</b>. It is kept in your Mac's keychain, never in the project and never in your draft. Leave it empty to use the one already on this computer (the keychain, or <b>LIFTOFF_JIRA_TOKEN</b>).</span><input id="k-token" class="in" type="password" data-tk="" value="${esc(TK.token)}" autocomplete="off"></div>
-<button class="btn sm" style="align-self:flex-start" data-a="connect" ${!F.turl || TK.busy ? "disabled" : ""}>${TK.busy ? "Connecting…" : "Connect to Jira"}</button>${TK.note ? `<div class="note n-${TK.k}">${esc(TK.note)}</div>` : ""}`;
+const TOKEN_HOW = "In Jira, click your picture, then <b>Profile</b>, <b>Personal Access Tokens</b>, <b>Create token</b>. It is kept in your Mac's keychain, never in the project and never in your draft.";
+// With a token already in the environment nothing is asked: typing another one is the person's choice.
+const tokenBox = () => {
+  const input = `<input id="k-token" class="in" type="password" data-tk="" value="${esc(TK.token)}" autocomplete="off">`;
+  const swap = (a, label) => `<button class="btn sm" style="align-self:flex-start" data-a="${a}">${label}</button>`;
+  const body = !S.tokenInEnv ? `<label for="k-token">Personal access token</label><span class="hint">${TOKEN_HOW} Leave it empty to use the one already in the keychain.</span>${input}`
+    : TK.own ? `<label for="k-token">Personal access token</label><span class="hint">${TOKEN_HOW} While <b>LIFTOFF_JIRA_TOKEN</b> is set, it is used instead of the one you type here.</span>${input}${swap("envtoken", "Use LIFTOFF_JIRA_TOKEN instead")}`
+    : `<span class="lab">Personal access token</span><div class="note n-ok"><b>A token is already set in LIFTOFF_JIRA_TOKEN.</b> LiftOff uses it: you type nothing, and nothing is saved in the keychain.</div>${swap("owntoken", "Type a different token")}`;
+  return `<div class="f">${body}
+<button class="btn sm" style="align-self:flex-start" data-a="connect" ${!F.turl || TK.busy ? "disabled" : ""}>${TK.busy ? "Connecting…" : "Connect to Jira"}</button>${TK.note ? `<div class="note n-${TK.k}">${esc(TK.note)}</div>` : ""}</div>`;
+};
 const plainPath = (p) => String(p || "").replace(/^\.\/|\/+$/g, "");
 const foundModules = () => (S.detected?.modules || []).filter((m) => !F.mods.some((x) => plainPath(x.path) === m.path));
 const foundList = () => {
@@ -303,6 +312,8 @@ async function connect() {
   else {
     JP = { list: r.projects, note: "", loading: false };
     if (typed && !r.saved) Object.assign(TK, { k: "warn", note: "Connected, but the token could not be saved in the keychain, so keep it at hand." });
+    else if (S.tokenInEnv && typed) Object.assign(TK, { token: "", own: false, k: "warn", note: "Connected, and the token you typed is saved in your Mac's keychain. LIFTOFF_JIRA_TOKEN is still set and is used instead: remove the variable to use the one you typed." });
+    else if (S.tokenInEnv) Object.assign(TK, { k: "ok", note: "Connected with the token in LIFTOFF_JIRA_TOKEN. Nothing was saved in the keychain. Claude Code reads the same variable, so it must be set where you start Claude Code." });
     else Object.assign(TK, { token: "", k: "ok", note: "Connected. Choose the project." + (r.saved ? " The token is saved in your Mac's keychain. In Claude Code, run /mcp and reconnect liftoff-jira so it picks it up." : "") });
   }
   draw();
@@ -543,6 +554,8 @@ document.addEventListener("click", async (ev) => {
   else if (a === "adv") { advOpen[d.n] = !advOpen[d.n]; return draw(); }
   else if (a === "tab") { tab = +d.i; return drawPreview(); }
   else if (a === "connect") return connect();
+  else if (a === "owntoken") { Object.assign(TK, { own: true, note: "" }); return draw(); }
+  else if (a === "envtoken") { Object.assign(TK, { own: false, token: "", note: "" }); return draw(); }
   else if (a === "save") return share();
   else if (a === "adddet" || a === "alldet") F.mods.push(...foundModules().filter((m) => a === "alldet" || m.path === d.v).map((m) => ({ id: m.id, path: m.path, desc: "", was: "" })));
   else if (a === "jtypes") {
