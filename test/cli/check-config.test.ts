@@ -79,8 +79,12 @@ describe("check-config: reads that fail are a CheckResult, not the fatal shape",
   });
 });
 
+// Versions newer than whatever is installed, so that no release makes them stale.
+const [major, minor, patch] = INSTALLED_VERSION.split(".").map(Number) as [number, number, number];
+const NEWER = [`${major}.${minor + 1}`, `${major + 9}.0`, `${major}.${minor}.${patch + 1}`, `${major + 1}.0.0`];
+
 describe("check-config: the plugin pin comes first", () => {
-  it.each(["0.7", "9.0", "0.6.1", "1.0.0"])("a pin of %s above the installed plugin: only plugin-outdated, with the minimum", (pin) => {
+  it.each(NEWER)("a pin of %s above the installed plugin: only plugin-outdated, with the minimum", (pin) => {
     const dir = tempDir();
     write(dir, HEAD(pin));
     const { exitCode, body } = check(dir);

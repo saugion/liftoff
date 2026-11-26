@@ -153,6 +153,11 @@ function toPatch() {
   const list = (k, was) => { const a = csv(F[k]); return a.length ? a : (was && was.length ? null : undefined); };
   const p = {};
   const set = (sec, key, val) => { if (val !== undefined) (p[sec] = p[sec] || {})[key] = val; };
+  // A setting that needs a newer plugin raises the version the config asks for; it never lowers it.
+  const atLeast = (min) => {
+    const [a, b] = [String(O.plugin?.version || S.version), min].map((v) => v.split(".").map(Number));
+    if (a[0] < b[0] || (a[0] === b[0] && (a[1] || 0) < (b[1] || 0))) set("plugin", "version", min);
+  };
   if (ch("name")) set("project", "name", F.name);
   if (ch("kind")) set("project", "kind", F.kind);
   if (fresh || (ch("done") && F.done && O.project?.setup === "po")) set("project", "setup", "done");
@@ -193,7 +198,7 @@ function toPatch() {
   if (F.brain && (ch("brain") || ch("cap") || ch("metrics"))) p.brain = Object.assign(O.brain ? {} : { afterBuild: "propose" }, { lessons: { capture: F.cap, metrics: F.metrics } });
   if (!F.brain && O.brain) p.brain = null;
   // Practices and pilot metrics (plugin.version 0.5): written only when the lead changed them from what is saved.
-  if (ch("po") && (!fresh || F.po !== "on")) { set("practices", "ticket-po-review", F.po); set("plugin", "version", "0.5"); }
+  if (ch("po") && (!fresh || F.po !== "on")) { set("practices", "ticket-po-review", F.po); atLeast("0.5"); }
   return p;
 }
 

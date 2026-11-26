@@ -111,13 +111,13 @@ claude --plugin-dir <path to the clone>/plugin
 From a release tag, in Claude Code:
 
 ```
-/plugin marketplace add saugion/liftoff#v0.6.0
+/plugin marketplace add saugion/liftoff#v0.7.0
 /plugin install liftoff@liftoff
 ```
 
-The tag pins an exact release. `v0.6.0` is the first release with the setup guide and is tagged as soon as this change
-is merged; `v0.5.0` was never tagged and its content ships in `v0.6.0`. Earlier tags (up to `v0.4.0`) open Init's chat
-interview instead of the guide.
+The tag pins an exact release. `v0.6.0` was the first release with the setup guide; `v0.5.0` was never tagged and its
+content shipped in `v0.6.0`. Earlier tags (up to `v0.4.0`) open Init's chat interview instead of the guide. `v0.6.0`
+can overwrite a settings file that has comments in it: use `v0.7.0` or newer.
 
 VS Code with GitHub Copilot: turn on `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install
 `liftoff`. Plugin support in VS Code is partly experimental. Copilot in IntelliJ and on the command line are meant to read the
@@ -335,13 +335,12 @@ brain"), each change shown as a diff.
 ## Status and limits
 
 **Built:** Init, Connect, Ticket, Plan, Build and Brain, and the optional extras above. Published tags go up to `v0.4.0`;
-`v0.6.0` carries everything below and is tagged when this change is merged.
+**New in `v0.7.0`:** the control panel can do the whole first setup, as the guide does; a folder holding several
+repositories can get a repository for the configuration alone; a Jira token already in `LIFTOFF_JIRA_TOKEN` is used
+without asking; and settings files that LiftOff cannot read are no longer overwritten. See
+[`CHANGELOG.md`](CHANGELOG.md), "0.7.0".
 
-**New in `v0.6.0`:** the setup guide in the browser and the control panel inside the plugin, ticket types the team
-names itself, `{commitType}` in merge request titles, GitHub Copilot in IntelliJ and on the command line. See
-[`CHANGELOG.md`](CHANGELOG.md), "Unreleased".
-
-**Tested:** 2,080 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,082 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
 

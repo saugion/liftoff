@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../../src/cli/main.js";
+import { INSTALLED_VERSION } from "../../src/cli/version.js";
 import { list, makeRepo, render } from "./repo.js";
 
 const canChmod = process.platform !== "win32" && process.getuid?.() !== 0; // root and Windows ignore directory modes
@@ -160,13 +161,17 @@ describe("the constraints file the Copilot pointer names", () => {
   });
 });
 
+// Versions newer than whatever is installed, so that no release makes them stale.
+const [major, minor, patch] = INSTALLED_VERSION.split(".").map(Number) as [number, number, number];
+const NEWER = [`${major}.${minor + 1}`, `${major + 9}.0`, `${major}.${minor}.${patch + 1}`, `${major + 1}.0.0`];
+
 describe("the plugin pin blocks render (and only the pin does)", () => {
   const nothingWritten = (dir: string) => {
     expect(existsSync(join(dir, ".liftoff"))).toBe(false);
     expect(list(dir).filter((p) => /CLAUDE\.md$|copilot-instructions\.md$/.test(p))).toEqual([]);
   };
 
-  it.each(["0.7", "9.0", "0.6.1", "1.0.0"])("a pin of %s is newer than the installed plugin: plugin-outdated, exit 1, nothing written", (pin) => {
+  it.each(NEWER)("a pin of %s is newer than the installed plugin: plugin-outdated, exit 1, nothing written", (pin) => {
     const dir = makeRepo({ pluginVersion: pin });
     const { exitCode, body } = render(dir);
     expect(exitCode).toBe(1);
