@@ -15509,7 +15509,7 @@ var validate2 = ({ root }) => {
 };
 
 // package.json
-var package_default = { version: "0.7.0" };
+var package_default = { version: "0.7.1" };
 
 // src/cli/version.ts
 var INSTALLED_VERSION = package_default.version;
