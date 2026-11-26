@@ -61,10 +61,11 @@ export function thirdPartyNotices(packages) {
   return `Third-party software bundled into bin/liftoff.mjs.\n\n${sections.join("\n")}`;
 }
 
-// The fragment `liftoff-init` copies into a repo's .claude/settings.json. The ref is the release tag.
-export function marketplaceEntry(version) {
+// The fragment `liftoff-init` copies into a repo's .claude/settings.json. The ref is the `stable` branch, which points at
+// the latest published release: a tag never moves, so a project that named one was never updated.
+export function marketplaceEntry() {
   return {
-    extraKnownMarketplaces: { liftoff: { source: { source: "github", repo: "saugion/liftoff", ref: `v${version}` } } },
+    extraKnownMarketplaces: { liftoff: { source: { source: "github", repo: "saugion/liftoff", ref: "stable" } } },
     enabledPlugins: { "liftoff@liftoff": true },
   };
 }
@@ -95,7 +96,7 @@ export async function buildPlugin() {
   chmodSync(UI_SCRIPT, 0o755);
   copyFileSync("LICENSE", "plugin/LICENSE");
   write("plugin/THIRD_PARTY_NOTICES", thirdPartyNotices(bundledPackages(metafile)));
-  write(ENTRY_FRAGMENT, json(marketplaceEntry(version)));
+  write(ENTRY_FRAGMENT, json(marketplaceEntry()));
   write(DEFAULTS_OUT, readFileSync("src/connect/defaults.json", "utf8")); // the lead flow reads the default server pin here
   return { version, packages: bundledPackages(metafile) };
 }

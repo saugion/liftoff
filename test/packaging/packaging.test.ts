@@ -23,10 +23,10 @@ describe("one version number", () => {
   const plugin = readJson("plugin", ".claude-plugin", "plugin.json");
   const fragment = readJson("plugin", "skills", "liftoff-init", "assets", "marketplace-entry.json");
 
-  it("package.json = plugin.json = the CLI's installedVersion = the fragment's ref (without the v)", () => {
+  it("package.json = plugin.json = the CLI's installedVersion, and the fragment follows the latest release", () => {
     expect(plugin.version).toBe(pkg.version);
     expect(INSTALLED_VERSION).toBe(pkg.version);
-    expect(fragment.extraKnownMarketplaces.liftoff.source.ref).toBe(`v${pkg.version}`);
+    expect(fragment.extraKnownMarketplaces.liftoff.source.ref).toBe("stable"); // a tag never moves: nobody would be updated
   });
 
   it("the marketplace entry has no version of its own (plugin.json wins anyway: one place, no drift)", () => {
@@ -119,13 +119,13 @@ describe("manifests", () => {
 });
 
 describe("the settings fragment", () => {
-  it("is exactly what the spec says, with the ref set from the version", () => {
+  it("is exactly what the spec says: the plugin from the stable branch", () => {
     const fragment = readJson("plugin", "skills", "liftoff-init", "assets", "marketplace-entry.json");
     expect(fragment).toEqual({
-      extraKnownMarketplaces: { liftoff: { source: { source: "github", repo: "saugion/liftoff", ref: `v${INSTALLED_VERSION}` } } },
+      extraKnownMarketplaces: { liftoff: { source: { source: "github", repo: "saugion/liftoff", ref: "stable" } } },
       enabledPlugins: { "liftoff@liftoff": true },
     });
-    expect(fragment).toEqual(marketplaceEntry(INSTALLED_VERSION));
+    expect(fragment).toEqual(marketplaceEntry());
   });
 
   it("is formatted as JSON with 2 spaces and a final newline (what the skill copies)", () => {

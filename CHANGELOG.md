@@ -3,6 +3,14 @@
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 `0.5.0` was never tagged: its content (below) ships in `0.6.0`.
 
+## Unreleased
+
+### Updating gets easier
+
+- LiftOff is installed from the `stable` branch, which follows the latest release, so an update is two commands, or none with Claude Code's
+  auto-update. A version tag never moved: whoever installed from one had to remove it and add the next.
+- New projects get `"ref": "stable"` in `.claude/settings.json`. A project that names a tag keeps it until someone changes that value.
+
 ## 0.7.0
 
 ### The control panel sets a project up like the guide

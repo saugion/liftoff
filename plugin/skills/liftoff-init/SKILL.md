@@ -187,7 +187,8 @@ Copy the fragment in `assets/marketplace-entry.json` into the repo's `.claude/se
 1. File absent: create it with exactly that fragment.
 2. File present: parse it as JSON. If it does not parse, stop and show the error; never rewrite a file you cannot parse.
 3. `extraKnownMarketplaces.liftoff`: add it **only if absent**. If one exists with a different `source`, report both and
-   leave it.
+   leave it. If its `ref` is a version tag (like `v0.7.0`), say that a tag never updates and that `stable` follows the
+   latest release; change that one value only if the person asks.
 4. `enabledPlugins["liftoff@liftoff"]`: add `true` **only if absent**. If it is `false`, report it and leave it (the
    user opted out).
 5. Keep every other key untouched and **keep the file's indentation** (2 spaces if you cannot tell).

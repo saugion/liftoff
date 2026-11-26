@@ -357,3 +357,9 @@ and three more requests from the walk-through led to these:
     not strict JSON as empty, then wrote over it, dropping a person's permission rules or other servers. Now only an absent or empty file, or a JSON object,
     is merged; anything else stays byte for byte and the page shows what to add. LiftOff does not parse comments: keeping them through a rewrite is not
     worth a new dependency.
+94. **Teams follow a `stable` branch, not a tag.** Asked on 2026-11-26: updating from a tag took removing the marketplace, adding the next tag and
+    installing again (tried; adding on top is refused), once per release and per project. `stable` points at the latest release and is moved by hand after
+    the tag's release check passed, so merged work never reaches anyone early. Tried with a throwaway marketplace: `plugin update` alone does not see a new
+    release, `marketplace update` must run first; auto-update is from the documentation, not tried. Given up: every teammate on exactly the same release.
+    `plugin.version` in `liftoff.yaml` still sets the minimum. Whoever can push to `stable` ships to everyone, so the branch should be protected against
+    force pushes and deletion. Tags stay immutable and can still be named to hold a project back.
