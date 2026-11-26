@@ -3,6 +3,20 @@
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 `0.5.0` was never tagged: its content (below) ships in `0.6.0`.
 
+## 0.8.0 (not released yet)
+
+### Sharing the setup of a folder of repositories
+
+- Applying the setup (the technical lead's part of the guide, or the control panel) writes the plugin switch in each
+  repository's `.claude/settings.json`, so an agent started inside one has LiftOff. Only what is missing is added.
+- Both pages list, per repository, what LiftOff wrote that is not committed, what to look at first, what `.gitignore`
+  keeps out, and the branch. With a ticket key they show the commands for one branch, commit and push. LiftOff runs
+  none of them.
+- A repository can be left out, on both pages. New section `workspace.exclude` in `liftoff.yaml`, needs
+  `plugin.version` 0.8.
+- The product owner's part of the guide now writes nothing inside the repositories.
+- Building across several repositories is still not supported: Build stops there, as before.
+
 ## 0.7.1
 
 ### The setup page, without a terminal

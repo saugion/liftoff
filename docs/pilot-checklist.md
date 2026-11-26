@@ -174,6 +174,13 @@ A PO who has never seen LiftOff, then a TL, on a real Jira DC and GitLab. Time e
     `.mcp.json` (key `mcpServers`, started with `sh -c`)? IntelliJ: the entry pasted into its MCP settings (key `servers`) starts the server and finds the token.
 14. After Init a teammate says "connect me to Jira" and the Connect skill starts, with the token from `LIFTOFF_JIRA_TOKEN` or the Keychain.
 
+## A folder of repositories (from 0.8.0)
+
+1. In a real folder of repositories, leave one out, apply, and check that only the others changed (`git status` in each).
+2. Type a real ticket key, run the printed commands, and check that the GitLab server accepts the branch and the commit message.
+3. After the merge, start Claude Code inside one repository on another computer: the LiftOff plugin is offered or loaded, and after
+   approving the import of the folder above, the shared rules are there.
+
 ## Open questions only the pilot answers
 
 - Whether engineers want the plan committed (it is personal and ignored today) and whether one merge request per ticket is

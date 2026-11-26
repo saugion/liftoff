@@ -301,9 +301,48 @@ Nothing is committed or sent at that point, and nothing is changed inside the re
 first commit on `main`; to send it to your team, create an empty project on GitLab and add it as `origin`. A colleague
 clones that repository, then runs the commands of `WORKSPACE.md` inside it.
 
-Files LiftOff writes **inside** the repositories (their `AGENTS.md`, `CLAUDE.md`) are not part of that save: the pages
-list them, and you commit them in their own repository. They also name any file LiftOff wrote that `.gitignore` keeps
-out. Only repositories directly below the folder are found.
+Only repositories directly below the folder are found. A submodule is part of its project's repository, not one of
+these.
+
+### Sharing the setup in each repository (from 0.8.0)
+
+So that a teammate who starts the agent inside one repository has LiftOff there, the technical lead's part of the guide,
+or applying in the control panel, writes in each repository's `.claude/settings.json` the same marketplace entry and
+plugin switch as the folder's own file. Only what is missing is added: other keys stay, a different `ref` is left as it
+is, and a file LiftOff cannot read is left alone and named. The product owner's part writes nothing in the repositories.
+Nothing is added for a team that does not use Claude Code.
+
+Those files, and the `AGENTS.md` and `CLAUDE.md` of a repository's modules, are not part of the configuration
+repository's save. Both pages list them, repository by repository:
+
+- the files LiftOff wrote that git shows as not committed, and the ones to **look at first** because they may hold
+  changes of yours (including a file that an earlier LiftOff wrote);
+- a file the repository's `.gitignore` keeps out, with the lines that let it in;
+- the branch, with a warning when it is not the default one, or holds commits not on the server yet. The default one is
+  the team's target branch when the repository has it, else the server's default, else `main` or `master`.
+
+Type a ticket key and the page shows, for each repository with no warning, the commands for one branch, one commit and
+one push, named with your branch and title patterns. Run them in the folder, then open one merge request per repository.
+**LiftOff runs none of them**, and they name only the listed files, so other work stays out of the commit. A repository
+disappears from the list once its files are committed.
+
+Two things to know:
+
+- The files are on that branch only: switching back removes the new ones from the folder until the merge request is merged.
+- The first time the agent starts inside a repository it asks to approve an import from the folder above (the shared
+  rules). Accept it: a refusal is remembered, and the shared rules then never load there.
+
+**Leaving a repository out.** Every repository is included until you untick it (guide) or leave it out (control panel,
+under the modules). One left out gets no settings file and no entry in the list; files already written there stay, and
+its modules' instruction files are chosen in the list of modules. The choice is shared with the team:
+
+```yaml
+workspace:
+  exclude: [legacy-tool, docs-site]
+```
+
+This section needs `plugin.version` 0.8 or newer, which the pages set when they write it; a teammate with an older
+plugin is told to update.
 
 ## What `liftoff.yaml` holds
 
@@ -316,6 +355,7 @@ out. Only repositories directly below the folder are found.
 | `codeHost` | GitLab and the merge request conventions: target branch, branch and title patterns, template, labels, reviewers. |
 | `build.git` | Who runs git in Build: `assisted` (the agent, after your yes) or `manual` (only you). |
 | `streams` | Optional linked work streams (see [Optional extras](#optional-extras)). |
+| `workspace.exclude` | In a folder of several repositories, the ones LiftOff writes nothing in (from 0.8.0, see [above](#a-folder-holding-several-repositories)). |
 | `practices`, `brain`, `pilot` | The optional extras. |
 | `plugin.version` | The minimum plugin version. An older install is stopped with instructions to update. |
 
@@ -364,7 +404,7 @@ brain"), each change shown as a diff.
 page before applying a half-filled setup, and installs and updates now follow the `stable` branch. See
 [`CHANGELOG.md`](CHANGELOG.md), "0.7.1".
 
-**Tested:** 2,091 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,157 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. By hand, the pages were also checked in a real browser (headless Chrome), with the real macOS
 Keychain and the real `mcp-atlassian` against the fake Jira. Agents have followed the skills against the fakes in
@@ -372,6 +412,8 @@ scripted runs.
 
 **Not tested yet:**
 
+- sharing the setup in a real folder of repositories: the commands against a real GitLab (they were run against local
+  remotes), and an agent session started inside a repository that was shared this way
 - a real Jira Data Center, a real GitLab, or a real team using LiftOff day to day
 - the real `mcp-atlassian` with a company certificate
 - an agent offering the setup page by itself, or opening it on "open LiftOff" (new in `v0.7.1`)

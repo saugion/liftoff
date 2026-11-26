@@ -363,3 +363,16 @@ and three more requests from the walk-through led to these:
     release, `marketplace update` must run first; auto-update is from the documentation, not tried. Given up: every teammate on exactly the same release.
     `plugin.version` in `liftoff.yaml` still sets the minimum. Whoever can push to `stable` ships to everyone, so the branch should be protected against
     force pushes and deletion. Tags stay immutable and can still be named to hold a project back.
+95. **A workspace is onboarded by showing commands, not by running them.** One merge request per repository, with a ticket
+    key because the server accepts no branch or message without one; names come from the same patterns as Build. The pages
+    run only read commands of git in the repositories (also when a page loads) and list only files LiftOff recorded
+    writing. Commands are withheld off the default branch, **and also when that branch holds commits not on the server**,
+    since the merge request would carry them. Names git would read as a pattern, or with control characters, get no
+    command. A repository is "default branch" = the team's `targetBranch` if it exists there, else `origin/HEAD`, else
+    `main` or `master`.
+96. **"Look at these first" errs on the side of asking.** It marks a file that held uncommitted changes when LiftOff wrote
+    in it, one changed since LiftOff wrote it, and one an earlier release wrote (nothing is known about it). A file leaves
+    the list when a commit changes it, seen by comparing what the last commit held when LiftOff wrote.
+97. **The product owner's part writes nothing inside the repositories of a workspace.** Which repositories to leave out is
+    the technical lead's question, and it must be answered before anything is written; the product owner is not asked.
+    Excluded names with no folder are kept (a colleague may not have cloned them). `workspace` is never a required section.
