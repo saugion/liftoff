@@ -1,7 +1,8 @@
 name: Release check
 
-# A release tag is what teammates pin to (extraKnownMarketplaces `ref`), so a tag whose artifact is stale or whose
-# version disagrees with its name must be caught at once. If this fails, delete the tag before anyone pins it:
+# Teams get a release through the `stable` branch, which is moved to a tag only after this check passed; some still name
+# a tag. So a tag whose artifact is stale or whose version disagrees with its name must be caught at once. If this fails,
+# do not move `stable`, and delete the tag before anyone pins it:
 #   git push origin :refs/tags/vX.Y.Z && git tag -d vX.Y.Z
 
 on:

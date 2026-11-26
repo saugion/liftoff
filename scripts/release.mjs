@@ -5,7 +5,8 @@ import { pathToFileURL } from "node:url";
 
 // npm run release <x.y.z> [--dry-run]
 // Bumps both versions, builds from a clean install, runs the tests, commits and tags. Pushing stays manual, and
-// nothing is tagged unless the build and the tests passed: a published tag is immutable (teammates pin to it).
+// nothing is tagged unless the build and the tests passed: a published tag is immutable. Teams follow the `stable`
+// branch, moved by hand to a tag once its release check passed: that move is what updates them.
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const parts = (v) => v.split(".").map(Number);
@@ -59,6 +60,7 @@ export function release({ version, cwd = process.cwd(), dryRun = false, exec = d
   step("git", ["commit", "-m", `release: v${version}`]);
   step("git", ["tag", "-a", `v${version}`, "-m", `LiftOff v${version}`]);
   log(`Done. Review it, then publish: git push origin main && git push origin v${version}`);
+  log(`When the release check on the tag v${version} is green, give it to everyone: git push origin 'v${version}^{}:refs/heads/stable'`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -86,7 +86,9 @@ describe("release: the happy path", () => {
     ]);
     expect(r.calls.some((c) => c.startsWith("git push"))).toBe(false);
     expect(JSON.parse(readFileSync(join(cwd, "plugin/.claude-plugin/plugin.json"), "utf8")).version).toBe("0.2.0");
-    expect(r.logs.at(-1)).toMatch(/git push origin main && git push origin v0\.2\.0/);
+    expect(r.logs.join("\n")).toMatch(/git push origin main && git push origin v0\.2\.0/);
+    // everyone follows `stable`: it moves last, and only to a tag whose check passed
+    expect(r.logs.at(-1)).toMatch(/release check .*v0\.2\.0 is green.*git push origin 'v0\.2\.0\^\{\}:refs\/heads\/stable'/);
   });
 
   it("the tests run before anything is committed or tagged (a failing build or test tags nothing)", () => {

@@ -108,16 +108,43 @@ cd <your project>
 claude --plugin-dir <path to the clone>/plugin
 ```
 
-From a release tag, in Claude Code:
+In Claude Code:
 
 ```
-/plugin marketplace add saugion/liftoff#v0.7.0
+/plugin marketplace add saugion/liftoff#stable
 /plugin install liftoff@liftoff
 ```
 
-The tag pins an exact release. `v0.6.0` was the first release with the setup guide; `v0.5.0` was never tagged and its
-content shipped in `v0.6.0`. Earlier tags (up to `v0.4.0`) open Init's chat interview instead of the guide. `v0.6.0`
-can overwrite a settings file that has comments in it: use `v0.7.0` or newer.
+`stable` is a branch that always points at the latest published release. Work that is merged but not released is not on
+it.
+
+**Updating.** In a terminal, refresh the marketplace first, then the plugin, and restart the session (or run
+`/reload-plugins`):
+
+```bash
+claude plugin marketplace update liftoff
+claude plugin update liftoff@liftoff
+```
+
+Or let Claude Code do it: in `/plugin`, open the **Marketplaces** tab, choose `liftoff` and turn auto-update on (this is
+how Claude Code's documentation describes it; it has not been tried with LiftOff).
+
+**Coming from a version tag** (`#v0.7.0` or older)? A tag never moves, and adding `#stable` on top of it is refused.
+Remove it, add it again, install again (removing also deletes what the plugin saved):
+
+```bash
+claude plugin marketplace remove liftoff
+claude plugin marketplace add 'saugion/liftoff#stable'
+claude plugin install liftoff@liftoff
+```
+
+A project set up with LiftOff 0.7.0 or older names a tag in its `.claude/settings.json`
+(`extraKnownMarketplaces.liftoff.source.ref`): change it to `stable` there.
+
+To stay on one release instead, use its tag (`saugion/liftoff#v0.7.0`) and move it by hand. `v0.6.0` was the first
+release with the setup guide; `v0.5.0` was never tagged and its content shipped in `v0.6.0`. Earlier tags (up to
+`v0.4.0`) open Init's chat interview instead of the guide. `v0.6.0` can overwrite a settings file that has comments in
+it: do not stay on it.
 
 VS Code with GitHub Copilot: turn on `chat.plugins.enabled`, add the marketplace `saugion/liftoff`, install
 `liftoff`. Plugin support in VS Code is partly experimental. Copilot in IntelliJ and on the command line are meant to read the
