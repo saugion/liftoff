@@ -341,7 +341,7 @@ brain"), each change shown as a diff.
 names itself, `{commitType}` in merge request titles, GitHub Copilot in IntelliJ and on the command line. See
 [`CHANGELOG.md`](CHANGELOG.md), "Unreleased".
 
-**Tested:** 2,073 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,080 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
 

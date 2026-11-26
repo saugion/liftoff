@@ -16,7 +16,7 @@ import { applyPatch } from "./merge.js";
 import { createConfigRepo, previewSave, recordWritten, save, type Stage } from "./persist.js";
 import { choiceFile, workspaceState } from "./workspace.js";
 import { brainInit } from "../src/cli/brain-init.js";
-import { brainExtras, claudeSettings, mcpFiles, refreshRoot, scaffold, stacksIn, toCreate, type ModuleInfo, type ScaffoldInput, type Scaffolded } from "./scaffold.js";
+import { brainExtras, claudeSettings, mcpFiles, refreshRoot, scaffold, stacksIn, toCreate, type ByHand, type ModuleInfo, type ScaffoldInput, type Scaffolded } from "./scaffold.js";
 import { checkConfig } from "../src/cli/check.js";
 
 export const DRAFT_FILE = ".liftoff/ui-draft.json";
@@ -144,12 +144,12 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     } catch {
       // no draft
     }
-    const done = (render: unknown) => {
+    const done = (render: unknown, byHand: ByHand[] = []) => {
       if (written.length > 0) {
         ensureSelfIgnore(root);
         recordWritten(root, [...new Set(written)]);
       }
-      return [200, { ok: true, hash: sha(yaml), written: [...new Set(written)], render }] as const;
+      return [200, { ok: true, hash: sha(yaml), written: [...new Set(written)], byHand, render }] as const;
     };
     if (!assets() || !next.ok) return done(applyRender(root, { overwrite: [] }));
     // The same files as the guide. Unlike the guide, a failure here keeps the config: the person is told, and can apply again.
@@ -168,7 +168,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       const refresh = [...(differs("modules") ? ["modules", "commands"] : []), ...(differs("agents") ? ["agents"] : [])];
       const out = around(config, projectFiles(config, { name: config.project?.name ?? d.name, purpose: "", modules, commands: d.commands, refresh, newBrain: config.brain !== undefined && before?.brain === undefined }));
       written.push(...out.written);
-      return done(out.render);
+      return done(out.render, out.byHand);
     } catch (e) {
       return done({ ok: false, errors: [{ message: e instanceof Error ? e.message : "the files could not be written" }] });
     }
@@ -184,7 +184,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       const made = brainInit({ root, write: true } as never);
       if (made.exitCode !== 0) throw new Error(`the project brain could not be set up: ${JSON.stringify((made.body as { errors?: { message: string }[] }).errors?.[0]?.message ?? "see liftoff brain-init")}`);
       const body = made.body as { files: { path: string; action: string }[]; proposals: Parameters<typeof brainExtras>[1] };
-      out.written.push(...body.files.filter((f) => f.action === "created" && !f.path.startsWith(".liftoff/")).map((f) => f.path), ...brainExtras(root, body.proposals));
+      out.written.push(...body.files.filter((f) => f.action === "created" && !f.path.startsWith(".liftoff/")).map((f) => f.path), ...brainExtras(root, body.proposals, (out.byHand ??= [])));
     }
     out.kept = out.kept.filter((f) => !out.written.includes(f));
     return out;
@@ -192,11 +192,12 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
 
   // Then what the agents read: the plugin switch, the Jira server entry and the rendered files.
   function around(config: Config, out: Scaffolded) {
-    const settings = assets() ? claudeSettings(root, assets()!) : undefined;
-    const mcp = mcpFiles(root, config);
+    const byHand: ByHand[] = [...(out.byHand ?? [])];
+    const settings = assets() ? claudeSettings(root, assets()!, byHand) : undefined;
+    const mcp = mcpFiles(root, config, byHand);
     const render = applyRender(root, { overwrite: [] });
     const rendered = render.ok ? render.files.filter((f) => f.action === "created" || f.action === "refreshed").map((f) => f.path) : [];
-    return { written: [...new Set([...out.written, ...(settings ? [settings] : []), ...mcp, ...rendered])], kept: out.kept, render };
+    return { written: [...new Set([...out.written, ...(settings ? [settings] : []), ...mcp, ...rendered])], kept: out.kept, byHand, render };
   }
 
 
@@ -256,7 +257,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       const written = [...new Set([CONFIG_FILE, ...out.written])];
       ensureSelfIgnore(root); // the list of what the guide wrote is personal: never committed
       recordWritten(root, written);
-      return [200, { ok: true, written, kept: out.kept, render: rendered }] as const;
+      return [200, { ok: true, written, kept: out.kept, byHand: out.byHand, render: rendered }] as const;
     } catch (e) {
       try {
         undo();
@@ -343,7 +344,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       if (typed) atomicWrite(abs, c);
       const out = projectFiles(config, { name, purpose: "", modules: info, commands: d.commands, refresh: ["modules", "commands", "agents"], newBrain: wantsBrain && !hadBrain });
       if (typed) out.written.push(file);
-      return { written: out.written, kept: out.kept.filter((f) => f !== file || !typed) };
+      return { ...out, kept: out.kept.filter((f) => f !== file || !typed) };
     });
   }
 

@@ -21,6 +21,11 @@ Found on the first run on a real project (a folder of repositories).
   comes from theirs when they agree.
 - An empty `AGENTS.md` or `CONSTRAINTS.md` counts as missing. A hand-written `CLAUDE.md` that only says `@AGENTS.md` is no longer a conflict.
 
+### Fixed
+
+- A settings file that is not plain JSON (comments, a trailing comma, a typo) is no longer overwritten, in `.claude/settings.json`, `.mcp.json`,
+  `.vscode/mcp.json` and `.vscode/settings.json`: 0.6.0 read it as empty and wrote over it. It is now left as it is, and both pages show what to add by hand.
+
 ### A folder of several repositories
 
 - Both pages say that LiftOff is made for one repository, and that building and merge requests do not work across several yet.

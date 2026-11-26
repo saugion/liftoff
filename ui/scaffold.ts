@@ -9,7 +9,9 @@ import { INSTALLED_VERSION } from "../src/cli/version.js";
 // what the panel knows. Never replaces a file that exists: a team's own AGENTS.md or CONSTRAINTS.md wins.
 export interface ModuleInfo { id: string; path: string; stack: string; build?: string; test?: string; lint?: string }
 export interface ScaffoldInput { name: string; purpose: string; constraintsFile: string; targets: string[]; modules: ModuleInfo[]; commands: { build?: string; test?: string; lint?: string } }
-export interface Scaffolded { written: string[]; kept: string[] }
+// A settings file left alone, and what the person has to add to it.
+export interface ByHand { file: string; add: Record<string, unknown> }
+export interface Scaffolded { written: string[]; kept: string[]; byHand?: ByHand[] }
 
 const fill = (tpl: string, vars: Record<string, string>) => tpl.replace(/\{\{(\w+)\}\}/g, (_, k: string) => vars[k] ?? "");
 const cmd = (c: string | undefined) => (c ? `\`${c}\`` : "not configured");
@@ -105,6 +107,17 @@ const readJson = (file: string): Record<string, any> => {
     return {};
   }
 };
+// A settings file as it is, `{}` when there is nothing in it. Undefined when it holds something this cannot read
+// (comments, a trailing comma, not an object): writing over it would destroy what a person put there.
+const settingsAt = (file: string): Record<string, any> | undefined => {
+  if (isMissing(file)) return {};
+  try {
+    const v = JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, ""));
+    return v !== null && typeof v === "object" && !Array.isArray(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+};
 const writeJson = (root: string, rel: string, value: unknown) => {
   const file = join(root, rel);
   mkdirSync(dirname(file), { recursive: true });
@@ -113,11 +126,12 @@ const writeJson = (root: string, rel: string, value: unknown) => {
 
 // .claude/settings.json: the marketplace and the plugin switch, each only if absent (the teammate's Claude Code
 // then offers to install the plugin). The fragment is the one the plugin ships, pinned to its own release.
-export function claudeSettings(root: string, assetsDir: string): string | undefined {
+export function claudeSettings(root: string, assetsDir: string, byHand: ByHand[] = []): string | undefined {
   const rel = ".claude/settings.json";
   const file = join(root, rel);
   const fragment = readJson(join(assetsDir, "marketplace-entry.json"));
-  const now = readJson(file);
+  const now = settingsAt(file);
+  if (now === undefined) return void byHand.push({ file: rel, add: fragment });
   const next = { ...now, extraKnownMarketplaces: { ...fragment.extraKnownMarketplaces, ...now.extraKnownMarketplaces }, enabledPlugins: { ...fragment.enabledPlugins, ...now.enabledPlugins } };
   if (JSON.stringify(next) === JSON.stringify(now) && existsSync(file)) return undefined;
   writeJson(root, rel, next);
@@ -126,10 +140,14 @@ export function claudeSettings(root: string, assetsDir: string): string | undefi
 
 // The Jira server entry of each agent's MCP file, from the same code the Connect skill uses. A different entry of
 // ours (same name) is replaced; every other server in the file stays.
-export function mcpFiles(root: string, config: Config): string[] {
+export function mcpFiles(root: string, config: Config, byHand: ByHand[] = []): string[] {
   const written: string[] = [];
   for (const m of buildInfo(config, INSTALLED_VERSION).mcp) {
-    const now = readJson(join(root, m.file));
+    const now = settingsAt(join(root, m.file));
+    if (now === undefined) {
+      byHand.push({ file: m.file, add: { [m.serversKey]: { [m.server]: m.entry } } });
+      continue;
+    }
     const servers = { ...(now[m.serversKey] ?? {}) };
     if (JSON.stringify(servers[m.server]) === JSON.stringify(m.entry)) continue;
     servers[m.server] = m.entry;
@@ -150,9 +168,13 @@ const inside = (root: string, rel: string) => {
   if (!isInside(resolveReal(root), resolveReal(abs))) throw new Error(`${rel} leads outside the project`);
   return abs;
 };
-const mergeJson = (root: string, rel: string, merge: (now: Record<string, any>) => Record<string, any>): boolean => {
+const mergeJson = (root: string, rel: string, add: object, byHand: ByHand[], merge: (now: Record<string, any>) => Record<string, any>): boolean => {
   const file = inside(root, rel);
-  const now = existsSync(file) ? readJson(file) : {};
+  const now = settingsAt(file);
+  if (now === undefined) {
+    byHand.push({ file: rel, add: add as Record<string, unknown> });
+    return false;
+  }
   const next = merge(JSON.parse(JSON.stringify(now)));
   if (JSON.stringify(next) === JSON.stringify(now) && existsSync(file)) return false;
   mkdirSync(dirname(file), { recursive: true });
@@ -161,7 +183,7 @@ const mergeJson = (root: string, rel: string, merge: (now: Record<string, any>) 
 };
 
 // Returns the files it changed (relative to the project). Everything is additive and safe to run twice.
-export function brainExtras(root: string, p: BrainProposals): string[] {
+export function brainExtras(root: string, p: BrainProposals, byHand: ByHand[] = []): string[] {
   const touched: string[] = [];
   const agents = inside(root, "AGENTS.md");
   if (existsSync(agents)) {
@@ -171,8 +193,8 @@ export function brainExtras(root: string, p: BrainProposals): string[] {
       touched.push("AGENTS.md");
     }
   }
-  if (p.claudeSettings && mergeJson(root, ".claude/settings.json", (c) => ({ ...c, permissions: { ...c.permissions, deny: [...new Set([...(c.permissions?.deny ?? []), ...p.claudeSettings!.permissions.deny])] } }))) touched.push(".claude/settings.json");
-  if (p.vscodeSettings && mergeJson(root, ".vscode/settings.json", (c) => Object.fromEntries([...Object.entries(c), ...Object.entries(p.vscodeSettings!).map(([k, v]) => [k, { ...(c[k] ?? {}), ...v }])]))) touched.push(".vscode/settings.json");
+  if (p.claudeSettings && mergeJson(root, ".claude/settings.json", p.claudeSettings, byHand, (c) => ({ ...c, permissions: { ...c.permissions, deny: [...new Set([...(c.permissions?.deny ?? []), ...p.claudeSettings!.permissions.deny])] } }))) touched.push(".claude/settings.json");
+  if (p.vscodeSettings && mergeJson(root, ".vscode/settings.json", p.vscodeSettings, byHand, (c) => Object.fromEntries([...Object.entries(c), ...Object.entries(p.vscodeSettings!).map(([k, v]) => [k, { ...(c[k] ?? {}), ...v }])]))) touched.push(".vscode/settings.json");
   const attrs = inside(root, ".gitattributes");
   const now = existsSync(attrs) ? readFileSync(attrs, "utf8") : "";
   if (!now.split(/\r?\n/).includes(p.gitattributes)) {

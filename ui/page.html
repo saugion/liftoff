@@ -479,9 +479,11 @@ function review() {
   if (!S.exists) h += '<p class="lede">First write. This creates liftoff.yaml' + (F.ctext.trim() ? " and " + esc(F.cfile) : "") + ", then renders the agent files. The preview on the right is the exact text.</p>";
   return h + shareView();
 }
+const byHandView = (list) => (list || []).length ? `<div class="note n-warn"><b>These files were left as they are.</b> LiftOff could not read them (comments, a trailing comma or a typo?), so it did not write over them. Check that each holds what follows:${list.map((x) => `<br><span class="mono">${esc(x.file)}</span><pre class="mono" style="white-space:pre-wrap;word-break:break-all;margin:6px 0">${esc(JSON.stringify(x.add, null, 2))}</pre>`).join("")}</div>` : "";
 function resultView() {
   const r = result.render;
   let h = `<div class="note n-ok"><b>Applied.</b> liftoff.yaml is up to date.</div>`;
+  h += byHandView(result.byHand);
   if ((result.written || []).length) h += `<div class="note n-info"><b>Written:</b><br>${result.written.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}</div>`;
   if (r && r.ok) h += `<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">${r.files.map((f) => `<div class="chg"><b class="mono" style="flex:1 1 auto;word-break:break-all">${esc(f.path)}</b><span class="chip c-${f.action === "conflict" ? "dirty" : "saved"}">${esc(f.action)}${f.reason ? ": " + esc(f.reason) : ""}</span></div>`).join("")}</div>` + (r.files.some((f) => f.action === "conflict") ? '<div class="note n-warn">A file marked conflict was left untouched because someone edited it by hand. Resolve it with the Init skill.</div>' : "") + (r.notices || []).map((x) => `<div class="note n-info">${esc(x)}</div>`).join("");
   else if (r) h += `<div class="note n-warn"><b>The config is saved, but the agent files were not rendered:</b><br>${(r.errors || []).map((x) => esc(x.message)).join("<br>")}</div>`;
