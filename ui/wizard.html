@@ -170,19 +170,20 @@ const VIEWS = {
       ${nav("next", "Continue", on.every((t) => heads(t.template).length > 0 && heads(t.template).includes(t.ac)))}`;
   },
   review() {
+    const creates = (W.creates || []).length ? `<div class="note n-info"><b>These files do not exist yet (or are empty). LiftOff creates them from its templates:</b><br>${W.creates.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}<br>A file that already has content is never replaced.</div>` : "";
     if (W.stage === "po") {
       const on = W.types.filter((t) => t.on);
       return `<div class="eyebrow">Check</div><h1>Here is what LiftOff will set up</h1>
         <div class="sub"><div><b>Project:</b> ${esc(W.name)}</div><div><b>Jira:</b> ${esc(W.url)}, project ${esc(W.project)}</div>
         <div><b>Tickets:</b> ${on.map((t) => `${esc(t.name)} (acceptance criteria in “${esc(t.ac)}”)`).join("; ")}</div></div>
         <p class="hint">Next LiftOff creates a few files in your project folder (settings and instructions for the assistants). You will see the list before anything is shared.</p>
-        ${note()}${nav("create", "Create the files")}`;
+        ${creates}${note()}${nav("create", "Create the files")}`;
     }
     return `<div class="eyebrow">Check</div><h1>Here is what LiftOff will set up</h1>
       <div class="sub"><div><b>Parts of the code:</b> ${W.modules.length ? W.modules.map((m) => esc(m.id)).join(", ") : "a single application"}</div>
       <div><b>Assistants:</b> ${W.targets.map((t) => (t === "copilot" ? "GitHub Copilot (VS Code, IntelliJ, CLI)" : "Claude Code")).join(", ")}</div>
       <div><b>Git:</b> ${W.git === "manual" ? "assistants never run git for you" : "assistants prepare git steps and ask you at each one"}</div>
-      <div><b>GitLab:</b> ${esc(W.host || "not set")}</div><div><b>Project brain:</b> ${S.config && S.config.brain ? "already on" : W.brain === "off" ? "off" : W.brain === "lessons" ? "on, with lessons" : "on"}</div>${W.types.some((t) => t.on && !t.locked) ? `<div><b>New ticket types:</b> ${W.types.filter((t) => t.on && !t.locked).map((t) => esc(t.name)).join(", ")}</div>` : ""}</div>${note()}${nav("create", "Create the files")}`;
+      <div><b>GitLab:</b> ${esc(W.host || "not set")}</div><div><b>Project brain:</b> ${S.config && S.config.brain ? "already on" : W.brain === "off" ? "off" : W.brain === "lessons" ? "on, with lessons" : "on"}</div>${W.types.some((t) => t.on && !t.locked) ? `<div><b>New ticket types:</b> ${W.types.filter((t) => t.on && !t.locked).map((t) => esc(t.name)).join(", ")}</div>` : ""}</div>${creates}${note()}${nav("create", "Create the files")}`;
   },
   tech() {
     return `<div class="eyebrow">The code</div><h1>The parts of the project</h1>
@@ -208,7 +209,7 @@ const VIEWS = {
   gitlab() {
     return `<div class="eyebrow">GitLab</div><h1>Where does the code live?</h1>
       <p class="lede">Leave the address empty if the team does not use GitLab.</p>
-      ${field("GitLab address", "host", { value: W.host, ph: "gitlab.yourcompany.com", hint: W.host && S.detected?.git?.host === W.host ? "Taken from this project's git settings." : "" })}
+      ${field("GitLab address", "host", { value: W.host, ph: "gitlab.yourcompany.com", hint: W.host && S.detected?.git?.host === W.host ? "Taken from this project's git settings." : "The address or just the host." })}
       <div class="row">${field("Branch that merge requests go to", "c.targetBranch", { value: W.conv.targetBranch })}${field("Branch names", "c.branchPattern", { value: W.conv.branchPattern, hint: "{type}, {key} and {slug} are filled in." })}</div>
       <div class="row">${field("Merge request titles", "c.titlePattern", { value: W.conv.titlePattern, hint: "{commitType} (feat, fix, chore…, set for each ticket type), {key} and {summary} are filled in." })}</div>
       <div class="note n-info"><b>What a title will look like</b><br>${(S.config?.tracker?.issueTypes || []).map((t) => `${esc(t.name)}: <span class="mono">${esc(titleFor(t))}</span>`).join("<br>") || "Set the ticket types first."}</div>
@@ -284,6 +285,10 @@ const ACTS = {
   back() { step = Math.max(0, step - 1); msg = null; W.later = false; },
   async next() {
     step++; msg = null;
+    if (steps()[step] === "review") { // say which files will be created, before creating them
+      const r = await api("POST", "/api/validate", { patch: W.stage === "tl" ? { modules: { items: W.modules.map((m) => ({ id: m.id, path: m.path })) } } : {} });
+      W.creates = r.creates || [];
+    }
     if (W.stage === "tl" && steps()[step] === "types" && !W.loadedTl) { // the lead's machine may have no token: then the Jira type is typed
       W.loadedTl = true;
       const r = await api("POST", "/api/jira/types", { url: S.config.tracker.url, project: S.config.tracker.project });

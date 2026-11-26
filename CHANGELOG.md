@@ -3,6 +3,22 @@
 Releases 0.1 to 0.3 are described by their tags (`v0.1.0`, `v0.3.0`) and by `docs/decisions/DECISIONS.md`.
 `0.5.0` was never tagged: its content (below) ships in `0.6.0`.
 
+## Unreleased
+
+### The control panel sets a project up like the guide
+
+Found on the first run on a real project (a folder of repositories).
+
+- A first setup in the control panel starts from what the folder shows (parts of the code, languages, GitLab host) and from the guide's defaults. It
+  asks for what the guide asks for: a Jira, its project and at least one ticket type, with the default templates.
+- The control panel takes the Jira token (kept in the keychain, never in the draft), lists the projects to pick from, and offers to save the files to a branch.
+- Applying creates what the guide creates: missing `AGENTS.md` files and `CONSTRAINTS.md`, `.claude/settings.json`, the Jira MCP entry, the project brain
+  when just switched on. Both pages say first which files they will create. A missing module `AGENTS.md` is no longer an error there.
+- A config that was saved but not applied can be applied again with nothing changed.
+- A pasted GitLab address (`https://...`, a clone URL) is accepted: the config keeps the host. In a folder of repositories that is not one itself, the host
+  comes from theirs when they agree.
+- An empty `AGENTS.md` or `CONSTRAINTS.md` counts as missing. A hand-written `CLAUDE.md` that only says `@AGENTS.md` is no longer a conflict.
+
 ## 0.6.0 (tagged when the pull request is merged)
 
 ### A guided setup, product owner first, then the technical lead
