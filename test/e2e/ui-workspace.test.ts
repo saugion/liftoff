@@ -182,7 +182,8 @@ describe("a folder of repositories", () => {
     await call("POST", "/api/setup/tl", { modules: [{ id: "api", path: "api" }], targets: ["claude-code"] });
     const preview = await call("POST", "/api/save/preview", { stage: "tl" });
     expect(preview.git).toBe(false);
-    expect(preview.elsewhere.map((e: { repo: string }) => e.repo)).toEqual(["api"]);
+    expect(preview.elsewhere.map((e: { repo: string }) => e.repo)).toEqual(["api", "web"]);
+    expect(preview.elsewhere[1].files).toEqual([".claude/settings.json"]); // no module there: only the plugin switch
   });
 
   it("a setup made before the repository existed can be saved from it", async () => {

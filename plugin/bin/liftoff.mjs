@@ -14304,6 +14304,7 @@ var MIN_BUILD_PLUGIN = "0.3";
 var MIN_BRAIN_PLUGIN = "0.4";
 var MIN_HANDBOOK_PLUGIN = "0.5";
 var MIN_PRACTICES_PLUGIN = "0.5";
+var MIN_WORKSPACE_PLUGIN = "0.8";
 var jiraTypeOf = (t) => t.jiraType ?? t.name;
 var isCustomType = (t) => t.jiraType !== void 0 && t.jiraType.toLowerCase() !== t.name.toLowerCase();
 var typeLabel = (t) => `liftoff-${t.name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "type"}`;
@@ -14423,6 +14424,9 @@ function connectorErrors(raw) {
       errors.push({ path: "/plugin/version", message: `the ${section} section needs plugin.version ${MIN_PRACTICES_PLUGIN} or newer` });
     }
   }
+  if (raw.workspace && (compareVersions(raw.plugin.version, MIN_WORKSPACE_PLUGIN) ?? -1) < 0) {
+    errors.push({ path: "/plugin/version", message: `the workspace section needs plugin.version ${MIN_WORKSPACE_PLUGIN} or newer` });
+  }
   if (raw.brain) {
     if ((compareVersions(raw.plugin.version, MIN_BRAIN_PLUGIN) ?? -1) < 0) {
       errors.push({ path: "/plugin/version", message: `the brain section needs plugin.version ${MIN_BRAIN_PLUGIN} or newer` });
@@ -14500,6 +14504,7 @@ function normalize(raw) {
     ...raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker) },
     ...raw.practices && { practices: normalizePractices(raw.practices) },
     ...raw.pilot && { pilot: { metrics: raw.pilot.metrics ?? true, required: raw.pilot.required ?? false } },
+    ...raw.workspace && { workspace: { exclude: [...raw.workspace.exclude ?? []] } },
     ...raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } },
     ...raw.brain && {
       brain: {
@@ -15222,6 +15227,22 @@ var liftoff_schema_default = {
         },
         required: {
           $ref: "#/definitions/requiredFlag"
+        }
+      }
+    },
+    workspace: {
+      type: "object",
+      additionalProperties: false,
+      description: "A project root that holds several repositories, each with its own .git folder.",
+      properties: {
+        exclude: {
+          type: "array",
+          description: "Repositories LiftOff leaves alone: folder names directly below the root. A name with no folder is allowed (a repository not cloned here).",
+          items: {
+            type: "string",
+            pattern: "^(?!\\.\\.?$)[^/\\\\\\u0000-\\u001f\\u007f]+$"
+          },
+          uniqueItems: true
         }
       }
     },

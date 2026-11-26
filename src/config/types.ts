@@ -31,6 +31,10 @@ export type PracticesConfig = { [K in PracticeId]?: PracticeMode } & { required:
 export interface RawPilot { metrics?: boolean; required?: boolean }
 export interface PilotConfig { metrics: boolean; required: boolean }
 
+// Several repositories below one root. `exclude`: folders LiftOff writes nothing in. Never a required section.
+export interface RawWorkspace { exclude?: string[] }
+export interface WorkspaceConfig { exclude: string[] }
+
 // What the schema accepts: optional sections and optional fields inside them.
 export interface RawConfig {
   liftoff: 1;
@@ -46,6 +50,7 @@ export interface RawConfig {
   build?: { git?: "assisted" | "manual"; required?: boolean };
   practices?: RawPractices;
   pilot?: RawPilot;
+  workspace?: RawWorkspace;
   brain?: { dir?: string; hotMaxLines?: number; afterBuild?: "propose" | "off"; required?: boolean; lessons?: RawLessons; handbook?: RawHandbook };
 }
 
@@ -64,6 +69,7 @@ export interface Config {
   build?: { git: "assisted" | "manual"; required: boolean }; // assisted: the agent runs git after an approved dry-run; manual: the engineer runs every git write
   practices?: PracticesConfig;
   pilot?: PilotConfig;
+  workspace?: WorkspaceConfig;
   brain?: { dir: string; hotMaxLines: number; afterBuild: "propose" | "off"; required: boolean; lessons?: LessonsConfig; handbook?: HandbookConfig }; // presence of the section is the opt-in
 }
 

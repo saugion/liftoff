@@ -29,6 +29,7 @@ export function normalize(raw: RawConfig): Config {
     ...(raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker as RawTracker) }),
     ...(raw.practices && { practices: normalizePractices(raw.practices) }),
     ...(raw.pilot && { pilot: { metrics: raw.pilot.metrics ?? true, required: raw.pilot.required ?? false } }),
+    ...(raw.workspace && { workspace: { exclude: [...(raw.workspace.exclude ?? [])] } }),
     ...(raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } }),
     ...(raw.brain && {
       brain: {

@@ -8,15 +8,16 @@ import { atomicWrite, isInside, resolveReal } from "../src/cli/fsutil.js";
 import { ensureSelfIgnore } from "../src/cli/state.js";
 import { CONFIG_FILE } from "../src/cli/validate.js";
 import { INSTALLED_VERSION } from "../src/cli/version.js";
-import { validateConfig, type Config } from "../src/config/index.js";
+import { compareVersions, connectors, MIN_WORKSPACE_PLUGIN, projectsOf, validateConfig, type Config } from "../src/config/index.js";
 import defaults from "../src/connect/defaults.json" with { type: "json" };
 import { isLocal, listProjects, parseUrl, projectTypes, sampleHeadings, skipsCheck, tokenInEnv } from "./connect.js";
 import { detect, hostOf } from "./detect.js";
 import { applyPatch } from "./merge.js";
-import { createConfigRepo, previewSave, recordWritten, save, type Stage } from "./persist.js";
-import { choiceFile, workspaceState } from "./workspace.js";
+import { createConfigRepo, noteRepoWrites, previewSave, recordWritten, save, toShare, uncommitted, type Stage } from "./persist.js";
+import { choiceFile, shareNames, workspaceRepos, workspaceState } from "./workspace.js";
+import { KEY_RE } from "../src/plan/build.js";
 import { brainInit } from "../src/cli/brain-init.js";
-import { brainExtras, claudeSettings, mcpFiles, refreshRoot, scaffold, stacksIn, toCreate, type ByHand, type ModuleInfo, type ScaffoldInput, type Scaffolded } from "./scaffold.js";
+import { brainExtras, claudeSettings, mcpFiles, refreshRoot, repoSettings, scaffold, stacksIn, toCreate, type ByHand, type ModuleInfo, type ScaffoldInput, type Scaffolded } from "./scaffold.js";
 import { checkConfig } from "../src/cli/check.js";
 
 export const DRAFT_FILE = ".liftoff/ui-draft.json";
@@ -144,12 +145,12 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     } catch {
       // no draft
     }
-    const done = (render: unknown, byHand: ByHand[] = []) => {
+    const done = (render: unknown, byHand: ByHand[] = [], notices: string[] = []) => {
       if (written.length > 0) {
         ensureSelfIgnore(root);
         recordWritten(root, [...new Set(written)]);
       }
-      return [200, { ok: true, hash: sha(yaml), written: [...new Set(written)], byHand, render }] as const;
+      return [200, { ok: true, hash: sha(yaml), written: [...new Set(written)], byHand, notices, render }] as const;
     };
     if (!assets() || !next.ok) return done(applyRender(root, { overwrite: [] }));
     // The same files as the guide. Unlike the guide, a failure here keeps the config: the person is told, and can apply again.
@@ -168,7 +169,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       const refresh = [...(differs("modules") ? ["modules", "commands"] : []), ...(differs("agents") ? ["agents"] : [])];
       const out = around(config, projectFiles(config, { name: config.project?.name ?? d.name, purpose: "", modules, commands: d.commands, refresh, newBrain: config.brain !== undefined && before?.brain === undefined }));
       written.push(...out.written);
-      return done(out.render, out.byHand);
+      return done(out.render, out.byHand, out.notices);
     } catch (e) {
       return done({ ok: false, errors: [{ message: e instanceof Error ? e.message : "the files could not be written" }] });
     }
@@ -190,16 +191,54 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     return out;
   }
 
-  // Then what the agents read: the plugin switch, the Jira server entry and the rendered files.
-  function around(config: Config, out: Scaffolded) {
+  // Then what the agents read: the plugin switch, the Jira server entry and the rendered files; in a workspace, the plugin
+  // switch of each repository too, once the rest is in place (`inRepos` is off while the repositories are not chosen yet).
+  function around(config: Config, out: Scaffolded, inRepos = true) {
     const byHand: ByHand[] = [...(out.byHand ?? [])];
     const settings = assets() ? claudeSettings(root, assets()!, byHand) : undefined;
     const mcp = mcpFiles(root, config, byHand);
     const render = applyRender(root, { overwrite: [] });
     const rendered = render.ok ? render.files.filter((f) => f.action === "created" || f.action === "refreshed").map((f) => f.path) : [];
-    return { written: [...new Set([...out.written, ...(settings ? [settings] : []), ...mcp, ...rendered])], kept: out.kept, byHand, render };
+    const notices: string[] = [];
+    const onboard = inRepos && render.ok && assets() && config.agents.targets.includes("claude-code");
+    const switches = onboard ? repoSettings(root, assets()!, workspaceRepos(root, config.workspace?.exclude), byHand, notices) : [];
+    return { written: [...new Set([...out.written, ...(settings ? [settings] : []), ...mcp, ...rendered, ...switches])], kept: out.kept, byHand, notices, render };
   }
 
+
+  // The repositories of a workspace that are not left out, as liftoff.yaml says now.
+  function included() {
+    const c = state().config as { workspace?: { exclude?: unknown } } | null;
+    return workspaceRepos(root, Array.isArray(c?.workspace?.exclude) ? c.workspace.exclude.filter((x): x is string => typeof x === "string") : []);
+  }
+
+  // What each of them still has to share of what LiftOff wrote there.
+  function onboarding(key?: string) {
+    const c = state().config as { codeHost?: { conventions?: { targetBranch?: unknown } } } | null;
+    const target = c?.codeHost?.conventions?.targetBranch;
+    const checked = key === undefined ? undefined : validateConfig(c);
+    const names = key !== undefined && checked?.ok ? shareNames(key, connectors(checked.value).codeHost) : undefined;
+    return toShare(root, included(), typeof target === "string" ? target : undefined, names);
+  }
+
+  // The commands need one ticket key, of a project the config knows: the server accepts no branch or message without it.
+  async function shareWith(key: unknown) {
+    const checked = validateConfig(state().config);
+    const projects = checked.ok ? projectsOf(checked.value).map((p) => p.project) : [];
+    const good = typeof key === "string" && projects.includes(KEY_RE.exec(key)?.[1] ?? "") ? key : undefined;
+    const keyError = good !== undefined ? undefined : projects.length === 0 ? "The commands need a ticket key, and no Jira project is set up yet." : `Type a ticket key of ${projects.join(" or ")}, such as ${projects[0]}-123.`;
+    return { ok: true, ...(keyError && { keyError }), onboarding: await onboarding(good) };
+  }
+
+  // A write, with a look at the repositories just before it: what they held then is the person's own.
+  async function writing<T extends readonly [number, object]>(write: () => T): Promise<T> {
+    const repos = workspaceRepos(root);
+    const before = await uncommitted(root, repos);
+    const result = write();
+    const { written } = result[1] as { written?: string[] };
+    if (result[0] === 200 && written) await noteRepoWrites(root, repos, written, before);
+    return result;
+  }
 
   // ---- guided setup: the product owner first, then the technical lead --------------------------------------------
   const str = (v: unknown, max: number): string | undefined => (typeof v === "string" && v.trim() !== "" && v.length <= max ? v.trim() : undefined);
@@ -222,7 +261,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const base = state();
     const config = base.config as Record<string, any> | null;
     const saved = await previewSave(root, "po");
-    return { unsaved: saved.git ? saved.files : [], ok: true, root, exists: base.exists, hash: base.hash, stage: stageOf(config, base.exists), config, errors: base.errors, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, tokenInEnv: tokenInEnv(), workspace: workspaceState(root) };
+    return { unsaved: saved.git ? saved.files : [], ok: true, root, exists: base.exists, hash: base.hash, stage: stageOf(config, base.exists), config, errors: base.errors, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, tokenInEnv: tokenInEnv(), workspace: workspaceState(root), repos: workspaceRepos(root), onboarding: await onboarding() };
   }
 
   // What the control panel needs on top of the file: what the folder holds, the default templates, what is not there yet
@@ -231,12 +270,12 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const base = state();
     const unapplied = base.exists && checkConfig(root).reasons.some((r) => r.code === "not-applied" || r.code === "required-changed");
     const missing = base.exists && base.config ? creates(base.config) : [];
-    return { ...base, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, creates: missing, needsApply: unapplied || missing.length > 0, tokenInEnv: tokenInEnv(), workspace: workspaceState(root) };
+    return { ...base, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, creates: missing, needsApply: unapplied || missing.length > 0, tokenInEnv: tokenInEnv(), workspace: workspaceState(root), repos: workspaceRepos(root), onboarding: await onboarding() };
   }
 
   // Writes liftoff.yaml from a patch (same merge and validator as the panel), then the files around it. If anything after
   // the config fails, the config goes back to what it was: a half-written setup must not leave the guide switched off.
-  function writeSetup(patch: Record<string, unknown>, files: (config: Config) => { written: string[]; kept: string[] }) {
+  function writeSetup(patch: Record<string, unknown>, files: (config: Config) => Scaffolded, inRepos = true) {
     const before = read(configFile);
     const { errors, yaml } = preview(patch);
     if (errors.length > 0) return [422, { ok: false, code: "config-invalid", errors }] as const;
@@ -248,7 +287,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
         undo();
         return [422, { ok: false, code: "config-invalid", errors: checked.errors }] as const;
       }
-      const out = around(checked.value, files(checked.value));
+      const out = around(checked.value, files(checked.value), inRepos);
       const rendered = out.render;
       if (!rendered.ok) {
         undo();
@@ -257,7 +296,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       const written = [...new Set([CONFIG_FILE, ...out.written])];
       ensureSelfIgnore(root); // the list of what the guide wrote is personal: never committed
       recordWritten(root, written);
-      return [200, { ok: true, written, kept: out.kept, byHand: out.byHand, render: rendered }] as const;
+      return [200, { ok: true, written, kept: out.kept, byHand: out.byHand, notices: out.notices, render: rendered }] as const;
     } catch (e) {
       try {
         undo();
@@ -297,8 +336,19 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
         issueTypes: types.map(typeEntry),
       },
     };
+    // nothing in the repositories of a workspace yet: which ones to write in is asked in the technical lead's part
     return writeSetup(patch, (config) =>
-      projectFiles(config, { name, purpose: typeof input.purpose === "string" ? input.purpose.slice(0, 500) : "", modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path, stack: "" })), commands: d.commands }));
+      projectFiles(config, { name, purpose: typeof input.purpose === "string" ? input.purpose.slice(0, 500) : "", modules: (config.modules?.items ?? []).map((m) => ({ id: m.id, path: m.path, stack: "" })), commands: d.commands }), false);
+  }
+
+  // The repositories left out, as the guide sends them (the validator judges the names). Nothing sent changes nothing; an
+  // empty list takes the section away. Writing it raises the plugin version the config asks for, and never lowers it.
+  function leftOut(exclude: unknown) {
+    if (!Array.isArray(exclude)) return {};
+    const now = state().config as { workspace?: unknown; plugin?: { version?: unknown } } | null;
+    if (exclude.length === 0) return now?.workspace === undefined ? {} : { workspace: null };
+    const low = (compareVersions(String(now?.plugin?.version ?? ""), MIN_WORKSPACE_PLUGIN) ?? 0) < 0;
+    return { workspace: { exclude }, ...(low && { plugin: { version: MIN_WORKSPACE_PLUGIN } }) };
   }
 
   function tlSetup(input: Record<string, unknown>) {
@@ -320,6 +370,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const host = typeof input.host === "string" && input.host.trim() !== "" ? input.host.trim().toLowerCase() : undefined;
     const conv = (input.conventions ?? {}) as Record<string, unknown>;
     const patch = {
+      ...leftOut(input.exclude),
       project: { setup: "done" },
       agents: { targets },
       // the stack is told once, per module; the project's own list is what the modules add up to (a single application tells it directly)
@@ -406,12 +457,12 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
         if (route === "POST /api/jira/sample") return send(res, 200, await sampleHeadings(asked));
       }
       if (route === "POST /api/setup/po" || route === "POST /api/setup/tl") {
-        const [code, data] = route.endsWith("/po") ? poSetup(input) : tlSetup(input);
+        const [code, data] = await writing(() => (route.endsWith("/po") ? poSetup(input) : tlSetup(input)));
         return send(res, code, data);
       }
       if (route === "POST /api/save/preview" || route === "POST /api/save") {
         const stage: Stage = input.stage === "tl" ? "tl" : "po";
-        if (route.endsWith("/preview")) return send(res, 200, { ok: true, ...(await previewSave(root, stage)) });
+        if (route.endsWith("/preview")) return send(res, 200, { ok: true, ...(await previewSave(root, stage)), onboarding: await onboarding(), repositories: included() });
         return send(res, 200, await save(root, stage, input.files));
       }
       if (route === "POST /api/workspace/init") {
@@ -426,6 +477,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
         const made = await createConfigRepo(root, existing, { constraints: inside(file) ? file : DEFAULT_CONSTRAINTS, brain: inside(brain) ? brain : "brain" });
         return send(res, 200, made.ok ? { ...made, workspace: workspaceState(root) } : made);
       }
+      if (route === "POST /api/workspace/share") return send(res, 200, await shareWith(input.key));
       if (route === "POST /api/workspace/skip") {
         ensureSelfIgnore(root); // the choice is personal: never committed
         atomicWrite(choiceFile(root), JSON.stringify({ skipped: true }) + "\n");
@@ -433,7 +485,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
       }
       if (route === "POST /api/validate") return send(res, 200, { ok: true, ...preview(input.patch) });
       if (route === "POST /api/apply") {
-        const [code, data] = apply(input);
+        const [code, data] = await writing(() => apply(input));
         return send(res, code, data);
       }
       if (route === "PUT /api/draft") {

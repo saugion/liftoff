@@ -138,6 +138,45 @@ export function claudeSettings(root: string, assetsDir: string, byHand: ByHand[]
   return rel;
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+
+// The same switch in each repository of a workspace, so that an agent started inside one has the plugin: the root's own
+// LiftOff entry, added only where absent. A repository that cannot take it is named and never stops the others.
+export function repoSettings(root: string, assetsDir: string, repos: string[], byHand: ByHand[], notices: string[]): string[] {
+  if (repos.length === 0) return [];
+  const rel = ".claude/settings.json";
+  const shipped = readJson(join(assetsDir, "marketplace-entry.json"));
+  const mine = settingsAt(join(root, rel));
+  const entry = mine?.extraKnownMarketplaces?.liftoff;
+  if (entry === undefined) notices.push(`The ${rel} of this folder holds no readable LiftOff entry: the repositories get the one LiftOff ships.`);
+  const marketplaces: Record<string, unknown> = { liftoff: entry ?? shipped.extraKnownMarketplaces.liftoff };
+  const plugins = Object.fromEntries(Object.entries(shipped.enabledPlugins).map(([k, v]) => [k, (entry === undefined ? undefined : mine?.enabledPlugins?.[k]) ?? v]));
+  const written: string[] = [];
+  for (const repo of repos) {
+    const name = `${repo}/${rel}`;
+    try {
+      const file = join(root, name);
+      if (!isInside(resolveReal(join(root, repo)), resolveReal(file))) {
+        notices.push(`${name} was not written: it leads outside the repository.`);
+        continue;
+      }
+      const now = settingsAt(file);
+      const readable = now !== undefined && [now.extraKnownMarketplaces, now.enabledPlugins].every((v) => v === undefined || isRecord(v));
+      if (!readable) {
+        byHand.push({ file: name, add: { extraKnownMarketplaces: marketplaces, enabledPlugins: plugins } });
+        continue;
+      }
+      const next = { ...now, extraKnownMarketplaces: { ...marketplaces, ...now.extraKnownMarketplaces }, enabledPlugins: { ...plugins, ...now.enabledPlugins } };
+      if (JSON.stringify(next) === JSON.stringify(now)) continue;
+      writeJson(root, name, next);
+      written.push(name);
+    } catch (e) {
+      notices.push(`${name} could not be written: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return written;
+}
+
 // The Jira server entry of each agent's MCP file, from the same code the Connect skill uses. A different entry of
 // ours (same name) is replaced; every other server in the file stays.
 export function mcpFiles(root: string, config: Config, byHand: ByHand[] = []): string[] {
