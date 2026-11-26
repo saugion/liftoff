@@ -1,6 +1,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { type ConfigError, requiredSections, sectionHashes } from "../config/index.js";
+import { type Config, type ConfigError, connectors, requiredSections, sectionHashes } from "../config/index.js";
+import { repoFolders } from "./fsutil.js";
 import { readConfigWithPin } from "./read-config.js";
 import { readApplied, readPersonal } from "./state.js";
 import type { Handler } from "./types.js";
@@ -16,6 +17,9 @@ export type ReasonCode =
   | "optional-changed"
   | "unresolved-conflict";
 
+// Holes in a config that was never applied here. Init offers the setup page for them instead of applying silently.
+export type SetupGap = "no-ticket-types" | "repos-without-git";
+
 export interface Reason {
   code: ReasonCode;
   message: string;
@@ -30,7 +34,7 @@ export interface CheckResult {
   installedVersion: string;
   reasons: Reason[];
   suppressed?: Reason[]; // reasons hidden by warn_on_config_update: false
-  hint?: { nearestRoot?: string };
+  hint?: { nearestRoot?: string; setupGaps?: SetupGap[] };
 }
 
 // Nearest ancestor holding a liftoff.yaml or a .git: a stat only, no git call. Init uses it so that a shell that
@@ -40,6 +44,15 @@ export function nearestRoot(root: string): string | undefined {
     if (existsSync(join(dir, CONFIG_FILE)) || existsSync(join(dir, ".git"))) return dir;
   }
   return undefined;
+}
+
+// Only what a finished setup never has, so that a teammate with a complete config is asked nothing.
+function setupGaps(root: string, config: Config): SetupGap[] {
+  const { tracker } = connectors(config);
+  const gaps: SetupGap[] = [];
+  if (tracker && tracker.issueTypes.length === 0) gaps.push("no-ticket-types");
+  if (!existsSync(join(root, ".git")) && repoFolders(root).length > 0) gaps.push("repos-without-git");
+  return gaps;
 }
 
 const blocked = (reasons: Reason[], hint?: CheckResult["hint"]): CheckResult => ({
@@ -65,7 +78,8 @@ export function checkConfig(root: string): CheckResult {
   // The pin is satisfied (readConfigWithPin checked it first). Next: has this config been applied here?
   const applied = readApplied(realpathSync(root));
   if (applied.kind === "missing") {
-    return blocked([{ code: "not-applied", message: "this repo's config has not been applied here yet: run the LiftOff Init skill (it runs render)" }]);
+    const gaps = setupGaps(root, read.config);
+    return blocked([{ code: "not-applied", message: "this repo's config has not been applied here yet: run the LiftOff Init skill (it runs render)" }], gaps.length > 0 ? { setupGaps: gaps } : undefined);
   }
   if (applied.kind === "corrupt") {
     return blocked([{ code: "not-applied", message: ".liftoff/applied.json is unreadable: run the LiftOff Init skill to apply the config again and rewrite it" }]);

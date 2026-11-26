@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { repoFolders } from "../src/cli/fsutil.js";
 import { LIFTOFF_DIR } from "../src/cli/state.js";
 import { gitInfo } from "./detect.js";
 
@@ -24,15 +25,12 @@ export function cleanUrl(text: string): string | undefined {
   return /^[A-Za-z0-9][\w.-]*@[\w.-]+:[A-Za-z0-9._~/%+-]+$/.test(text) ? text : undefined;
 }
 
-// The folders directly below `root` that are repositories of their own (a `.git` folder, or file for a worktree).
+// The repositories directly below `root`, each with its clone address when it has one that is safe to share.
 export function childRepos(root: string): ChildRepo[] {
-  return readdirSync(root, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith(".") && !/[\r\n]/.test(e.name) && existsSync(join(root, e.name, ".git")))
-    .map((e) => {
-      const url = cleanUrl(gitInfo(join(root, e.name)).originUrl ?? "");
-      return { path: e.name, ...(url && { url }) };
-    })
-    .sort((a, b) => (a.path < b.path ? -1 : 1));
+  return repoFolders(root).map((path) => {
+    const url = cleanUrl(gitInfo(join(root, path)).originUrl ?? "");
+    return { path, ...(url && { url }) };
+  });
 }
 
 const skipped = (root: string) => {

@@ -14273,7 +14273,7 @@ var require_ajv = __commonJS({
 });
 
 // ui/bin.ts
-import { existsSync as existsSync9, statSync as statSync4 } from "node:fs";
+import { existsSync as existsSync10, statSync as statSync4 } from "node:fs";
 import { dirname as dirname5, join as join13, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -14292,7 +14292,7 @@ import { createServer } from "node:http";
 import { join as join12 } from "node:path";
 
 // src/cli/apply.ts
-import { existsSync as existsSync2, lstatSync, readFileSync as readFileSync3, readdirSync, realpathSync as realpathSync2, statSync } from "node:fs";
+import { existsSync as existsSync3, lstatSync, readFileSync as readFileSync3, readdirSync as readdirSync2, realpathSync as realpathSync2, statSync } from "node:fs";
 import { basename as basename2, dirname as dirname2, join as join4, relative as relative2 } from "node:path";
 
 // src/config/hash.ts
@@ -15435,7 +15435,7 @@ function renderAgentFiles(config, opts) {
 
 // src/cli/fsutil.ts
 import { randomBytes } from "node:crypto";
-import { closeSync, mkdirSync, openSync, realpathSync, renameSync, unlinkSync, writeSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, realpathSync, renameSync, unlinkSync, writeSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 var errno = (e) => e.code;
 function resolveReal(abs) {
@@ -15454,6 +15454,9 @@ function resolveReal(abs) {
 function isInside(root2, path) {
   const rel = relative(root2, path);
   return rel === "" || rel !== ".." && !rel.startsWith(".." + sep) && !isAbsolute(rel);
+}
+function repoFolders(root2) {
+  return readdirSync(root2, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".") && !/[\r\n]/.test(e.name) && existsSync(join(root2, e.name, ".git"))).map((e) => e.name).sort();
 }
 var sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 function renameWithRetry(from, to) {
@@ -15488,7 +15491,7 @@ function atomicWrite(file, content) {
 }
 
 // src/cli/read-config.ts
-import { existsSync } from "node:fs";
+import { existsSync as existsSync2 } from "node:fs";
 import { join as join2 } from "node:path";
 
 // src/cli/validate.ts
@@ -15505,7 +15508,7 @@ var outdatedMessage = (minimum) => (minimum === void 0 ? `this repo's config is 
 // src/cli/read-config.ts
 function readConfigWithPin(root2) {
   const file = join2(root2, CONFIG_FILE);
-  if (!existsSync(file)) return { kind: "missing" };
+  if (!existsSync2(file)) return { kind: "missing" };
   const peek = peekConfig(file);
   const formatTooNew = peek.formatVersion !== void 0 && peek.formatVersion > SUPPORTED_FORMAT;
   const pinOrder = peek.pluginVersion === void 0 ? void 0 : compareVersions(INSTALLED_VERSION, peek.pluginVersion);
@@ -15637,7 +15640,7 @@ function checkAgentsMd(root2, rels, plannedReal) {
     const abs = join4(root2, rel);
     let names = [];
     try {
-      names = readdirSync(dirname2(abs));
+      names = readdirSync2(dirname2(abs));
     } catch {
     }
     if (!names.includes("AGENTS.md")) {
@@ -15698,9 +15701,9 @@ function applyRender(root2, opts) {
   const plan = generated.map((f) => planFile(realRoot, f, overwrite));
   const ignoredOverwrites = plan.filter((p) => overwrite.has(p.path) && (p.action === "skipped-symlink" || p.action === "conflict" && !OVERWRITABLE.has(p.reason))).map((p) => `${p.path}: --overwrite does not apply to ${p.action === "skipped-symlink" ? "a symlink to AGENTS.md" : `a ${p.reason}`}`);
   const previous = readApplied(realRoot);
-  const stale = previous.kind === "ok" ? previous.record.files.filter((f) => !planned.has(f) && existsSync2(join4(realRoot, f))).sort().map((f) => `stale: ${f} is no longer generated; left in place`) : [];
+  const stale = previous.kind === "ok" ? previous.record.files.filter((f) => !planned.has(f) && existsSync3(join4(realRoot, f))).sort().map((f) => `stale: ${f} is no longer generated; left in place`) : [];
   const constraintsFile = normalizeModulePath(config.constraints?.file ?? "CONSTRAINTS.md");
-  const missingConstraints = config.agents.targets.includes("copilot") && !existsSync2(join4(realRoot, constraintsFile)) ? [`${constraintsFile} does not exist yet, and the Copilot instructions point to it`] : [];
+  const missingConstraints = config.agents.targets.includes("copilot") && !existsSync3(join4(realRoot, constraintsFile)) ? [`${constraintsFile} does not exist yet, and the Copilot instructions point to it`] : [];
   const notices = [...ignoredOverwrites, ...stale, ...missingConstraints];
   const written = [];
   let current = GITIGNORE_PATH;
@@ -15864,7 +15867,7 @@ async function sampleHeadings(input) {
 }
 
 // ui/detect.ts
-import { existsSync as existsSync3, readFileSync as readFileSync4, readdirSync as readdirSync2, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync4, readdirSync as readdirSync3, statSync as statSync2 } from "node:fs";
 import { basename as basename3, join as join5 } from "node:path";
 var slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "module";
 var SKIP = /* @__PURE__ */ new Set(["node_modules", "dist", "build", "target", "out", "vendor", "coverage", "venv", ".venv", "__pycache__"]);
@@ -15877,7 +15880,7 @@ var read = (file) => {
 };
 var JS_FRAMEWORKS = { react: "React", vue: "Vue", next: "Next.js", "@angular/core": "Angular", express: "Express", "@nestjs/core": "NestJS", svelte: "Svelte", "@capacitor/core": "Capacitor" };
 function inspect(dir) {
-  const has = (f) => existsSync3(join5(dir, f));
+  const has = (f) => existsSync4(join5(dir, f));
   if (has("package.json")) {
     let pkg2 = {};
     try {
@@ -15921,12 +15924,12 @@ function hostOf(text) {
 }
 function gitInfo(root2) {
   const dot = join5(root2, ".git");
-  if (!existsSync3(dot)) return { isRepo: false };
+  if (!existsSync4(dot)) return { isRepo: false };
   const head = /^ref: refs\/heads\/(.+)$/m.exec(read(join5(dot, "HEAD")))?.[1];
   const originUrl = /\[remote "origin"\][^[]*?\burl\s*=\s*(\S+)/.exec(read(join5(dot, "config")))?.[1];
   const host = originUrl && (/^[\w.-]+@([\w.-]+(?::\d+)?)[:/]/.exec(originUrl)?.[1] ?? /^(?:https?|ssh):\/\/(?:[^@/]+@)?([\w.-]+(?::\d+)?)\//.exec(originUrl)?.[1]);
   const remoteHead = /refs\/remotes\/origin\/(.+)/.exec(read(join5(dot, "refs", "remotes", "origin", "HEAD")))?.[1]?.trim();
-  const has = (b) => existsSync3(join5(dot, "refs", "heads", b)) || existsSync3(join5(dot, "refs", "remotes", "origin", b)) || read(join5(dot, "packed-refs")).includes(`refs/heads/${b}
+  const has = (b) => existsSync4(join5(dot, "refs", "heads", b)) || existsSync4(join5(dot, "refs", "remotes", "origin", b)) || read(join5(dot, "packed-refs")).includes(`refs/heads/${b}
 `) || read(join5(dot, "packed-refs")).includes(`refs/remotes/origin/${b}
 `);
   const defaultBranch = remoteHead ?? (has("main") ? "main" : has("master") ? "master" : "main");
@@ -15934,14 +15937,14 @@ function gitInfo(root2) {
 }
 var hasCommits = (root2) => {
   try {
-    return readdirSync2(join5(root2, ".git", "refs", "heads")).length > 0;
+    return readdirSync3(join5(root2, ".git", "refs", "heads")).length > 0;
   } catch {
     return false;
   }
 };
 function detect(root2) {
   const rootInfo = inspect(root2);
-  const subs = readdirSync2(root2, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".") && !SKIP.has(e.name)).flatMap((e) => {
+  const subs = readdirSync3(root2, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".") && !SKIP.has(e.name)).flatMap((e) => {
     const info = inspect(join5(root2, e.name));
     return info ? [{ id: slug(e.name), path: e.name, ...info }] : [];
   });
@@ -15959,10 +15962,10 @@ function detect(root2) {
   } catch {
     pkgName = void 0;
   }
-  const src = (n) => existsSync3(join5(root2, n)) && statSync2(join5(root2, n)).isDirectory();
+  const src = (n) => existsSync4(join5(root2, n)) && statSync2(join5(root2, n)).isDirectory();
   let git2 = gitInfo(root2);
   if (!git2.originUrl) {
-    const hosts = uniq(readdirSync2(root2, { withFileTypes: true }).filter((e) => e.isDirectory()).flatMap((e) => gitInfo(join5(root2, e.name)).host ?? []));
+    const hosts = uniq(readdirSync3(root2, { withFileTypes: true }).filter((e) => e.isDirectory()).flatMap((e) => gitInfo(join5(root2, e.name)).host ?? []));
     if (hosts.length === 1) git2 = { ...git2, host: hosts[0] };
   }
   return {
@@ -16016,11 +16019,11 @@ function strip(v) {
 
 // ui/persist.ts
 import { execFile as execFile2 } from "node:child_process";
-import { existsSync as existsSync6, lstatSync as lstatSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync7, writeFileSync } from "node:fs";
+import { existsSync as existsSync7, lstatSync as lstatSync3, mkdirSync as mkdirSync3, readFileSync as readFileSync7, writeFileSync } from "node:fs";
 import { join as join8 } from "node:path";
 
 // ui/scaffold.ts
-import { existsSync as existsSync4, lstatSync as lstatSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync5 } from "node:fs";
+import { existsSync as existsSync5, lstatSync as lstatSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync5 } from "node:fs";
 import { dirname as dirname3, join as join6, relative as relative3 } from "node:path";
 
 // src/connect/shell.ts
@@ -16147,18 +16150,18 @@ var isMissing = (file) => {
     const st = lstatSync2(file);
     return st.isFile() && readFileSync5(file, "utf8").trim() === "";
   } catch {
-    return !existsSync4(file);
+    return !existsSync5(file);
   }
 };
 var toCreate = (root2, modulePaths, constraintsFile) => [.../* @__PURE__ */ new Set(["AGENTS.md", ...modulePaths.map((p) => `${p.replace(/^\.\/|\/+$/g, "")}/AGENTS.md`), constraintsFile])].filter((rel) => isMissing(join6(root2, rel)));
 var stacksIn = (root2) => {
   const file = join6(root2, "AGENTS.md");
-  const text = existsSync4(file) ? readFileSync5(file, "utf8") : "";
+  const text = existsSync5(file) ? readFileSync5(file, "utf8") : "";
   return new Map([...text.matchAll(/^\| [^|\n]+? \| `([^`\n]+)` \| ([^|\n]*?) \|$/gm)].filter((m) => m[2] !== "-").map((m) => [m[1], m[2]]));
 };
 function refreshRoot(root2, input, only = ["modules", "commands", "agents"]) {
   const file = join6(root2, "AGENTS.md");
-  if (!existsSync4(file)) return false;
+  if (!existsSync5(file)) return false;
   const before = readFileSync5(file, "utf8");
   let text = before;
   for (const [name, now] of [["modules", modulesText(input)], ["commands", commandsText(input)], ["agents", agentsText(input)]]) {
@@ -16244,7 +16247,7 @@ function claudeSettings(root2, assetsDir2, byHand = []) {
   const now = settingsAt(file);
   if (now === void 0) return void byHand.push({ file: rel, add: fragment });
   const next = { ...now, extraKnownMarketplaces: { ...fragment.extraKnownMarketplaces, ...now.extraKnownMarketplaces }, enabledPlugins: { ...fragment.enabledPlugins, ...now.enabledPlugins } };
-  if (JSON.stringify(next) === JSON.stringify(now) && existsSync4(file)) return void 0;
+  if (JSON.stringify(next) === JSON.stringify(now) && existsSync5(file)) return void 0;
   writeJson(root2, rel, next);
   return rel;
 }
@@ -16277,7 +16280,7 @@ var mergeJson = (root2, rel, add, byHand, merge) => {
     return false;
   }
   const next = merge(JSON.parse(JSON.stringify(now)));
-  if (JSON.stringify(next) === JSON.stringify(now) && existsSync4(file)) return false;
+  if (JSON.stringify(next) === JSON.stringify(now) && existsSync5(file)) return false;
   mkdirSync2(dirname3(file), { recursive: true });
   atomicWrite(file, JSON.stringify(next, null, 2) + "\n");
   return true;
@@ -16285,7 +16288,7 @@ var mergeJson = (root2, rel, add, byHand, merge) => {
 function brainExtras(root2, p, byHand = []) {
   const touched = [];
   const agents = inside(root2, "AGENTS.md");
-  if (existsSync4(agents)) {
+  if (existsSync5(agents)) {
     const text = readFileSync5(agents, "utf8");
     if (!text.includes("<!-- liftoff:brain -->")) {
       atomicWrite(agents, `${text.replace(/\n*$/, "\n")}
@@ -16299,7 +16302,7 @@ ${p.agentsMd}
   if (p.claudeSettings && mergeJson(root2, ".claude/settings.json", p.claudeSettings, byHand, (c) => ({ ...c, permissions: { ...c.permissions, deny: [.../* @__PURE__ */ new Set([...c.permissions?.deny ?? [], ...p.claudeSettings.permissions.deny])] } }))) touched.push(".claude/settings.json");
   if (p.vscodeSettings && mergeJson(root2, ".vscode/settings.json", p.vscodeSettings, byHand, (c) => Object.fromEntries([...Object.entries(c), ...Object.entries(p.vscodeSettings).map(([k, v]) => [k, { ...c[k] ?? {}, ...v }])]))) touched.push(".vscode/settings.json");
   const attrs = inside(root2, ".gitattributes");
-  const now = existsSync4(attrs) ? readFileSync5(attrs, "utf8") : "";
+  const now = existsSync5(attrs) ? readFileSync5(attrs, "utf8") : "";
   if (!now.split(/\r?\n/).includes(p.gitattributes)) {
     atomicWrite(attrs, `${now.replace(/\n*$/, now ? "\n" : "")}${p.gitattributes}
 `);
@@ -16309,7 +16312,7 @@ ${p.agentsMd}
 }
 
 // ui/workspace.ts
-import { existsSync as existsSync5, readFileSync as readFileSync6, readdirSync as readdirSync3 } from "node:fs";
+import { existsSync as existsSync6, readFileSync as readFileSync6 } from "node:fs";
 import { join as join7 } from "node:path";
 var WORKSPACE_DOC = "WORKSPACE.md";
 var CHOICE = `${LIFTOFF_DIR}/workspace.json`;
@@ -16325,10 +16328,10 @@ function cleanUrl(text) {
   return /^[A-Za-z0-9][\w.-]*@[\w.-]+:[A-Za-z0-9._~/%+-]+$/.test(text) ? text : void 0;
 }
 function childRepos(root2) {
-  return readdirSync3(root2, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".") && !/[\r\n]/.test(e.name) && existsSync5(join7(root2, e.name, ".git"))).map((e) => {
-    const url = cleanUrl(gitInfo(join7(root2, e.name)).originUrl ?? "");
-    return { path: e.name, ...url && { url } };
-  }).sort((a, b) => a.path < b.path ? -1 : 1);
+  return repoFolders(root2).map((path) => {
+    const url = cleanUrl(gitInfo(join7(root2, path)).originUrl ?? "");
+    return { path, ...url && { url } };
+  });
 }
 var skipped = (root2) => {
   try {
@@ -16340,7 +16343,7 @@ var skipped = (root2) => {
 var choiceFile = (root2) => join7(root2, CHOICE);
 function workspaceState(root2) {
   const repos = childRepos(root2);
-  const isRepo = existsSync5(join7(root2, ".git"));
+  const isRepo = existsSync6(join7(root2, ".git"));
   return repos.length === 0 ? void 0 : { repos, isRepo, skipped: skipped(root2) };
 }
 var literal = (path) => path.replace(/[*?[\]\\]/g, "\\$&");
@@ -16453,7 +16456,7 @@ async function inOtherRepos(root2, files) {
 }
 async function keptOut(root2, files) {
   const repos = childRepos(root2).map((r) => `${r.path}/`);
-  const here2 = files.filter((f) => SAFE.test(f) && !f.startsWith(".liftoff/") && !repos.some((r) => f.startsWith(r)) && existsSync6(join8(root2, f)));
+  const here2 = files.filter((f) => SAFE.test(f) && !f.startsWith(".liftoff/") && !repos.some((r) => f.startsWith(r)) && existsSync7(join8(root2, f)));
   return here2.length === 0 ? [] : (await git(root2, ["check-ignore", "--", ...here2])).out.split("\n").filter(Boolean).sort();
 }
 async function previewSave(root2, stage) {
@@ -16509,16 +16512,16 @@ async function save(root2, stage, expected) {
 }
 async function createConfigRepo(root2, existing, paths) {
   const repos = childRepos(root2);
-  if (existsSync6(join8(root2, ".git"))) return { ok: false, message: "This folder is a git repository already." };
+  if (existsSync7(join8(root2, ".git"))) return { ok: false, message: "This folder is a git repository already." };
   if (repos.length === 0) return { ok: false, message: "There is no repository below this folder." };
   const ignore = join8(root2, ".gitignore");
   if (lstatSync3(ignore, { throwIfNoEntry: false })?.isSymbolicLink()) return { ok: false, message: ".gitignore is a link: replace it with a file first, so that nothing outside this folder is changed." };
   const made = await git(root2, ["init", "-q"]);
   const named = made.code === 0 ? await git(root2, ["symbolic-ref", "HEAD", "refs/heads/main"]) : made;
   if (named.code !== 0) return { ok: false, message: `git init failed: ${line(named)}` };
-  const had = existsSync6(ignore) ? readFileSync7(ignore, "utf8") : "";
+  const had = existsSync7(ignore) ? readFileSync7(ignore, "utf8") : "";
   const mine = new Set(readRecord(root2).files);
-  const keepOut = MAY_HOLD_KEYS.filter((f) => !mine.has(f) && existsSync6(join8(root2, f)));
+  const keepOut = MAY_HOLD_KEYS.filter((f) => !mine.has(f) && existsSync7(join8(root2, f)));
   writeFileSync(ignore, configIgnore(had, repos, { files: [paths.constraints], brain: paths.brain, keepOut }));
   const doc = isMissing(join8(root2, WORKSPACE_DOC));
   if (doc) writeFileSync(join8(root2, WORKSPACE_DOC), workspaceDoc(repos));
@@ -16529,7 +16532,7 @@ async function createConfigRepo(root2, existing, paths) {
 }
 
 // src/cli/brain-init.ts
-import { existsSync as existsSync7, readFileSync as readFileSync8 } from "node:fs";
+import { existsSync as existsSync8, readFileSync as readFileSync8 } from "node:fs";
 import { join as join10 } from "node:path";
 
 // src/brain/paths.ts
@@ -16747,11 +16750,11 @@ var brainInit = ({ root: root2, write }) => {
   const paths = brainPaths(brain.dir);
   const link = symlinkProblem(realRoot, paths);
   if (link) return brainFail("brain-invalid", `${link} is or contains a symlink: the brain must be plain folders inside the repo`, { file: link });
-  const ignoreText = existsSync7(join10(realRoot, GITIGNORE_PATH)) ? readFileSync8(join10(realRoot, GITIGNORE_PATH), "utf8") : void 0;
+  const ignoreText = existsSync8(join10(realRoot, GITIGNORE_PATH)) ? readFileSync8(join10(realRoot, GITIGNORE_PATH), "utf8") : void 0;
   const needsIgnore = ignoreText === void 0 || !ignoreText.split(/\r?\n/).some((l) => l.trim() === "*");
   const files = [
     { path: GITIGNORE_PATH, exists: !needsIgnore, content: "*\n" },
-    ...scaffoldFiles(paths).map((f) => ({ ...f, exists: existsSync7(join10(realRoot, f.path)) }))
+    ...scaffoldFiles(paths).map((f) => ({ ...f, exists: existsSync8(join10(realRoot, f.path)) }))
   ];
   const planned = files.filter((f) => !f.exists);
   if (write) {
@@ -16771,13 +16774,20 @@ var brainInit = ({ root: root2, write }) => {
 };
 
 // src/cli/check.ts
-import { existsSync as existsSync8, realpathSync as realpathSync3 } from "node:fs";
+import { existsSync as existsSync9, realpathSync as realpathSync3 } from "node:fs";
 import { dirname as dirname4, join as join11 } from "node:path";
 function nearestRoot(root2) {
   for (let dir = dirname4(root2); dir !== dirname4(dir); dir = dirname4(dir)) {
-    if (existsSync8(join11(dir, CONFIG_FILE)) || existsSync8(join11(dir, ".git"))) return dir;
+    if (existsSync9(join11(dir, CONFIG_FILE)) || existsSync9(join11(dir, ".git"))) return dir;
   }
   return void 0;
+}
+function setupGaps(root2, config) {
+  const { tracker } = connectors(config);
+  const gaps = [];
+  if (tracker && tracker.issueTypes.length === 0) gaps.push("no-ticket-types");
+  if (!existsSync9(join11(root2, ".git")) && repoFolders(root2).length > 0) gaps.push("repos-without-git");
+  return gaps;
 }
 var blocked = (reasons, hint) => ({
   status: "blocked",
@@ -16799,7 +16809,8 @@ function checkConfig(root2) {
   }
   const applied = readApplied(realpathSync3(root2));
   if (applied.kind === "missing") {
-    return blocked([{ code: "not-applied", message: "this repo's config has not been applied here yet: run the LiftOff Init skill (it runs render)" }]);
+    const gaps = setupGaps(root2, read3.config);
+    return blocked([{ code: "not-applied", message: "this repo's config has not been applied here yet: run the LiftOff Init skill (it runs render)" }], gaps.length > 0 ? { setupGaps: gaps } : void 0);
   }
   if (applied.kind === "corrupt") {
     return blocked([{ code: "not-applied", message: ".liftoff/applied.json is unreadable: run the LiftOff Init skill to apply the config again and rewrite it" }]);
@@ -17253,7 +17264,7 @@ if (values.help || !statSync4(root, { throwIfNoEntry: false })?.isDirectory()) {
   process.exit(values.help ? 0 : 2);
 }
 var here = dirname5(fileURLToPath(import.meta.url));
-var assetsDir = [join13(here, "..", "skills", "liftoff-init", "assets"), join13(here, "..", "plugin", "skills", "liftoff-init", "assets")].find((d) => existsSync9(d));
+var assetsDir = [join13(here, "..", "skills", "liftoff-init", "assets"), join13(here, "..", "plugin", "skills", "liftoff-init", "assets")].find((d) => existsSync10(d));
 var ui = await startUi({ root, page: page_default, wizard: wizard_default, ...assetsDir && { assetsDir }, port: values.port ? Number(values.port) : void 0 });
 process.stdout.write(`LiftOff setup for ${root}
 Open: ${ui.url}

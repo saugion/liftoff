@@ -231,3 +231,50 @@ describe("render uses the same pin-first read", () => {
     expect(body.errors[0].message).not.toMatch(/needs LiftOff \d/);
   });
 });
+
+describe("check-config: a config never applied here that still has holes (Init offers the setup page)", () => {
+  const TRACKER = (types: string) =>
+    `tracker:\n  kind: jira-dc\n  url: https://jira.example.com\n  project: PROJ\n  server:\n    version: "10.3.0"\n  issueTypes: ${types}\n`;
+  const repoBelow = (dir: string, name = "api") => mkdirSync(join(dir, name, ".git"), { recursive: true });
+  const gaps = (dir: string) => check(dir).body.hint?.setupGaps;
+
+  it("a Jira with no ticket type", () => {
+    const dir = makeRepo({ pluginVersion: "0.6", extra: TRACKER("[]") });
+    expect(codes(check(dir).body)).toEqual(["not-applied"]);
+    expect(gaps(dir)).toEqual(["no-ticket-types"]);
+  });
+
+  it("a folder of repositories that is not a repository itself", () => {
+    const dir = makeRepo();
+    repoBelow(dir);
+    expect(gaps(dir)).toEqual(["repos-without-git"]);
+  });
+
+  it("both, in a fixed order", () => {
+    const dir = makeRepo({ pluginVersion: "0.6", extra: TRACKER("[]") });
+    repoBelow(dir);
+    expect(gaps(dir)).toEqual(["no-ticket-types", "repos-without-git"]);
+  });
+
+  it("a complete config has no hint: a teammate is asked nothing", () => {
+    expect(check(makeRepo()).body.hint).toBeUndefined(); // no tracker is a complete config too
+    expect(check(makeRepo({ pluginVersion: "0.6", extra: TRACKER("[{ name: Story }]") })).body.hint).toBeUndefined();
+  });
+
+  it("a configuration repository (it has its own .git) is not a gap, and neither is a hidden folder", () => {
+    const dir = makeRepo();
+    repoBelow(dir);
+    mkdirSync(join(dir, ".git"));
+    expect(check(dir).body.hint).toBeUndefined();
+    const other = makeRepo();
+    repoBelow(other, ".cache");
+    expect(check(other).body.hint).toBeUndefined();
+  });
+
+  it("once applied here, the gaps are not raised again", () => {
+    const dir = makeRepo({ pluginVersion: "0.6", extra: TRACKER("[]") });
+    repoBelow(dir);
+    expect(render(dir).exitCode).toBe(0);
+    expect(check(dir).body.hint).toBeUndefined();
+  });
+});
