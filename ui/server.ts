@@ -10,7 +10,7 @@ import { CONFIG_FILE } from "../src/cli/validate.js";
 import { INSTALLED_VERSION } from "../src/cli/version.js";
 import { validateConfig, type Config } from "../src/config/index.js";
 import defaults from "../src/connect/defaults.json" with { type: "json" };
-import { isLocal, listProjects, parseUrl, projectTypes, sampleHeadings, skipsCheck } from "./connect.js";
+import { isLocal, listProjects, parseUrl, projectTypes, sampleHeadings, skipsCheck, tokenInEnv } from "./connect.js";
 import { detect, hostOf } from "./detect.js";
 import { applyPatch } from "./merge.js";
 import { previewSave, recordWritten, save, type Stage } from "./persist.js";
@@ -220,7 +220,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const base = state();
     const config = base.config as Record<string, any> | null;
     const saved = await previewSave(root, "po");
-    return { unsaved: saved.git ? saved.files : [], ok: true, root, exists: base.exists, hash: base.hash, stage: stageOf(config, base.exists), config, errors: base.errors, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion };
+    return { unsaved: saved.git ? saved.files : [], ok: true, root, exists: base.exists, hash: base.hash, stage: stageOf(config, base.exists), config, errors: base.errors, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, tokenInEnv: tokenInEnv() };
   }
 
   // What the control panel needs on top of the file: what the folder holds, the default templates, what is not there yet
@@ -229,7 +229,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const base = state();
     const unapplied = base.exists && checkConfig(root).reasons.some((r) => r.code === "not-applied" || r.code === "required-changed");
     const missing = base.exists && base.config ? creates(base.config) : [];
-    return { ...base, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, creates: missing, needsApply: unapplied || missing.length > 0 };
+    return { ...base, detected: detect(root), templates: defaultTemplates(), serverVersion: defaults.jiraServerVersion, creates: missing, needsApply: unapplied || missing.length > 0, tokenInEnv: tokenInEnv() };
   }
 
   // Writes liftoff.yaml from a patch (same merge and validator as the panel), then the files around it. If anything after

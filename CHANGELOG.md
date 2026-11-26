@@ -15,6 +15,8 @@ Found on the first run on a real project (a folder of repositories).
 - Applying creates what the guide creates: missing `AGENTS.md` files and `CONSTRAINTS.md`, `.claude/settings.json`, the Jira MCP entry, the project brain
   when just switched on. Both pages say first which files they will create. A missing module `AGENTS.md` is no longer an error there.
 - A config that was saved but not applied can be applied again with nothing changed.
+- When `LIFTOFF_JIRA_TOKEN` is already set, both pages say so and ask for no token: nothing is saved in the keychain unless you choose to type a
+  different one (the variable still wins while it is set). A refused token from the variable is named as such.
 - A pasted GitLab address (`https://...`, a clone URL) is accepted: the config keeps the host. In a folder of repositories that is not one itself, the host
   comes from theirs when they agree.
 - An empty `AGENTS.md` or `CONSTRAINTS.md` counts as missing. A hand-written `CLAUDE.md` that only says `@AGENTS.md` is no longer a conflict.

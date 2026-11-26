@@ -221,7 +221,8 @@ the files were saved offers to save them first.
 - Save to `liftoff/setup-tl`, the same way.
 
 **The Jira token.** You type it into the page once. It goes into the macOS Keychain, never into a file, a log or the
-page's answers. If `LIFTOFF_JIRA_TOKEN` is set, that is used instead.
+page's answers. If `LIFTOFF_JIRA_TOKEN` is already set, both pages say so and ask for nothing: they use it and save
+nothing in the Keychain. You can still type a different one, which is saved there, but the variable wins while it is set.
 
 **A Jira whose certificate this computer does not know.** If Jira runs on this computer (a test Jira on `127.0.0.1`,
 `localhost` or `::1`), the page offers one click to skip the certificate check for it. For any other address it never
@@ -247,7 +248,8 @@ before it writes anything. What the Connect skill learned (fields, workflow) is 
 It can also do the whole first setup, in any order, and then does what the guide does:
 
 - it starts from what it finds in the folder (the parts of the code, their languages, the GitLab host);
-- you paste the Jira token into it (kept in the macOS Keychain) and pick the project from a list;
+- you paste the Jira token into it (kept in the macOS Keychain), or nothing if `LIFTOFF_JIRA_TOKEN` already holds one,
+  and pick the project from a list;
 - before writing, it lists the files that do not exist yet and will be created (`AGENTS.md` files, `CONSTRAINTS.md`).
   A file with content is never replaced;
 - it saves the files to a new branch and pushes it, only after your yes. A folder that is not under git itself, such as
@@ -313,7 +315,7 @@ brain"), each change shown as a diff.
 names itself, `{commitType}` in merge request titles, GitHub Copilot in IntelliJ and on the command line. See
 [`CHANGELOG.md`](CHANGELOG.md), "Unreleased".
 
-**Tested:** 2,037 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,041 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. Agents have followed the skills against the fakes in scripted runs.
 

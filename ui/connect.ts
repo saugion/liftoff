@@ -40,6 +40,9 @@ const run = (cmd: string, args: string[], input?: string): Promise<{ code: numbe
     if (input !== undefined) p.stdin?.end(input);
   });
 
+// Whether the environment already holds a token. The pages are told only this, never the value.
+export const tokenInEnv = () => Boolean(process.env[TOKEN_ENV]);
+
 // The token already on this machine: the environment first, then the keychain. Nothing else.
 export async function storedToken(u: URL): Promise<string | undefined> {
   const env = process.env[TOKEN_ENV];
@@ -106,7 +109,8 @@ async function ask(u: URL, path: string, token: string | undefined, insecure: bo
 const keyOk = (k: unknown): k is string => typeof k === "string" && /^[A-Z][A-Z0-9_]{0,19}$/.test(k);
 
 // The reply of a Jira call, as a failure when the status says so.
-function problem(status: number, what: string): Result<never> | undefined {
+function problem(status: number, what: string, fromEnv = false): Result<never> | undefined {
+  if (status === 401 && fromEnv) return fail("bad-token", `Jira did not accept the token in ${TOKEN_ENV}. Change the variable, then start liftoff-ui again.`);
   if (status === 401) return fail("bad-token", "Jira did not accept this token. Create a new one and paste it again.");
   if (status === 403) return fail("no-access", "This token cannot see that. Ask for access, or use another token.");
   if (status === 404) return fail("no-project", what);
@@ -130,7 +134,7 @@ export async function listProjects(input: In): Promise<Result<{ projects: { key:
   if (t.bad) return t.bad;
   const r = await ask(u, "/rest/api/2/project", t.token, skipsCheck(u, input.insecure));
   if (!r.ok) return r;
-  const bad = problem(r.reply.status, "Jira does not know this address as a Jira.");
+  const bad = problem(r.reply.status, "Jira does not know this address as a Jira.", t.typed === undefined && tokenInEnv());
   if (bad) return bad;
   const projects = (Array.isArray(r.reply.body) ? r.reply.body : []).filter((p: any) => p && keyOk(p.key)).map((p: any) => ({ key: p.key as string, name: String(p.name ?? p.key) }));
   const saved = t.typed !== undefined ? await saveToken(u, t.typed) : false;
@@ -146,7 +150,7 @@ export async function projectTypes(input: In & { project?: unknown }): Promise<R
   if (t.bad) return t.bad;
   const r = await ask(u, `/rest/api/2/project/${input.project}`, t.token, skipsCheck(u, input.insecure));
   if (!r.ok) return r;
-  const bad = problem(r.reply.status, `Jira has no project ${input.project} for this token. Check the key.`);
+  const bad = problem(r.reply.status, `Jira has no project ${input.project} for this token. Check the key.`, t.typed === undefined && tokenInEnv());
   if (bad) return bad;
   const issueTypes: string[] = Array.isArray(r.reply.body?.issueTypes) ? r.reply.body.issueTypes.filter((x: any) => x && !x.subtask && typeof x.name === "string").map((x: any) => x.name as string) : [];
   const saved = t.typed !== undefined ? await saveToken(u, t.typed) : false;

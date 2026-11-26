@@ -74,7 +74,7 @@ function init(s) {
   W = {
     stage: s.stage,
     name: c.project?.name || d.name || "", purpose: "",
-    url: c.tracker?.url || "", project: c.tracker?.project || "", token: "", insecure: c.tracker?.server?.sslVerify === false, projects: null, manual: false, filter: "", local: false, found: [], typesFor: "", later: false, saveOnly: false, saveStage: "", brain: "off", addName: "", addBase: "", typesNote: "", loadedTl: false,
+    url: c.tracker?.url || "", project: c.tracker?.project || "", token: "", own: false, insecure: c.tracker?.server?.sslVerify === false, projects: null, manual: false, filter: "", local: false, found: [], typesFor: "", later: false, saveOnly: false, saveStage: "", brain: "off", addName: "", addBase: "", typesNote: "", loadedTl: false,
     types: [],
     modules: (d.modules || []).map((m) => ({ id: m.id, path: m.path, languages: (m.languages || []).join(", "), frameworks: (m.frameworks || []).join(", "), build: m.build || "", test: m.test || "", lint: m.lint || "" })),
     languages: (c.stack?.languages || d.languages || []).join(", "), frameworks: (c.stack?.frameworks || d.frameworks || []).join(", "),
@@ -100,6 +100,16 @@ const nav = (next, label = "Continue", ok = true) => `<div class="foot">${step >
 const titleFor = (t) => String(W.conv.titlePattern).replaceAll("{commitType}", commitOf(t)).replaceAll("{key}", (S.config?.tracker?.project || "PROJ") + "-123").replaceAll("{summary}", "Reset the password").replaceAll("{type}", t.name);
 const field = (label, key, extra = {}) => `<div class="f"><label for="${key}">${label}</label>${extra.hint ? `<span class="hint">${extra.hint}</span>` : ""}<input class="in" id="${key}" data-bind="${key}" type="${extra.type || "text"}" value="${esc(extra.value ?? "")}" ${extra.ph ? `placeholder="${esc(extra.ph)}"` : ""} autocomplete="off"></div>`;
 
+// With a token already in the environment nothing is asked: typing another one is the person's choice.
+const tokenField = () => {
+  const how = "In Jira, click your picture, then <b>Profile</b>, then <b>Personal Access Tokens</b>, then <b>Create token</b>. Paste it here. It is kept in your Mac's keychain, never in the project and never shared.";
+  const input = `<input class="in" id="token" data-bind="token" type="password" autocomplete="off" placeholder="${W.projects !== null && !W.token && !S.tokenInEnv ? "Saved on this computer" : ""}">`;
+  const swap = (act, label) => `<button class="btn sm" style="align-self:flex-start" data-act="${act}">${label}</button>`;
+  if (!S.tokenInEnv) return `<div class="f"><label for="token">Personal access token</label><span class="hint">${how}</span>${input}</div>`;
+  if (W.own) return `<div class="f"><label for="token">Personal access token</label><span class="hint">${how} While <b>LIFTOFF_JIRA_TOKEN</b> is set, it is used instead of the one you type here.</span>${input}${swap("envToken", "Use LIFTOFF_JIRA_TOKEN instead")}</div>`;
+  return `<div class="f"><span class="lab">Personal access token</span><div class="note n-ok"><b>A token is already set in LIFTOFF_JIRA_TOKEN.</b> LiftOff uses it: you type nothing, and nothing is saved in the keychain.</div>${swap("ownToken", "Type a different token")}</div>`;
+};
+
 const VIEWS = {
   welcome() {
     if (W.stage === "po") return `<div class="eyebrow">Welcome</div><h1>Let's set up LiftOff for your project</h1>
@@ -123,9 +133,7 @@ const VIEWS = {
     return `<div class="eyebrow">Jira</div><h1>Connect to Jira</h1>
       <p class="lede">LiftOff reads your Jira to learn which tickets you use, and later writes tickets there for you, always asking first.</p>
       ${field("Jira address", "url", { value: W.url, ph: "https://jira.yourcompany.com", hint: "The address you type in the browser to open Jira. For example <b>https://jira.yourcompany.com</b>" })}
-      <div class="f"><label for="token">Personal access token</label>
-        <span class="hint">In Jira, click your picture, then <b>Profile</b>, then <b>Personal Access Tokens</b>, then <b>Create token</b>. Paste it here. It is kept in your Mac's keychain, never in the project and never shared. (If you set the <b>LIFTOFF_JIRA_TOKEN</b> environment variable instead, leave this empty: it is used for the address above.)</span>
-        <input class="in" id="token" data-bind="token" type="password" autocomplete="off" placeholder="${W.projects !== null && !W.token ? "Saved on this computer" : ""}"></div>
+      ${tokenField()}
       ${note()}
       ${W.local ? `<div class="sub"><b>Is this a Jira on your own computer?</b>
         <span>Jira's security certificate is not known to this computer. For a test Jira that runs on this very computer you can skip that check. For a real company Jira, do not: ask your IT to install the company certificate, or ask the technical lead.</span>
@@ -312,11 +320,19 @@ const ACTS = {
     if (r.ok) {
       W.projects = r.projects; W.manual = r.projects.length === 0; W.filter = "";
       if (!r.saved && typed) say("warn", "Connected, but the token could not be saved in the keychain, so keep it at hand.");
-      else { W.token = ""; say("ok", r.projects.length ? "Connected. Now choose the project your team uses." : "Connected, but this token does not list any project. Type the project key."); }
+      else {
+        const then = r.projects.length ? "Now choose the project your team uses." : "This token does not list any project: type the project key.";
+        if (S.tokenInEnv && typed) say("warn", "Connected, and the token you typed is saved in your Mac's keychain. LIFTOFF_JIRA_TOKEN is still set and is used instead: remove the variable to use the one you typed. " + then);
+        else if (S.tokenInEnv) say("ok", "Connected with the token in LIFTOFF_JIRA_TOKEN. Nothing was saved in the keychain. Claude Code reads the same variable, so it must be set where you start Claude Code. " + then);
+        else say("ok", "Connected. " + then);
+        W.token = ""; W.own = false;
+      }
     } else if (r.code === "untrusted-local") { W.local = true; say("warn", r.message); }
     else say(r.code === "untrusted-cert" || r.code === "cert-problem" ? "warn" : "bad", r.message || "Could not connect.");
   },
   async local() { W.insecure = true; await ACTS.connect(); },
+  ownToken() { W.own = true; msg = null; },
+  envToken() { W.own = false; W.token = ""; msg = null; },
   manual() { W.manual = true; W.projects = W.projects || []; },
   async pickProject() {
     busy = true; say("info", "Reading the ticket types…"); render();
