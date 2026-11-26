@@ -337,4 +337,19 @@ and three more requests from the walk-through led to these:
     `sslVerify: false` for any address, as before (the local-only rule is for the guide and its own Jira calls).
 89. **Versioning.** `0.5.0` was never tagged (the remote has `v0.1.0`, `v0.3.0`, `v0.4.0`); the next tag is `0.6.0`, made with `npm run release 0.6.0` on `main`
     after the pull request is merged. The pull request carries no version bump; the README installs from `#v0.6.0`.
-
+90. **A folder of repositories gets an offer, not multi-repo support.** The skills take the repository's top folder as the project and run git there, so Build
+    cannot branch or open merge requests in several repositories; a configuration repository does not change that, and both pages say so. The offer is "make
+    this folder a repository for the configuration only" or "skip" (kept in `.liftoff/workspace.json`, personal). `ui/persist.ts` runs `git init` on that click,
+    the second thing it may do with git; it writes `.gitignore` and `WORKSPACE.md`, never inside the repositories below, never a commit or a remote.
+    The `.gitignore` is an allow list (everything ignored but what LiftOff writes), because such a folder holds loose files, some with keys or personal data,
+    that a plain `git add .` would otherwise send to the server. Rules already in the file come after it and win; a settings file that was there and that
+    LiftOff did not write stays ignored; a file LiftOff wrote that git ignores is named at the save, never forced in.
+    Clone addresses lose passwords, tokens and queries, and anything a shell could read as more than an address is left out. Of the files already there, only
+    `liftoff.yaml`, the root `AGENTS.md` and `CLAUDE.md` and the quality bar join the first save: `.mcp.json` and `.claude/settings.json` only when LiftOff
+    wrote them, since they may hold a person's own keys. Submodules were not chosen (pinned commits and detached checkouts for every teammate). Multi-repo
+    Build is a later specification.
+91. **The first commit goes on the branch that is there.** In a repository with no commit, a new `liftoff/setup-*` branch would be the only branch, with nothing
+    to merge into. The save is then the first commit on the current branch (decision 83 still bounds the files), and the push names it.
+92. **Build stops over other repositories.** The configuration repository makes `git rev-parse --show-toplevel` succeed where it failed before, so Build would
+    branch there while the code sits in ignored folders. The skill now stops when a folder below the root has its own `.git` and is not listed in
+    `.gitmodules`. It is an instruction to the agent, not a check in the CLI.
