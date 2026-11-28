@@ -108,11 +108,13 @@ const PATTERN = /[*?[\]\\]|^:/; // git reads names after `--` as patterns: these
 
 // For the engineer to copy and run at the top of the workspace. LiftOff runs none of them. Undefined when a name cannot
 // be written safely. Only the listed files are named, so that other work stays out of the commit.
-export function shareCommands(repo: string, files: string[], names: ShareNames): string[] | undefined {
+export function shareCommands(repo: string, files: string[], names: ShareNames, push = true): string[] | undefined {
   if (files.length === 0 || [repo, names.branch, names.message, ...files].some((s) => UNQUOTABLE.test(s)) || files.some((f) => PATTERN.test(f))) return undefined;
   const at = `git -C ${shQuote(repo)}`;
   const list = files.map(shQuote).join(" ");
-  return [`${at} switch -c ${shQuote(names.branch)}`, `${at} add -- ${list}`, `${at} commit -m ${shQuote(names.message)} -- ${list}`, `${at} push -u origin ${shQuote(names.branch)}`];
+  const steps = [`switch -c ${shQuote(names.branch)}`, `add -- ${list}`, `commit -m ${shQuote(names.message)} -- ${list}`, ...(push ? [`push -u origin ${shQuote(names.branch)}`] : [])];
+  // Chained: pasted as a block, nothing after a step that failed runs (a commit would land on the branch the person is on).
+  return steps.map((step, i) => `${at} ${step}${i < steps.length - 1 ? " &&" : ""}`);
 }
 
 // The .gitignore of a configuration repository. A folder of repositories holds loose files (notes, exports, scripts with

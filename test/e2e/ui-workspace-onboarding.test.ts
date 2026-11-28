@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { parse as parseYaml } from "yaml";
@@ -92,6 +92,14 @@ describe("the settings file of each repository", () => {
     for (const r of ["api", "web"]) expect(existsSync(join(root, r, ".claude"))).toBe(false);
   });
 
+  it("says nothing of a repository's settings file in the product owner's part", async () => {
+    const root = workspace("po-unread", { api: { [FILE]: "// mine\n{}\n" } });
+    const { call } = await server(root);
+    expect(await call("POST", "/api/setup/po", poSetup())).toMatchObject({ ok: true });
+    expect((await call("POST", "/api/save/preview", { stage: "po" })).onboarding).toEqual([]);
+    expect((await call("GET", "/api/setup")).onboarding).toEqual([]);
+  });
+
   it("copies what the root says, not what the plugin ships", async () => {
     const root = workspace("copy");
     write(root, FILE, JSON.stringify({ extraKnownMarketplaces: { liftoff: { source: { source: "github", repo: "saugion/liftoff", ref: "v9.9.9" } }, other: { source: {} } }, enabledPlugins: { "liftoff@liftoff": false, "other@other": true }, permissions: { deny: ["Read(./x)"] } }));
@@ -150,6 +158,15 @@ describe("the settings file of each repository", () => {
     expect(text(root, `api/${FILE}`)).toBe(theirs);
     expect(done.byHand).toEqual([{ file: `api/${FILE}`, add: switchOf(root, FILE) }]);
     expect(existsSync(join(root, "web", FILE))).toBe(true);
+  });
+
+  it("is said in the list of its repository, even with nothing else to share there, until the switch is in it", async () => {
+    const root = shared("unread", { web: { [FILE]: '// mine\n{ "model": "opus" }\n' } });
+    const { call } = await setUp(root);
+    expect(await entry(call, "web")).toEqual({ repo: "web", files: [], review: [], ignored: [], unread: true });
+    expect((await entry(call, "api")).unread).toBeUndefined();
+    write(root, `web/${FILE}`, '// mine\n{ "enabledPlugins": { "liftoff@liftoff": true } }\n');
+    expect(await entry(call, "web")).toBeUndefined();
   });
 
   it("with a section that is not an object is left as it is, and named", async () => {
@@ -341,9 +358,10 @@ const conventions = { codeHost: { kind: "gitlab", host: "gitlab.example.com", co
 const share = async (call: Call, key: unknown) => call("POST", "/api/workspace/share", { key });
 const of = (r: { onboarding: any[] }, repo: string) => r.onboarding.find((e) => e.repo === repo);
 // what the engineer does with them: paste each line, unchanged, in a shell at the workspace root
-const paste = (root: string, commands: string[]) => {
-  for (const c of commands) execFileSync("sh", ["-c", c], { cwd: root, stdio: "pipe" });
-};
+// what a person does with the block on the page: all the lines at once, in one shell that goes on after a failure
+const paste = (root: string, commands: string[]) => void execFileSync("sh", ["-c", commands.join("\n")], { cwd: root, stdio: "pipe" });
+// the same, where something is expected to fail
+const pasteAll = (root: string, commands: string[]) => spawnSync("sh", ["-c", commands.join("\n")], { cwd: root, stdio: "pipe" });
 
 describe("the commands that share it", () => {
   it("are built with the team's patterns and the typed key", async () => {
@@ -351,9 +369,9 @@ describe("the commands that share it", () => {
     const { call } = await setUp(root);
     await apply(call, conventions);
     expect(of(await share(call, "PROJ-123"), "web").commands).toEqual([
-      "git -C 'web' switch -c 'feat/PROJ-123-liftoff-setup'",
-      "git -C 'web' add -- '.claude/settings.json'",
-      "git -C 'web' commit -m 'chore(PROJ-123): LiftOff setup' -- '.claude/settings.json'",
+      "git -C 'web' switch -c 'feat/PROJ-123-liftoff-setup' &&",
+      "git -C 'web' add -- '.claude/settings.json' &&",
+      "git -C 'web' commit -m 'chore(PROJ-123): LiftOff setup' -- '.claude/settings.json' &&",
       "git -C 'web' push -u origin 'feat/PROJ-123-liftoff-setup'",
     ]);
   });
@@ -361,7 +379,7 @@ describe("the commands that share it", () => {
   it("follow Build's own defaults when the team set no pattern", async () => {
     const { call } = await setUp(shared("defaults"));
     expect(of(await share(call, "PROJ-7"), "web").commands).toEqual(expect.arrayContaining([
-      "git -C 'web' switch -c 'PROJ-7-liftoff-setup'", "git -C 'web' commit -m 'PROJ-7: LiftOff setup' -- '.claude/settings.json'",
+      "git -C 'web' switch -c 'PROJ-7-liftoff-setup' &&", "git -C 'web' commit -m 'PROJ-7: LiftOff setup' -- '.claude/settings.json' &&",
     ]));
   });
 
@@ -377,7 +395,7 @@ describe("the commands that share it", () => {
     const before = refs();
     const answer = await share(call, "PROJ-123");
     expect(refs()).toEqual(before); // LiftOff runs none of them
-    for (const e of answer.onboarding) paste(root, e.commands);
+    paste(root, answer.onboarding.flatMap((e: any) => e.commands));
     for (const [r, files] of [["api", [".claude/settings.json", "AGENTS.md", "CLAUDE.md"]], ["web", [".claude/settings.json"]]] as const) {
       const at = join(root, r);
       expect(git(at, "rev-list", "--count", "main..HEAD").trim()).toBe("1");
@@ -416,8 +434,137 @@ describe("the commands that share it", () => {
     git(join(root, "web"), "branch", "PROJ-1-liftoff-setup");
     git(join(root, "web"), "push", "-q", "origin", "main:PROJ-1-liftoff-setup-2");
     const answer = await share(call, "PROJ-1");
-    expect(of(answer, "web").commands[0]).toBe("git -C 'web' switch -c 'PROJ-1-liftoff-setup-3'");
-    expect(of(answer, "api").commands[0]).toBe("git -C 'api' switch -c 'PROJ-1-liftoff-setup'");
+    expect(of(answer, "web").commands[0]).toBe("git -C 'web' switch -c 'PROJ-1-liftoff-setup-3' &&");
+    expect(of(answer, "api").commands[0]).toBe("git -C 'api' switch -c 'PROJ-1-liftoff-setup' &&");
+  });
+
+  it("stop at the first failure in their repository, and go on in the others", async () => {
+    const root = shared("hook-refuses");
+    const { call } = await setUp(root);
+    write(root, "api/.git/hooks/pre-commit", "#!/bin/sh\nexit 1\n");
+    chmodSync(join(root, "api", ".git", "hooks", "pre-commit"), 0o755);
+    pasteAll(root, (await share(call, "PROJ-1")).onboarding.flatMap((e: any) => e.commands));
+    expect(git(join(root, "api"), "ls-remote", "--heads", "origin")).not.toContain("liftoff"); // nothing was pushed
+    expect(git(join(root, "api"), "rev-list", "--count", "HEAD").trim()).toBe("1");
+    expect(git(join(root, "web"), "ls-remote", "--heads", "origin")).toContain("PROJ-1-liftoff-setup");
+  });
+
+  it("commit nothing on the default branch when the new branch cannot be made", async () => {
+    const root = shared("switch-fails");
+    const { call } = await setUp(root);
+    const printed = of(await share(call, "PROJ-1"), "api").commands;
+    git(join(root, "api"), "branch", "PROJ-1-liftoff-setup"); // taken after the page showed the commands
+    pasteAll(root, printed);
+    expect(git(join(root, "api"), "rev-list", "--count", "main").trim()).toBe("1");
+    expect(git(join(root, "api"), "diff", "--cached", "--name-only")).toBe("");
+  });
+
+  it.each([
+    ["a merge", "MERGE_HEAD"],
+    ["a cherry-pick", "CHERRY_PICK_HEAD"],
+    ["a revert", "REVERT_HEAD"],
+    ["a rebase", "rebase-merge"],
+    ["a rebase", "rebase-apply"],
+  ])("are not shown while %s is not finished (%s)", async (what, mark) => {
+    const root = shared(`unfinished-${mark}`);
+    const { call } = await setUp(root);
+    const at = join(root, "api");
+    if (mark.startsWith("rebase")) mkdirSync(join(at, ".git", mark));
+    else write(at, `.git/${mark}`, git(at, "rev-parse", "HEAD"));
+    const e = of(await share(call, "PROJ-1"), "api");
+    expect(e.commands).toBeUndefined();
+    expect(e.warning).toContain(what);
+    expect(of({ onboarding: await list(call) }, "api").warning).toContain(what); // said without a key too
+    expect(of(await share(call, "PROJ-1"), "web").commands).toHaveLength(4);
+  });
+
+  it("see an unfinished merge in a linked worktree", async () => {
+    const root = shared("unfinished-worktree");
+    const main = join(dir, "unfinished-worktree-main");
+    repo(dir, "unfinished-worktree-main");
+    git(main, "worktree", "add", "-q", "-b", "side", join(root, "wt"), "main");
+    const { call } = await setUp(root);
+    write(main, ".git/worktrees/wt/MERGE_HEAD", git(main, "rev-parse", "HEAD"));
+    expect((await entry(call, "wt")).warning).toContain("a merge");
+  });
+
+  it.each([
+    ["here", (at: string) => git(at, "branch", "feat")],
+    ["on the server", (at: string) => git(at, "push", "-q", "origin", "main:feat")],
+  ])("are not shown when a branch %s stands where the new one needs a folder", async (where, make) => {
+    const root = shared(`blocked-${where.replaceAll(" ", "-")}`);
+    const { call } = await setUp(root);
+    await apply(call, conventions);
+    make(join(root, "api"));
+    const answer = await share(call, "PROJ-1");
+    expect(of(answer, "api").commands).toBeUndefined();
+    expect(of(answer, "api").why).toContain("called feat");
+    expect(of(answer, "web").commands).toHaveLength(4);
+  });
+
+  it("take a numbered branch when other branches sit under the name", async () => {
+    const root = shared("under");
+    const { call } = await setUp(root);
+    git(join(root, "web"), "branch", "PROJ-1-liftoff-setup/old");
+    expect(of(await share(call, "PROJ-1"), "web").commands[0]).toBe("git -C 'web' switch -c 'PROJ-1-liftoff-setup-2' &&");
+  });
+
+  it("leave out the files to look at first, which stay as the person left them", async () => {
+    const root = shared("held-back", { api: { [FILE]: '{ "model": "a" }\n' }, web: { [FILE]: '{ "model": "a" }\n' } });
+    write(root, `api/${FILE}`, '{ "env": { "KEY": "mine" } }\n');
+    write(root, `web/${FILE}`, '{ "env": { "KEY": "mine" } }\n');
+    const { call } = await setUp(root);
+    const answer = await share(call, "PROJ-1");
+    const api = of(answer, "api");
+    expect(api).toMatchObject({ review: [FILE] });
+    expect(api.commands.join("\n")).not.toContain("settings.json");
+    expect(of(answer, "web")).toMatchObject({ review: [FILE] });
+    expect(of(answer, "web").commands).toBeUndefined(); // nothing else to commit there
+    expect(of(answer, "web").why).toBeUndefined();
+    paste(root, api.commands);
+    expect(git(join(root, "api"), "show", "--name-only", "--format=", "HEAD")).not.toContain("settings.json");
+    expect(git(join(root, "api"), "status", "--porcelain")).toContain(FILE);
+  });
+
+  it("stop before the push where there is no server to push to, and say how to add one", async () => {
+    const root = shared("no-origin");
+    git(join(root, "api"), "remote", "remove", "origin");
+    const { call } = await setUp(root);
+    const api = of(await share(call, "PROJ-1"), "api");
+    expect(api.commands).toHaveLength(3);
+    expect(api.commands.join("\n")).not.toContain("push");
+    expect(api.commands.at(-1)).not.toContain("&&");
+    expect(api.why).toContain("git remote add origin");
+    paste(root, api.commands);
+    expect(git(join(root, "api"), "rev-list", "--count", "main..HEAD").trim()).toBe("1");
+  });
+
+  it("speak of no commits to carry on a branch that has none, as after a commit that was refused", async () => {
+    const root = shared("empty-branch");
+    const { call } = await setUp(root);
+    git(join(root, "api"), "switch", "-qc", "feat/empty");
+    expect((await entry(call, "api")).warning).toBe("This repository is on feat/empty, not on main. Switch to main first.");
+    git(join(root, "api"), "commit", "-qm", "work", "--allow-empty");
+    expect((await entry(call, "api")).warning).toContain("would carry the commits of feat/empty");
+  });
+
+  it("leave no warning on the branch that holds only the setup, while a file is still to be looked at", async () => {
+    const root = shared("setup-branch", { web: { [FILE]: '{ "model": "a" }\n' } });
+    write(root, `web/${FILE}`, '{ "model": "mine" }\n');
+    const { call } = await server(root);
+    await call("POST", "/api/setup/po", poSetup());
+    await call("POST", "/api/setup/tl", { modules: [{ id: "web", path: "web" }], targets: ["claude-code"] });
+    paste(root, of(await share(call, "PROJ-1"), "web").commands);
+    const after = of(await share(call, "PROJ-1"), "web");
+    expect(after).toMatchObject({ files: [FILE], review: [FILE], setup: true, branch: "PROJ-1-liftoff-setup" });
+    expect(after.warning).toBeUndefined();
+    expect(after.commands).toBeUndefined();
+    // work of another kind on that branch brings the warning back
+    write(root, "web/mine.txt", "mine\n");
+    commit(join(root, "web"), "mine.txt");
+    const mixed = of(await share(call, "PROJ-1"), "web");
+    expect(mixed.setup).toBeUndefined();
+    expect(mixed.warning).toContain("PROJ-1-liftoff-setup");
   });
 
   it("are not shown while a repository has a warning, and the others keep theirs", async () => {
@@ -503,13 +650,71 @@ describe("what the two pages say about the repositories", () => {
     expect(read(p.html)).not.toContain("Type a ticket key of");
   });
 
+  it("the guide's check page promises no file in a repository left out", async () => {
+    const root = shared("page-check-left-out");
+    const s = await server(root);
+    expect(await s.call("POST", "/api/setup/po", poSetup())).toMatchObject({ ok: true });
+    const p = await openPage(join(ROOT, "ui", "wizard.html"), s.ui.url);
+    await p.click("next"); // welcome
+    p.change({ dataset: { repo: "web" }, checked: false });
+    for (let n = 0; n < 12 && !p.button("create"); n++) await p.click("next");
+    expect(p.text).toContain("api/AGENTS.md");
+    expect(p.text).not.toContain("web/AGENTS.md");
+  });
+
+  // api has an unreadable settings file and no server; web has a file to look at
+  const minors = (name: string) => {
+    const root = shared(name, { api: { [FILE]: '// mine\n{}\n' }, web: { [FILE]: '{ "model": "a" }\n' } });
+    write(root, `web/${FILE}`, '{ "model": "mine" }\n');
+    write(root, "api/AGENTS.md", "");
+    git(join(root, "api"), "remote", "remove", "origin");
+    return root;
+  };
+  const MINORS = ["did not switch its plugin on here", "git remote add origin", "commit and push them yourself on PROJ-1-liftoff-setup"];
+  const both = { modules: [{ id: "api", path: "api" }, { id: "web", path: "web" }], targets: ["claude-code"] };
+  const wraps = (html: string) => {
+    expect(html).toContain("white-space:pre-wrap");
+    expect(html).not.toContain("white-space:pre;");
+  };
+
+  it("the control panel says what to do about an unreadable file, a missing server and a setup branch; long lines wrap", async () => {
+    const root = minors("panel-minors");
+    const s = await server(root);
+    await s.call("POST", "/api/setup/po", poSetup());
+    await s.call("POST", "/api/setup/tl", both);
+    paste(root, of(await share(s.call, "PROJ-1"), "web").commands);
+    const p = await openPanel(join(ROOT, "ui", "page.html"), s.ui.url);
+    await p.edit({ sk: "" }, "PROJ-1");
+    await p.press("Show the commands");
+    for (const said of MINORS) expect(read(p.html)).toContain(said);
+    wraps(p.html);
+  });
+
+  it("the guide says the same", async () => {
+    const root = minors("guide-minors");
+    const s = await server(root);
+    await s.call("POST", "/api/setup/po", poSetup());
+    const p = await openPage(join(ROOT, "ui", "wizard.html"), s.ui.url);
+    for (let n = 0; n < 12 && !p.button("create"); n++) await p.click("next");
+    await p.click("create");
+    await p.settle();
+    p.type({ dataset: { bind: "shareKey" }, value: "PROJ-1" });
+    await p.click("showCommands");
+    paste(root, of(await share(s.call, "PROJ-1"), "web").commands);
+    await p.click("showCommands");
+    for (const said of MINORS) expect(read(p.html)).toContain(said);
+    wraps(p.html);
+  });
+
   it("the control panel lists them on the overview and the review", async () => {
     const root = shared("page-panel", { api: { ".gitignore": ".claude/\n" }, web: { [FILE]: '{ "model": "a" }\n' } });
     write(root, `web/${FILE}`, '{ "model": "mine" }\n');
     const s = await setUp(root);
+    // a module in web too, so that it has files besides the one to look at first
+    expect(await apply(s.call, { modules: { items: [{ id: "api", path: "api" }, { id: "web", path: "web" }] } })).toMatchObject({ ok: true });
     git(join(root, "api"), "switch", "-qc", "feat/other");
     const p = await openPanel(join(ROOT, "ui", "page.html"), s.ui.url);
-    for (const expected of ["Share the setup in each repository", "Ignored by .gitignore", `!/${FILE}`, "api/.gitignore", "feat/other", "Look at these before", BRANCH_NOTICE, IMPORT_NOTICE]) expect(read(p.html)).toContain(expected);
+    for (const expected of ["Share the setup in each repository", "Ignored by .gitignore", `!/${FILE}`, "api/.gitignore", "feat/other", "Not in the commands", BRANCH_NOTICE, IMPORT_NOTICE]) expect(read(p.html)).toContain(expected);
     await p.edit({ sk: "" }, "PROJ-9");
     await p.press("Show the commands");
     expect(read(p.html)).toContain("git -C 'web' switch -c 'PROJ-9-liftoff-setup'");
@@ -629,6 +834,25 @@ describe("leaving a repository out", () => {
     await apply(call);
     expect(existsSync(join(root, "web", ".claude"))).toBe(false);
     expect(parseYaml(yaml(root))).toEqual(parseYaml(mine));
+  });
+
+  it("gets no instruction file either, though a module lives in it", async () => {
+    const root = shared("module-left-out");
+    const { call } = await server(root);
+    expect(await call("POST", "/api/setup/po", poSetup())).toMatchObject({ ok: true });
+    const modules = [{ id: "api", path: "api" }, { id: "web", path: "./web/" }, { id: "deep", path: "web/deep" }];
+    const done = await call("POST", "/api/setup/tl", { modules, targets: ["claude-code"], exclude: ["web"] });
+    expect(done).toMatchObject({ ok: true, render: { ok: true } });
+    for (const f of ["AGENTS.md", "CLAUDE.md"]) expect(existsSync(join(root, "api", f))).toBe(true);
+    expect(git(join(root, "web"), "status", "--porcelain", "-uall")).toBe("");
+    expect(existsSync(join(root, "web", "deep"))).toBe(false);
+    expect(text(root, "AGENTS.md")).toContain("| web |"); // still one of the project's modules
+    expect(await call("GET", "/api/state")).toMatchObject({ creates: [], needsApply: false });
+    expect(await apply(call)).toMatchObject({ ok: true, render: { ok: true } });
+    expect(git(join(root, "web"), "status", "--porcelain", "-uall")).toBe("");
+    // included again, it gets them
+    expect(await apply(call, { workspace: null })).toMatchObject({ ok: true });
+    for (const f of ["web/AGENTS.md", "web/CLAUDE.md", "web/deep/AGENTS.md", `web/${FILE}`]) expect(existsSync(join(root, f))).toBe(true);
   });
 
   it("is not written when nothing is left out, and a name with a path is refused where it stands", async () => {

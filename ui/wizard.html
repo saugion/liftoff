@@ -133,14 +133,16 @@ const elsewhereView = (p) => {
 const reposView = (list) => {
   if (!(list || []).length) return "";
   const names = (files) => files.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>");
-  const block = (text) => `<pre class="mono" style="white-space:pre;overflow-x:auto;margin:6px 0">${esc(text)}</pre>`; // a line to copy is never cut in two: it scrolls
+  const block = (text) => `<pre class="mono" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0">${esc(text)}</pre>`; // wraps on screen only: what is copied keeps its lines
   const repo = (e) => `<div class="note n-info"><b class="mono">${esc(e.repo)}</b>${e.branch ? ` on <span class="mono">${esc(e.branch)}</span>` : ""}
     ${e.warning ? `<br><b>${esc(e.warning)}</b>` : ""}${e.files.length ? `<br>${names(e.files)}` : ""}
-    ${e.review.length ? `<br><b>Look at these before you commit them</b> (they may hold changes of yours):<br>${names(e.review)}` : ""}
+    ${e.review.length ? `<br><b>Not in the commands, because they may hold changes of yours:</b><br>${names(e.review)}<br>${e.setup ? `Check them, then commit and push them yourself on <span class="mono">${esc(e.branch)}</span>.` : e.commands ? "Check them, then commit and push them yourself on the new branch, after the commands." : "Check them, then commit and push them yourself."}` : ""}
     ${e.ignored.map((i) => `<br><b>Ignored by <span class="mono">.gitignore</span>, so not in the commands:</b> <span class="mono">${esc(i.file)}</span><br>To share it, add at the end of <span class="mono">${esc(e.repo)}/.gitignore</span>:${block(i.lines.join("\n"))}`).join("")}
+    ${e.setup && e.files.length > e.review.length ? `<br>Commit and push what is left on <span class="mono">${esc(e.branch)}</span>.` : ""}
+    ${e.unread ? `<br><b><span class="mono">${esc(e.repo)}/.claude/settings.json</span> could not be read</b> (comments, a trailing comma or a typo?), so LiftOff did not switch its plugin on here, and the file is not in the commands. Copy <span class="mono">extraKnownMarketplaces</span> and <span class="mono">enabledPlugins</span> into it from the <span class="mono">.claude/settings.json</span> of this folder, then commit and push it yourself.` : ""}
     ${e.commands ? block(e.commands.join("\n")) : ""}${e.why ? `<br>${esc(e.why)}` : ""}</div>`;
   return `<h2>Share the setup in each repository</h2>
-    <p class="hint">For an engineer. LiftOff wrote these files inside the repositories and commits nothing there: each repository needs its own branch and merge request. Type a ticket key to see the commands, to be run in this folder. LiftOff runs none of them.</p>
+    <p class="hint">For an engineer. LiftOff wrote these files inside the repositories and commits nothing there: each repository needs its own branch and merge request. Type a ticket key to see the commands, to be run in this folder. Paste the lines of one repository together: they stop at the first one that fails. LiftOff runs none of them.</p>
     <div class="row"><input class="in" id="shareKey" data-bind="shareKey" aria-label="Ticket key for the commands" placeholder="Ticket key, such as ${esc(S.config?.tracker?.project || W.project || "PROJ")}-123" value="${esc(W.shareKey || "")}" autocomplete="off"><button class="btn" data-act="showCommands">Show the commands</button></div>
     ${W.shared && W.shared.keyError ? `<div class="note n-warn">${esc(W.shared.keyError)}</div>` : ""}
     ${list.map(repo).join("")}
@@ -250,7 +252,7 @@ const VIEWS = {
     if (!(S.repos || []).length) return "";
     const names = [...new Set([...S.repos, ...W.excl])].sort();
     return `<h1 style="font-size:20px;margin-top:8px">Repositories LiftOff writes in</h1>
-      <p class="hint">In each ticked repository LiftOff switches its plugin on, so that an assistant started inside it has LiftOff. Untick one to leave it alone: the choice is shared with the team. The instruction files of the parts above are not affected.</p>
+      <p class="hint">In each ticked repository LiftOff switches its plugin on, so that an assistant started inside it has LiftOff. Untick one to leave it alone: LiftOff writes nothing in it, not even the instructions of a part inside it. The choice is shared with the team.</p>
       ${names.map((r) => `<label class="opt"><input type="checkbox" data-repo="${esc(r)}" ${W.excl.includes(r) ? "" : "checked"}><span><span class="mono">${esc(r)}</span>${(S.repos || []).includes(r) ? "" : ' <span class="hint">not in this folder</span>'}</span></label>`).join("")}
       ${older(S.version, "0.8") && W.excl.length ? `<div class="note n-warn">Leaving a repository out needs LiftOff 0.8, and this is ${esc(S.version)}: update the plugin first.</div>` : ""}`;
   },
@@ -350,7 +352,8 @@ const ACTS = {
   async next() {
     step++; msg = null;
     if (steps()[step] === "review") { // say which files will be created, before creating them
-      const r = await api("POST", "/api/validate", { patch: W.stage === "tl" ? { modules: { items: W.modules.map((m) => ({ id: m.id, path: m.path })) } } : {} });
+      const left = W.excl.length ? { workspace: { exclude: W.excl } } : S.config && S.config.workspace ? { workspace: null } : {};
+      const r = await api("POST", "/api/validate", { patch: W.stage === "tl" ? { modules: { items: W.modules.map((m) => ({ id: m.id, path: m.path })) }, ...left } : {} });
       W.creates = r.creates || [];
     }
     if (W.stage === "tl" && steps()[step] === "types" && !W.loadedTl) { // the lead's machine may have no token: then the Jira type is typed

@@ -2,7 +2,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSyn
 import { basename, dirname, join, relative } from "node:path";
 import { type Agent, configHash, requiredSections, sectionHashes } from "../config/index.js";
 import { CLAUDE_BODY } from "../render/claude.js";
-import { normalizeModulePath, renderAgentFiles, type RenderedFile } from "../render/index.js";
+import { inLeftOutRepo, normalizeModulePath, renderAgentFiles, type RenderedFile } from "../render/index.js";
 import { bodyHash, normalizeEol, parseMarker } from "../render/marker.js";
 import { atomicWrite, isInside, resolveReal } from "./fsutil.js";
 import { readConfigWithPin, readFailure } from "./read-config.js";
@@ -153,7 +153,8 @@ export function applyRender(root: string, opts: { overwrite: string[] }): Render
   const plannedReal = new Set(generated.map((f) => join(resolveReal(dirname(join(realRoot, f.path))), basename(f.path))));
   const needed = ["AGENTS.md"];
   if (config.agents.targets.includes("claude-code")) {
-    needed.push(...(config.modules?.items ?? []).map((m) => `${normalizeModulePath(m.path)}/AGENTS.md`));
+    const items = (config.modules?.items ?? []).filter((m) => !inLeftOutRepo(config.workspace?.exclude, m.path));
+    needed.push(...items.map((m) => `${normalizeModulePath(m.path)}/AGENTS.md`));
   }
   const preflight = checkAgentsMd(realRoot, needed, plannedReal);
   if (preflight.length > 0) return fatal(...preflight);

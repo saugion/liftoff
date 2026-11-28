@@ -13,6 +13,10 @@ export const normalizeModulePath = (p: string): string =>
     .filter((segment) => segment !== "" && segment !== ".")
     .join("/");
 
+// A module inside a repository the team left out (`workspace.exclude`): nothing is written there.
+export const inLeftOutRepo = (exclude: readonly string[] | undefined, modulePath: string): boolean =>
+  exclude?.includes(normalizeModulePath(modulePath).split("/")[0]!) ?? false;
+
 const byPath = (a: RenderedFile, b: RenderedFile) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 
 // Pure: config in, files out. No I/O, no clock, nothing machine-specific, so the output is deterministic.
@@ -42,7 +46,8 @@ export function renderAgentFiles(config: Config, opts: RenderOptions): Result<Re
 
   const files: RenderedFile[] = [];
   if (config.agents.targets.includes("claude-code")) {
-    files.push(claudeFile("CLAUDE.md", opts.generatorVersion), ...paths.map((p) => claudeFile(`${p}/CLAUDE.md`, opts.generatorVersion)));
+    const written = paths.filter((p) => !inLeftOutRepo(config.workspace?.exclude, p));
+    files.push(claudeFile("CLAUDE.md", opts.generatorVersion), ...written.map((p) => claudeFile(`${p}/CLAUDE.md`, opts.generatorVersion)));
   }
   if (wantsCopilot) files.push(copilotFile(constraintsFile, opts.generatorVersion));
   return { ok: true, value: files.sort(byPath) };

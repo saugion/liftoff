@@ -19,6 +19,7 @@ import { KEY_RE } from "../src/plan/build.js";
 import { brainInit } from "../src/cli/brain-init.js";
 import { brainExtras, claudeSettings, mcpFiles, refreshRoot, repoSettings, scaffold, stacksIn, toCreate, type ByHand, type ModuleInfo, type ScaffoldInput, type Scaffolded } from "./scaffold.js";
 import { checkConfig } from "../src/cli/check.js";
+import { inLeftOutRepo } from "../src/render/index.js";
 
 export const DRAFT_FILE = ".liftoff/ui-draft.json";
 const MAX_BODY = 1_000_000;
@@ -68,9 +69,10 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
 
   // The files a setup would have to create for this config. It may be half typed, so nothing is assumed about it.
   function creates(config: unknown): string[] {
-    const c = config as { modules?: { items?: unknown }; constraints?: { file?: unknown } } | null;
+    const c = config as { modules?: { items?: unknown }; constraints?: { file?: unknown }; workspace?: { exclude?: unknown } } | null;
+    const out = Array.isArray(c?.workspace?.exclude) ? c.workspace.exclude.filter((x): x is string => typeof x === "string") : [];
     const items = Array.isArray(c?.modules?.items) ? (c.modules.items as ({ path?: unknown } | null)[]) : [];
-    const paths = items.flatMap((m) => (typeof m?.path === "string" && m.path !== "" && inside(m.path) ? [m.path] : []));
+    const paths = items.flatMap((m) => (typeof m?.path === "string" && m.path !== "" && inside(m.path) && !inLeftOutRepo(out, m.path) ? [m.path] : []));
     const file = typeof c?.constraints?.file === "string" && inside(c.constraints.file) ? c.constraints.file : DEFAULT_CONSTRAINTS;
     return toCreate(root, paths, file);
   }
@@ -178,7 +180,7 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
   // The files around a config, written the same way by the guide and by the control panel: the AGENTS.md files and the
   // quality bar from the templates (a file with content is never replaced), and the project brain when it was just asked for.
   function projectFiles(config: Config, o: Pick<ScaffoldInput, "name" | "purpose" | "modules" | "commands"> & { refresh?: string[]; newBrain?: boolean }): Scaffolded {
-    const input: ScaffoldInput = { name: o.name, purpose: o.purpose, modules: o.modules, commands: o.commands, constraintsFile: config.constraints?.file ?? DEFAULT_CONSTRAINTS, targets: config.agents.targets };
+    const input: ScaffoldInput = { name: o.name, purpose: o.purpose, modules: o.modules, commands: o.commands, constraintsFile: config.constraints?.file ?? DEFAULT_CONSTRAINTS, targets: config.agents.targets, exclude: config.workspace?.exclude };
     const out = scaffold(root, assets()!, input);
     if (o.refresh && o.refresh.length > 0 && refreshRoot(root, input, o.refresh)) out.written.push("AGENTS.md");
     if (o.newBrain) {
@@ -218,7 +220,10 @@ export async function startUi(opts: { root: string; page: string; wizard?: strin
     const target = c?.codeHost?.conventions?.targetBranch;
     const checked = key === undefined ? undefined : validateConfig(c);
     const names = key !== undefined && checked?.ok ? shareNames(key, connectors(checked.value).codeHost) : undefined;
-    return toShare(root, included(), typeof target === "string" ? target : undefined, names);
+    // an unreadable settings file is said once the repositories were chosen: never in the product owner's part
+    const set = state().config as { agents?: { targets?: unknown }; project?: { setup?: unknown } } | null;
+    const switches = set?.project?.setup !== "po" && Array.isArray(set?.agents?.targets) && set.agents.targets.includes("claude-code");
+    return toShare(root, included(), typeof target === "string" ? target : undefined, names, switches);
   }
 
   // The commands need one ticket key, of a project the config knows: the server accepts no branch or message without it.
