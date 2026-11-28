@@ -376,3 +376,16 @@ and three more requests from the walk-through led to these:
 97. **The product owner's part writes nothing inside the repositories of a workspace.** Which repositories to leave out is
     the technical lead's question, and it must be answered before anything is written; the product owner is not asked.
     Excluded names with no folder are kept (a colleague may not have cloned them). `workspace` is never a required section.
+98. **The commands cannot do harm when pasted blindly** (smoke run of 2026-11-28, confirmed by the product manager). The
+    lines of a repository are chained with `&&`: unchained, a failed `switch -c` left the next lines committing on the
+    default branch. A file to look at first is listed but in no command (amends 96): one held a person's secret. No
+    command while a merge, cherry-pick, revert or rebase is unfinished, nor when a branch named like a folder of the new
+    one exists.
+99. **A repository left out gets nothing at all** (same run, confirmed): also no `AGENTS.md` or `CLAUDE.md` for a module
+    inside it, by the pages or by `liftoff render`. The module stays in `modules.items` and in the root `AGENTS.md`.
+100. **The list always gives a way out** (same run, the product manager asked to fix the small defects). No `origin`:
+    the commands stop at the commit and say how to add one. A settings file that cannot be read and does not name the
+    plugin keeps its repository in the list, even with nothing else to share, with what to copy and from where. A branch
+    whose commits only touch what LiftOff wrote is the setup's own: no warning there, the files kept out of the commands
+    are to be committed and pushed on it. Promoting a lesson into a module of a repository left out says why there is no
+    file, instead of sending to Init. Command lines wrap on screen; what is copied keeps its lines.

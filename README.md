@@ -315,14 +315,20 @@ Nothing is added for a team that does not use Claude Code.
 Those files, and the `AGENTS.md` and `CLAUDE.md` of a repository's modules, are not part of the configuration
 repository's save. Both pages list them, repository by repository:
 
-- the files LiftOff wrote that git shows as not committed, and the ones to **look at first** because they may hold
-  changes of yours (including a file that an earlier LiftOff wrote);
+- the files LiftOff wrote that git shows as not committed. Apart from them, the ones that may hold changes of yours
+  (including a file that an earlier LiftOff wrote): **they are never in the commands**, you check them and commit them
+  yourself;
 - a file the repository's `.gitignore` keeps out, with the lines that let it in;
 - the branch, with a warning when it is not the default one, or holds commits not on the server yet. The default one is
   the team's target branch when the repository has it, else the server's default, else `main` or `master`.
 
 Type a ticket key and the page shows, for each repository with no warning, the commands for one branch, one commit and
 one push, named with your branch and title patterns. Run them in the folder, then open one merge request per repository.
+The lines of a repository are chained with `&&`: pasted together, nothing runs after one that failed. There is no command
+while a merge, rebase, cherry-pick or revert is unfinished, or when an existing branch makes the new name impossible
+(a branch `feat` rules out `feat/...`). A repository with no `origin` gets no push line, and the page says how to add
+one. A settings file LiftOff cannot read is named in its repository's entry, with what to copy into it. On a branch
+that holds only the setup, what was kept out of the commands is listed for you to commit and push there.
 **LiftOff runs none of them**, and they name only the listed files, so other work stays out of the commit. A repository
 disappears from the list once its files are committed.
 
@@ -333,8 +339,8 @@ Two things to know:
   rules). Accept it: a refusal is remembered, and the shared rules then never load there.
 
 **Leaving a repository out.** Every repository is included until you untick it (guide) or leave it out (control panel,
-under the modules). One left out gets no settings file and no entry in the list; files already written there stay, and
-its modules' instruction files are chosen in the list of modules. The choice is shared with the team:
+under the modules). One left out gets nothing, neither the settings file nor the instruction files of a module inside
+it, and has no entry in the list; files already written there stay. The choice is shared with the team:
 
 ```yaml
 workspace:
@@ -404,7 +410,7 @@ brain"), each change shown as a diff.
 page before applying a half-filled setup, and installs and updates now follow the `stable` branch. See
 [`CHANGELOG.md`](CHANGELOG.md), "0.7.1".
 
-**Tested:** 2,157 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
+**Tested:** 2,180 automated tests, including end-to-end runs against a fake Jira, a fake `glab` and a real git
 remote. Both parts of the setup guide were driven step by step in a simulated page against the real program, the fake
 Jira and a git remote. By hand, the pages were also checked in a real browser (headless Chrome), with the real macOS
 Keychain and the real `mcp-atlassian` against the fake Jira. Agents have followed the skills against the fakes in
