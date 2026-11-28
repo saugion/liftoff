@@ -2,6 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { repoFolders } from "../src/cli/fsutil.js";
 import { LIFTOFF_DIR } from "../src/cli/state.js";
+import type { CodeHostConfig } from "../src/config/index.js";
+import { shQuote } from "../src/connect/shell.js";
+import { fill, safeBranch, slugify } from "../src/plan/build.js";
 import { gitInfo } from "./detect.js";
 
 // A "workspace": a folder holding several repositories. LiftOff is made for one repository, so the pages say what does
@@ -31,6 +34,23 @@ export function childRepos(root: string): ChildRepo[] {
     const url = cleanUrl(gitInfo(join(root, path)).originUrl ?? "");
     return { path, ...(url && { url }) };
   });
+}
+
+// The folders .gitmodules lists: they are part of the root's repository, not repositories of the workspace.
+function submodules(root: string): Set<string> {
+  let text = "";
+  try {
+    text = readFileSync(join(root, ".gitmodules"), "utf8");
+  } catch {
+    // none
+  }
+  return new Set([...text.matchAll(/^[ \t]*path[ \t]*=[ \t]*(?:"([^"\r\n]*)"|([^#;\r\n]*))/gm)].map((m) => (m[1] ?? m[2]!).trim().replace(/^\.\/|\/+$/g, "")));
+}
+
+// The repositories LiftOff onboards: a `.git` of their own directly below the root, no submodule, not left out.
+export function workspaceRepos(root: string, exclude: string[] = []): string[] {
+  const not = new Set([...submodules(root), ...exclude]);
+  return repoFolders(root).filter((f) => !not.has(f));
 }
 
 const skipped = (root: string) => {
@@ -64,6 +84,37 @@ function allow(path: string, folder = false): string[] {
   for (let n = 2; n < parts.length; n++) out.push(`!/${parts.slice(0, n).join("/")}/`, `/${parts.slice(0, n).join("/")}/*`);
   const full = parts.join("/");
   return folder ? [...out, ...(parts.length > 1 ? [`!/${full}/`] : []), `!/${full}/**`] : [...out, `!/${full}`];
+}
+
+// The lines that let `file` into a repository whose .gitignore keeps it out; `closed` are its folders that are ignored.
+export function letIn(file: string, closed: string[]): string[] {
+  return [...closed.flatMap((d) => [`!/${literal(d)}/`, `/${literal(d)}/*`]), `!/${literal(file)}`];
+}
+
+// The branch and commit message of the commands that share a repository's setup, from the team's own patterns, so they
+// match the names Build would make (the server accepts them only with a ticket key).
+export interface ShareNames { branch: string; message: string }
+export function shareNames(key: string, codeHost?: CodeHostConfig): ShareNames {
+  const summary = "LiftOff setup";
+  const values = { key, slug: slugify(summary), type: "chore", summary, commitType: "chore" };
+  return {
+    branch: safeBranch(fill(codeHost?.conventions.branchPattern ?? "{key}-{slug}", values)),
+    message: fill(codeHost?.conventions.titlePattern ?? "{key}: {summary}", values),
+  };
+}
+
+const UNQUOTABLE = /[\u0000-\u001f\u007f]/; // a pasted line break would run what follows it
+const PATTERN = /[*?[\]\\]|^:/; // git reads names after `--` as patterns: these would take more than the file itself
+
+// For the engineer to copy and run at the top of the workspace. LiftOff runs none of them. Undefined when a name cannot
+// be written safely. Only the listed files are named, so that other work stays out of the commit.
+export function shareCommands(repo: string, files: string[], names: ShareNames, push = true): string[] | undefined {
+  if (files.length === 0 || [repo, names.branch, names.message, ...files].some((s) => UNQUOTABLE.test(s)) || files.some((f) => PATTERN.test(f))) return undefined;
+  const at = `git -C ${shQuote(repo)}`;
+  const list = files.map(shQuote).join(" ");
+  const steps = [`switch -c ${shQuote(names.branch)}`, `add -- ${list}`, `commit -m ${shQuote(names.message)} -- ${list}`, ...(push ? [`push -u origin ${shQuote(names.branch)}`] : [])];
+  // Chained: pasted as a block, nothing after a step that failed runs (a commit would land on the branch the person is on).
+  return steps.map((step, i) => `${at} ${step}${i < steps.length - 1 ? " &&" : ""}`);
 }
 
 // The .gitignore of a configuration repository. A folder of repositories holds loose files (notes, exports, scripts with

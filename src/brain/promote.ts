@@ -58,6 +58,7 @@ export interface PromoteInput {
   lessons: Lesson[];
   // where an `agents-md` lesson goes: the root file, or the module's file
   agentsFile: (module: string | undefined) => string | undefined; // undefined: unknown module
+  whyAbsent?: (path: string) => string | undefined; // why a file is missing, where Init would not create it
   constraintsFile: string;
   files: Record<string, TargetFile | undefined>; // path -> current text (undefined: missing)
   inBlocks: Set<string>; // keys already in a block
@@ -74,7 +75,7 @@ export function planPromotion(input: PromoteInput): PromoteResult {
   const rulesOf = (path: string): BlockRule[] | { error: PromoteResult } => {
     if (next.has(path)) return next.get(path)!;
     const f = input.files[path];
-    if (!f) return { error: fail("lesson-invalid", `${path} does not exist: create it first (Init)`, path) };
+    if (!f) return { error: fail("lesson-invalid", `${path} does not exist: ${input.whyAbsent?.(path) ?? "create it first (Init)"}`, path) };
     const block = parseBlock(f.text);
     if (block.errors.length > 0) return { error: fail("lessons-block-invalid", `${path}: ${block.errors[0]!.message} (line ${block.errors[0]!.line})`, path) };
     kinds.set(path, f.kind);

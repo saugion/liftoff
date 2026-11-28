@@ -93,7 +93,7 @@ async function api(method, path, body) {
 // ---------- model
 const SECTIONS = [
   { id: 1, label: "Project", sub: "Name, agents, stack", keys: ["name", "kind", "targets", "langs", "fw", "done"] },
-  { id: 2, label: "Modules", sub: "Parts of the codebase", keys: ["mods"] },
+  { id: 2, label: "Modules", sub: "Parts of the codebase", keys: ["mods", "excl"] },
   { id: 3, label: "Tracker", sub: "Jira Data Center", keys: ["tver", "turl", "tkey", "readOnly", "ssl", "elf", "enf", "its"] },
   { id: 4, label: "Code host", sub: "GitLab and branches", keys: ["host", "tb", "bp", "tpat", "mrt", "labels", "revs", "git"] },
   { id: 5, label: "Work streams", sub: "Kanban side projects", keys: ["streams"] },
@@ -101,7 +101,7 @@ const SECTIONS = [
   { id: 7, label: "Brain", sub: "What the project learns", keys: ["brain", "cap", "metrics", "po"] },
 ];
 const REVIEW = 8;
-const LAB = { done: "Technical setup complete", name: "Project name", kind: "Project kind", targets: "Agents", langs: "Languages", fw: "Frameworks", mods: "Modules", tver: "Jira version", turl: "Jira URL", tkey: "Project key", readOnly: "Read-only access", ssl: "Verify SSL", elf: "Epic link field", enf: "Epic name field", its: "Issue types", host: "GitLab host", tb: "Target branch", bp: "Branch pattern", tpat: "MR title pattern", mrt: "MR template", labels: "MR labels", revs: "Reviewers", git: "Git during Build", streams: "Work streams", cfile: "Constraints file", ctext: "Constraints text", brain: "Project brain", cap: "Correction capture", metrics: "Pilot metrics", po: "PO review of tickets" };
+const LAB = { done: "Technical setup complete", name: "Project name", kind: "Project kind", targets: "Agents", langs: "Languages", fw: "Frameworks", mods: "Modules", excl: "Repositories left out", tver: "Jira version", turl: "Jira URL", tkey: "Project key", readOnly: "Read-only access", ssl: "Verify SSL", elf: "Epic link field", enf: "Epic name field", its: "Issue types", host: "GitLab host", tb: "Target branch", bp: "Branch pattern", tpat: "MR title pattern", mrt: "MR template", labels: "MR labels", revs: "Reviewers", git: "Git during Build", streams: "Work streams", cfile: "Constraints file", ctext: "Constraints text", brain: "Project brain", cap: "Correction capture", metrics: "Pilot metrics", po: "PO review of tickets" };
 
 let S = null; // server state
 let O = {};   // the config as saved
@@ -113,6 +113,7 @@ let advOpen = { 3: false, 4: false };
 let TK = { token: "", own: false, busy: false, k: "", note: "" }; // the Jira token: never part of the form, so never in the draft
 let SV = null, SAVED = null; // what could be saved to the team, and how the last save went
 let WS = { made: false, error: "" }; // the configuration repository: created on this visit, or why not
+let SHARE = { key: "", shown: false, list: null, error: "" }; // the commands for a workspace's repositories: not part of the form either
 
 const csvOf = (a) => (a || []).join(", ");
 const csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
@@ -126,6 +127,7 @@ function fromConfig(c, constraints) {
     done: c.project?.setup !== "po",
     name: c.project?.name || "", kind: c.project?.kind || "new", targets: c.agents?.targets || ["claude-code"], langs: csvOf(c.stack?.languages), fw: csvOf(c.stack?.frameworks),
     mods: (c.modules?.items || []).map((m) => ({ id: m.id, path: m.path, desc: m.description || "", was: m.id })),
+    excl: [...(c.workspace?.exclude || [])].sort(),
     tver: s.version || "", turl: t.url || "", tkey: t.project || "", readOnly: s.readOnly ?? true, ssl: s.sslVerify ?? true, elf: t.epicLinkField || "", enf: t.epicNameField || "",
     its: (t.issueTypes || []).map((i) => ({ name: i.name, branch: i.branchType || "", jira: i.jiraType || "", commit: i.commitType || "", tpl: i.template || "", ac: i.readingMap?.acceptanceCriteria?.heading || "", acKind: i.readingMap?.acceptanceCriteria?.field ? "field" : i.readingMap?.acceptanceCriteria?.heading ? "heading" : "none", was: i.name })),
     host: h.host || "", tb: cv.targetBranch || "", bp: cv.branchPattern || "", tpat: cv.titlePattern || "", mrt: cv.mrTemplate || "", labels: csvOf(cv.labels), revs: csvOf(cv.reviewers), git: c.build?.git || "assisted",
@@ -144,6 +146,7 @@ function fromConfig(c, constraints) {
   return form;
 }
 
+const older = (have, need) => { const [a, b] = [have, need].map((v) => String(v).split(".").map(Number)); return a[0] < b[0] || (a[0] === b[0] && (a[1] || 0) < (b[1] || 0)); };
 // The patch the server merges into liftoff.yaml. A field the user did not touch is left out, so saving never
 // rewrites what it was not asked to change; null clears a value that existed.
 function toPatch() {
@@ -155,9 +158,13 @@ function toPatch() {
   const set = (sec, key, val) => { if (val !== undefined) (p[sec] = p[sec] || {})[key] = val; };
   // A setting that needs a newer plugin raises the version the config asks for; it never lowers it.
   const atLeast = (min) => {
-    const [a, b] = [String(O.plugin?.version || S.version), min].map((v) => v.split(".").map(Number));
-    if (a[0] < b[0] || (a[0] === b[0] && (a[1] || 0) < (b[1] || 0))) set("plugin", "version", min);
+    if (older(p.plugin?.version || O.plugin?.version || S.version, min)) set("plugin", "version", min);
   };
+  // Repositories left out (plugin.version 0.8): the section is there only while one is.
+  if (!same(F.excl, B.excl)) {
+    if (F.excl.length) { set("workspace", "exclude", F.excl); atLeast("0.8"); }
+    else if (O.workspace) p.workspace = null;
+  }
   if (ch("name")) set("project", "name", F.name);
   if (ch("kind")) set("project", "kind", F.kind);
   if (fresh || (ch("done") && F.done && O.project?.setup === "po")) set("project", "setup", "done");
@@ -205,7 +212,7 @@ function toPatch() {
 // ---------- errors: where each server error lands
 const MAP = [
   [/^\/project\/name/, 1, "name"], [/^\/project/, 1, "kind"], [/^\/agents/, 1, "targets"], [/^\/stack\/frameworks/, 1, "fw"], [/^\/stack/, 1, "langs"],
-  [/^\/modules\/items\/(\d+)\/(id|path|description)/, 2, "mods.$1.$2"], [/^\/modules/, 2, "mods"],
+  [/^\/modules\/items\/(\d+)\/(id|path|description)/, 2, "mods.$1.$2"], [/^\/modules/, 2, "mods"], [/^\/workspace/, 2, "excl"],
   [/^\/tracker\/url/, 3, "turl"], [/^\/tracker\/project/, 3, "tkey"], [/^\/tracker\/server/, 3, "tver"], [/^\/tracker\/epicLinkField/, 3, "elf"], [/^\/tracker\/epicNameField/, 3, "enf"],
   [/^\/tracker\/issueTypes\/(\d+)\/name/, 3, "its.$1.name"], [/^\/tracker\/issueTypes\/(\d+)\/branchType/, 3, "its.$1.branch"], [/^\/tracker\/issueTypes\/(\d+)\/jiraType/, 3, "its.$1.jira"], [/^\/tracker\/issueTypes\/(\d+)\/commitType/, 3, "its.$1.commit"], [/^\/tracker\/issueTypes\/(\d+)\/template/, 3, "its.$1.tpl"], [/^\/tracker/, 3, "tracker"],
   [/^\/codeHost\/host/, 4, "host"], [/^\/codeHost\/conventions\/targetBranch/, 4, "tb"], [/^\/codeHost\/conventions\/branchPattern/, 4, "bp"], [/^\/codeHost\/conventions\/titlePattern/, 4, "tpat"],
@@ -328,6 +335,16 @@ const stage = () => (O.project?.setup === "po" && !F.done ? "po" : "tl");
 async function previewShare() {
   const r = await api("POST", "/api/save/preview", { stage: stage() }).catch(() => null);
   SV = r && r.ok ? r : null;
+  if (SHARE.shown) await askCommands(); // the commands follow what the repositories hold now
+}
+async function askCommands() {
+  const r = await api("POST", "/api/workspace/share", { key: SHARE.key.trim() }).catch(() => null);
+  if (r && r.ok) Object.assign(SHARE, { shown: true, list: r.onboarding, error: r.keyError || "" });
+  else Object.assign(SHARE, { shown: false, list: null, error: (r && r.message) || "That did not work." });
+}
+async function showCommands() {
+  await askCommands();
+  draw();
 }
 async function share() {
   SAVED = await api("POST", "/api/save", { stage: stage(), files: SV.files });
@@ -351,7 +368,30 @@ async function workspaceAct(act) {
   draw();
 }
 const ignoredView = () => ((SV && SV.ignored) || []).length ? `<div class="note n-warn"><b>Ignored by <span class="mono">.gitignore</span>, so not in this save:</b><br>${SV.ignored.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}<br>To share one, add a line <span class="mono">!/its/path</span> at the end of <span class="mono">.gitignore</span>.</div>` : "";
-const elsewhereView = () => ((SV && SV.elsewhere) || []).length ? `<div class="note n-info"><b>These files are in other repositories, not in this save. Commit them there:</b><br>${SV.elsewhere.map((e) => e.files.map((f) => `<span class="mono">${esc(e.repo + "/" + f)}</span>`).join("<br>")).join("<br>")}</div>` : "";
+const elsewhereView = () => {
+  const others = ((SV && SV.elsewhere) || []).filter((e) => !(SV.repositories || []).includes(e.repo)); // the workspace's own have their list
+  return others.length ? `<div class="note n-info"><b>These files are in other repositories, not in this save. Commit them there:</b><br>${others.map((e) => e.files.map((f) => `<span class="mono">${esc(e.repo + "/" + f)}</span>`).join("<br>")).join("<br>")}</div>` : "";
+};
+// A workspace: what each repository still has to share of what LiftOff wrote in it.
+function reposView() {
+  const list = SHARE.list || (SV && SV.onboarding) || S.onboarding || [];
+  if (!list.length) return "";
+  const names = (files) => files.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>");
+  const block = (text) => `<pre class="mono" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0">${esc(text)}</pre>`; // wraps on screen only: what is copied keeps its lines
+  const repo = (e) => `<div class="note n-info"><b class="mono">${esc(e.repo)}</b>${e.branch ? ` on <span class="mono">${esc(e.branch)}</span>` : ""}
+    ${e.warning ? `<br><b>${esc(e.warning)}</b>` : ""}${e.files.length ? `<br>${names(e.files)}` : ""}
+    ${e.review.length ? `<br><b>Not in the commands, because they may hold changes of yours:</b><br>${names(e.review)}<br>${e.setup ? `Check them, then commit and push them yourself on <span class="mono">${esc(e.branch)}</span>.` : e.commands ? "Check them, then commit and push them yourself on the new branch, after the commands." : "Check them, then commit and push them yourself."}` : ""}
+    ${e.ignored.map((i) => `<br><b>Ignored by <span class="mono">.gitignore</span>, so not in the commands:</b> <span class="mono">${esc(i.file)}</span><br>To share it, add at the end of <span class="mono">${esc(e.repo)}/.gitignore</span>:${block(i.lines.join("\n"))}`).join("")}
+    ${e.setup && e.files.length > e.review.length ? `<br>Commit and push what is left on <span class="mono">${esc(e.branch)}</span>.` : ""}
+    ${e.unread ? `<br><b><span class="mono">${esc(e.repo)}/.claude/settings.json</span> could not be read</b> (comments, a trailing comma or a typo?), so LiftOff did not switch its plugin on here, and the file is not in the commands. Copy <span class="mono">extraKnownMarketplaces</span> and <span class="mono">enabledPlugins</span> into it from the <span class="mono">.claude/settings.json</span> of this folder, then commit and push it yourself.` : ""}
+    ${e.commands ? block(e.commands.join("\n")) : ""}${e.why ? `<br>${esc(e.why)}` : ""}</div>`;
+  return `<div class="card"><b>Share the setup in each repository</b>
+    <div class="hint">LiftOff wrote these files inside the repositories and commits nothing there: each repository needs its own branch and merge request. Type a ticket key to see the commands, to be run in this folder. Paste the lines of one repository together: they stop at the first one that fails. LiftOff runs none of them.</div>
+    <div class="row"><input class="in" data-sk="" aria-label="Ticket key for the commands" placeholder="Ticket key, such as ${esc(O.tracker?.project || "PROJ")}-123" value="${esc(SHARE.key)}" autocomplete="off"><button class="btn sm" style="flex:0 0 auto" data-a="share">Show the commands</button></div>
+    ${SHARE.error ? `<div class="note n-warn">${esc(SHARE.error)}</div>` : ""}
+    ${list.map(repo).join("")}
+    <div class="hint">The files are on the new branch only: switching back removes the new ones from the folder until the merge request is merged.<br>The first time the agent starts inside a repository it asks to approve an import from the folder above (the shared rules). Accept it: a refusal is remembered, and the shared rules then never load there.</div></div>`;
+}
 function shareView() {
   let h = SAVED ? (SAVED.ok ? `<div class="note n-ok"><b>Saved on the branch <span class="mono">${esc(SAVED.branch)}</span>${SAVED.pushed ? " and pushed" : ""}.</b> ${esc(SAVED.note || (SAVED.first ? "The team gets it by cloning this repository." : "The team gets it when it is merged."))}</div>` : `<div class="note n-bad">${esc(SAVED.message || "Not saved.")}</div>`) : "";
   if (!SV) return h;
@@ -381,7 +421,7 @@ ${field("fw", "Frameworks", "e.g. spring, react", ' <small>· comma separated, o
   2: () => `${F.mods.length ? "" : '<div class="note n-info">No modules yet. Modules are the parts of your codebase tickets and streams can point to. Optional.</div>'}
 ${F.mods.map((m, i) => `<div class="card"><div class="row">${rowIn("mods", i, "id", "Id", "e.g. api", m.id)}${rowIn("mods", i, "path", "Folder", "e.g. services/api", m.path)}</div>${rowIn("mods", i, "description", "What it does <small>· optional</small>", "One line a new teammate would understand", m.desc)}<button class="btn sm" style="align-self:flex-start" data-a="del" data-l="mods" data-i="${i}">Remove module</button></div>`).join("")}
 <button class="btn" style="align-self:flex-start" data-a="add" data-l="mods" ${addDis("mods")}>Add a module</button>
-${foundList()}${createsNote()}`,
+${foundList()}${createsNote()}${reposChoice()}`,
   3: () => `${field("turl", "Jira Data Center URL", "https://jira.your-company.com")}
 ${tokenBox()}
 <div class="row">${teamProject()}${field("tver", "Jira version", "e.g. 9.12.4")}</div>
@@ -409,6 +449,14 @@ ${rowIn("streams", i, "epics", "Epics <small>· comma separated, optional</small
 ${tog("metrics", "Pilot metrics", "Counts only, stored locally. No ticket keys, rules, paths or names.")}
 <div class="f"><span class="lab">PO review of tickets</span>${segs("po", [["on", "Ask and review (default)"], ["nudge", "Ask, one yes"], ["off", "Off"]])}<div class="hint">${F.po === "on" ? "The agent asks the why and the out-of-scope and lists its assumptions; the PO answers each." : F.po === "nudge" ? "The same questions, but one yes approves the assumptions." : "One approval for the batch, as before."}</div></div>
 ${F.brain && !O.brain ? '<div class="note n-warn">Applying creates the brain/ folder, adds a short pointer to AGENTS.md, a rule that keeps the original sources read-only, and a merge rule for its log.</div>' : ""}`,
+};
+// A workspace: the repositories LiftOff writes in. A name left out that has no folder here stays listed, to be taken back.
+const reposChoice = () => {
+  if (!(S.repos || []).length) return "";
+  const names = [...new Set([...S.repos, ...F.excl])].sort();
+  return `<div class="f"><span class="lab">Repositories LiftOff writes in</span><div class="hint">In each one LiftOff switches its plugin on, so that an assistant started inside it has LiftOff. One left out gets nothing, not even the instructions of a module inside it, and is not listed for sharing; the choice is shared with the team.</div>
+${names.map((r) => `<div class="box"><span><span class="mono">${esc(r)}</span> <span class="hint">${F.excl.includes(r) ? "left out" : "included"}${S.repos.includes(r) ? "" : " · not in this folder"}</span></span><button class="btn sm" data-a="excl" data-v="${esc(r)}">${F.excl.includes(r) ? "Include" : "Leave out"}</button></div>`).join("")}
+${E("excl")}${older(S.version, "0.8") && F.excl.length ? `<div class="note n-warn">Leaving a repository out needs LiftOff 0.8, and this is ${esc(S.version)}: applying saves the choice, but the agent files and the repositories’ plugin switch wait until the plugin is updated.</div>` : ""}</div>`;
 };
 const adv = (n, inner) => `<button class="btn sm" style="align-self:flex-start" data-a="adv" data-n="${n}" aria-expanded="${advOpen[n] || advHasErr(n)}">${advOpen[n] || advHasErr(n) ? "Hide" : "Show"} advanced settings</button>${advOpen[n] || advHasErr(n) ? `<div class="adv">${inner}</div>` : ""}`;
 const advKeys = { 3: ["elf", "enf"], 4: ["tpat", "mrt", "labels", "revs"] };
@@ -470,7 +518,7 @@ function overview() {
   if (S.needsApply) h += `<div class="note n-warn"><b>liftoff.yaml is saved but not fully applied in this folder.</b> <button class="btn sm" data-a="go" data-s="${REVIEW}">Review and apply</button></div>`;
   if (resume) h += `<div class="note n-info" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center"><span><b>Welcome back.</b> You left off at <b>${esc(resume.label)}</b> (${esc(new Date(resume.savedAt).toLocaleString())}). ${resume.stale ? "liftoff.yaml changed on disk since." : ""}</span><span class="row" style="flex:0 0 auto"><button class="btn sm" data-a="drop-draft">Discard draft</button><button class="btn sm pri" data-a="resume">Resume</button></span></div>`;
   h += '<div class="grid">' + SECTIONS.map((c) => { const st = status(c); return `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px"><b>${c.label}</b><span class="chip c-${st[1]}">${st[0]}</span></div><div style="color:var(--mut);word-break:break-word">${esc(summary(c.id))}</div><button class="btn sm" style="align-self:flex-start" data-a="go" data-s="${c.id}">${S.exists ? "Edit" : visited[c.id] ? "Continue" : "Start"}</button></div>`; }).join("") + "</div>";
-  return h;
+  return h + reposView();
 }
 function review() {
   const ch = changes(), e = errs();
@@ -482,13 +530,13 @@ function review() {
   if (!result) h += createsNote();
   if (O.project?.setup === "po") h += tog("done", "The technical setup is complete", "Turn it on when the technical part is filled in, so Init stops sending people to the guide.");
   if (!S.exists) h += '<p class="lede">First write. This creates liftoff.yaml' + (F.ctext.trim() ? " and " + esc(F.cfile) : "") + ", then renders the agent files. The preview on the right is the exact text.</p>";
-  return h + shareView();
+  return h + shareView() + reposView();
 }
 const byHandView = (list) => (list || []).length ? `<div class="note n-warn"><b>These files were left as they are.</b> LiftOff could not read them (comments, a trailing comma or a typo?), so it did not write over them. Check that each holds what follows:${list.map((x) => `<br><span class="mono">${esc(x.file)}</span><pre class="mono" style="white-space:pre-wrap;word-break:break-all;margin:6px 0">${esc(JSON.stringify(x.add, null, 2))}</pre>`).join("")}</div>` : "";
 function resultView() {
   const r = result.render;
   let h = `<div class="note n-ok"><b>Applied.</b> liftoff.yaml is up to date.</div>`;
-  h += byHandView(result.byHand);
+  h += byHandView(result.byHand) + (result.notices || []).map((x) => `<div class="note n-warn">${esc(x)}</div>`).join("");
   if ((result.written || []).length) h += `<div class="note n-info"><b>Written:</b><br>${result.written.map((f) => `<span class="mono">${esc(f)}</span>`).join("<br>")}</div>`;
   if (r && r.ok) h += `<div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">${r.files.map((f) => `<div class="chg"><b class="mono" style="flex:1 1 auto;word-break:break-all">${esc(f.path)}</b><span class="chip c-${f.action === "conflict" ? "dirty" : "saved"}">${esc(f.action)}${f.reason ? ": " + esc(f.reason) : ""}</span></div>`).join("")}</div>` + (r.files.some((f) => f.action === "conflict") ? '<div class="note n-warn">A file marked conflict was left untouched because someone edited it by hand. Resolve it with the Init skill.</div>' : "") + (r.notices || []).map((x) => `<div class="note n-info">${esc(x)}</div>`).join("");
   else if (r) h += `<div class="note n-warn"><b>The config is saved, but the agent files were not rendered:</b><br>${(r.errors || []).map((x) => esc(x.message)).join("<br>")}</div>`;
@@ -554,6 +602,7 @@ function setList(l, i, f, v) {
 document.addEventListener("input", (ev) => {
   const t = ev.target;
   if (t.dataset.tk !== undefined) return void (TK.token = t.value); // nothing else depends on it: the page is not redrawn
+  if (t.dataset.sk !== undefined) return void (SHARE.key = t.value); // the same: it is not part of the configuration
   if (t.dataset.k) { F[t.dataset.k] = t.value; if (t.dataset.k === "turl") { JP = { list: null, note: "", loading: false }; TK.note = ""; } }
   else if (t.dataset.l) setList(t.dataset.l, +t.dataset.i, t.dataset.f, t.value);
   else return;
@@ -578,6 +627,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (a === "set") F[d.k] = d.v;
   else if (a === "flip") F[d.k] = !F[d.k];
+  else if (a === "excl") F.excl = (F.excl.includes(d.v) ? F.excl.filter((x) => x !== d.v) : F.excl.concat([d.v])).sort();
   else if (a === "target") F.targets = F.targets.includes(d.v) ? F.targets.filter((x) => x !== d.v) : F.targets.concat([d.v]);
   else if (a === "adv") { advOpen[d.n] = !advOpen[d.n]; return draw(); }
   else if (a === "tab") { tab = +d.i; return drawPreview(); }
@@ -585,6 +635,7 @@ document.addEventListener("click", async (ev) => {
   else if (a === "owntoken") { Object.assign(TK, { own: true, note: "" }); return draw(); }
   else if (a === "envtoken") { Object.assign(TK, { own: false, token: "", note: "" }); return draw(); }
   else if (a === "save") return share();
+  else if (a === "share") return showCommands();
   else if (a === "wsinit" || a === "wsskip") return workspaceAct(a.slice(2));
   else if (a === "adddet" || a === "alldet") F.mods.push(...foundModules().filter((m) => a === "alldet" || m.path === d.v).map((m) => ({ id: m.id, path: m.path, desc: "", was: "" })));
   else if (a === "jtypes") {

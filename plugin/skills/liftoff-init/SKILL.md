@@ -141,6 +141,8 @@ The people who set LiftOff up may never use a terminal. **Never ask the person t
   `.github/copilot-instructions.md` for `copilot`). Remove a placeholder line that has nothing to put in it
   (`EXTRA_RULES`, `EXTRA_PATHS`). In apply mode with no `AGENTS.md` (a lead wrote the config first): fill it from the
   config; the purpose becomes `<!-- TODO: purpose -->`, with no question.
+- **A module inside a repository listed in `workspace.exclude` gets no file:** the team left that repository out, so
+  write nothing in it (`render` skips it too).
 - **Each module:** fill `assets/module-agents-md-template.md` (stack, build/test/lint/run commands). In apply mode,
   detect only for module paths that have no `AGENTS.md` yet, write `TODO` where you cannot tell, and propose the new
   row of the root modules table **as a diff with approval**.

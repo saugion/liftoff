@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { type Lesson, serializeLesson } from "../brain/lesson.js";
 import { parseBlock } from "../brain/lessons-block.js";
 import { type TargetFile, normalizeSelection, planPromotion, selectionErrors } from "../brain/promote.js";
+import { inLeftOutRepo } from "../render/index.js";
 import { NO_BRAIN, brainFail } from "./brain-init.js";
 import { atomicWrite, resolveReal } from "./fsutil.js";
 import { LESSONS_DIR, NO_LESSONS, lessonFail, lessonsProblem, readLessons, today } from "./lesson-add.js";
@@ -63,7 +64,9 @@ export const lessonPromote: Handler = ({ root, file, write }) => {
 
   const { lessons } = readLessons(realRoot);
   const date = today();
-  const plan = planPromotion({ selection, lessons, agentsFile: moduleFile, constraintsFile, files, inBlocks, maxRules: settings.maxRules, today: date });
+  const leftOut = new Set((config.modules?.items ?? []).filter((m) => inLeftOutRepo(config.workspace?.exclude, m.path)).map((m) => moduleFile(m.id)));
+  const whyAbsent = (path: string) => (leftOut.has(path) ? "its repository is left out (workspace.exclude), so LiftOff writes nothing there. Include it again and apply the setup, or keep the lesson personal" : undefined);
+  const plan = planPromotion({ selection, lessons, whyAbsent, agentsFile: moduleFile, constraintsFile, files, inBlocks, maxRules: settings.maxRules, today: date });
   if (!plan.ok) return lessonFail(plan.code, plan.message, plan.file ? { file: plan.file } : {});
 
   if (write) {

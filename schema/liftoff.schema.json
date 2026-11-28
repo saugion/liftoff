@@ -661,6 +661,22 @@
         }
       }
     },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A project root that holds several repositories, each with its own .git folder.",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "description": "Repositories LiftOff leaves alone: folder names directly below the root. A name with no folder is allowed (a repository not cloned here).",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!\\.\\.?$)[^/\\\\\\u0000-\\u001f\\u007f]+$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
     "pilot": {
       "type": "object",
       "additionalProperties": false,

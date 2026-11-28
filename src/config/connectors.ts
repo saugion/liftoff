@@ -8,6 +8,7 @@ export const MIN_BUILD_PLUGIN = "0.3";
 export const MIN_BRAIN_PLUGIN = "0.4";
 export const MIN_HANDBOOK_PLUGIN = "0.5";
 export const MIN_PRACTICES_PLUGIN = "0.5";
+export const MIN_WORKSPACE_PLUGIN = "0.8";
 
 // The Jira type a LiftOff type is created as, and how a ticket of a team-named type is told apart again: Jira only
 // knows it as that type, so LiftOff adds the label liftoff-<name> when it creates one and reads that label back.
@@ -194,6 +195,9 @@ export function connectorErrors(raw: RawConfig): ConfigError[] {
     if (raw[section] && (compareVersions(raw.plugin.version, MIN_PRACTICES_PLUGIN) ?? -1) < 0) {
       errors.push({ path: "/plugin/version", message: `the ${section} section needs plugin.version ${MIN_PRACTICES_PLUGIN} or newer` });
     }
+  }
+  if (raw.workspace && (compareVersions(raw.plugin.version, MIN_WORKSPACE_PLUGIN) ?? -1) < 0) {
+    errors.push({ path: "/plugin/version", message: `the workspace section needs plugin.version ${MIN_WORKSPACE_PLUGIN} or newer` });
   }
   if (raw.brain) {
     if ((compareVersions(raw.plugin.version, MIN_BRAIN_PLUGIN) ?? -1) < 0) {

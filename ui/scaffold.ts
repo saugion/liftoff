@@ -2,13 +2,14 @@ import { existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { atomicWrite, isInside, resolveReal } from "../src/cli/fsutil.js";
 import { buildInfo } from "../src/connect/info.js";
+import { inLeftOutRepo } from "../src/render/index.js";
 import type { Config } from "../src/config/index.js";
 import { INSTALLED_VERSION } from "../src/cli/version.js";
 
 // The files Init used to write by hand, written from the same templates (plugin/skills/liftoff-init/assets) with
 // what the panel knows. Never replaces a file that exists: a team's own AGENTS.md or CONSTRAINTS.md wins.
 export interface ModuleInfo { id: string; path: string; stack: string; build?: string; test?: string; lint?: string }
-export interface ScaffoldInput { name: string; purpose: string; constraintsFile: string; targets: string[]; modules: ModuleInfo[]; commands: { build?: string; test?: string; lint?: string } }
+export interface ScaffoldInput { name: string; purpose: string; constraintsFile: string; targets: string[]; modules: ModuleInfo[]; commands: { build?: string; test?: string; lint?: string }; exclude?: string[] }
 // A settings file left alone, and what the person has to add to it.
 export interface ByHand { file: string; add: Record<string, unknown> }
 export interface Scaffolded { written: string[]; kept: string[]; byHand?: ByHand[] }
@@ -85,7 +86,7 @@ export function scaffold(root: string, assetsDir: string, input: ScaffoldInput):
     EXTRA_RULES: "", EXTRA_PATHS: pathsText(input), // rows of a table: no marker can sit inside it
     AGENT_FILES_LIST: block("agents", agentsText(input)),
   }));
-  for (const m of input.modules) {
+  for (const m of input.modules.filter((x) => !inLeftOutRepo(input.exclude, x.path))) {
     put(`${m.path}/AGENTS.md`, fill(tpl("module-agents-md-template.md"), {
       MODULE_NAME: m.id, REL_PATH_TO_ROOT: "../".repeat(m.path.split("/").filter(Boolean).length), STACK: m.stack || "-", MODULE_PATH: m.path,
       BUILD_CMD: cmd(m.build), TEST_CMD: cmd(m.test), LINT_CMD: cmd(m.lint), RUN_CMD: "not configured",
@@ -136,6 +137,58 @@ export function claudeSettings(root: string, assetsDir: string, byHand: ByHand[]
   if (JSON.stringify(next) === JSON.stringify(now) && existsSync(file)) return undefined;
   writeJson(root, rel, next);
   return rel;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+
+const readableSwitch = (v: Record<string, any> | undefined): v is Record<string, any> =>
+  v !== undefined && [v.extraKnownMarketplaces, v.enabledPlugins].every((x) => x === undefined || isRecord(x));
+
+// A repository whose settings file cannot take the switch and does not already name the plugin: a person has to add it.
+export function switchUnread(root: string, repo: string): boolean {
+  const file = join(root, repo, ".claude", "settings.json");
+  try {
+    if (!isInside(resolveReal(join(root, repo)), resolveReal(file)) || readableSwitch(settingsAt(file))) return false;
+    return !readFileSync(file, "utf8").includes('"liftoff@liftoff"');
+  } catch {
+    return false;
+  }
+}
+
+// The same switch in each repository of a workspace, so that an agent started inside one has the plugin: the root's own
+// LiftOff entry, added only where absent. A repository that cannot take it is named and never stops the others.
+export function repoSettings(root: string, assetsDir: string, repos: string[], byHand: ByHand[], notices: string[]): string[] {
+  if (repos.length === 0) return [];
+  const rel = ".claude/settings.json";
+  const shipped = readJson(join(assetsDir, "marketplace-entry.json"));
+  const mine = settingsAt(join(root, rel));
+  const entry = mine?.extraKnownMarketplaces?.liftoff;
+  if (entry === undefined) notices.push(`The ${rel} of this folder holds no readable LiftOff entry: the repositories get the one LiftOff ships.`);
+  const marketplaces: Record<string, unknown> = { liftoff: entry ?? shipped.extraKnownMarketplaces.liftoff };
+  const plugins = Object.fromEntries(Object.entries(shipped.enabledPlugins).map(([k, v]) => [k, (entry === undefined ? undefined : mine?.enabledPlugins?.[k]) ?? v]));
+  const written: string[] = [];
+  for (const repo of repos) {
+    const name = `${repo}/${rel}`;
+    try {
+      const file = join(root, name);
+      if (!isInside(resolveReal(join(root, repo)), resolveReal(file))) {
+        notices.push(`${name} was not written: it leads outside the repository.`);
+        continue;
+      }
+      const now = settingsAt(file);
+      if (!readableSwitch(now)) {
+        byHand.push({ file: name, add: { extraKnownMarketplaces: marketplaces, enabledPlugins: plugins } });
+        continue;
+      }
+      const next = { ...now, extraKnownMarketplaces: { ...marketplaces, ...now.extraKnownMarketplaces }, enabledPlugins: { ...plugins, ...now.enabledPlugins } };
+      if (JSON.stringify(next) === JSON.stringify(now)) continue;
+      writeJson(root, name, next);
+      written.push(name);
+    } catch (e) {
+      notices.push(`${name} could not be written: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return written;
 }
 
 // The Jira server entry of each agent's MCP file, from the same code the Connect skill uses. A different entry of

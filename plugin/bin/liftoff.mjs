@@ -14304,6 +14304,7 @@ var MIN_BUILD_PLUGIN = "0.3";
 var MIN_BRAIN_PLUGIN = "0.4";
 var MIN_HANDBOOK_PLUGIN = "0.5";
 var MIN_PRACTICES_PLUGIN = "0.5";
+var MIN_WORKSPACE_PLUGIN = "0.8";
 var jiraTypeOf = (t) => t.jiraType ?? t.name;
 var isCustomType = (t) => t.jiraType !== void 0 && t.jiraType.toLowerCase() !== t.name.toLowerCase();
 var typeLabel = (t) => `liftoff-${t.name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "type"}`;
@@ -14423,6 +14424,9 @@ function connectorErrors(raw) {
       errors.push({ path: "/plugin/version", message: `the ${section} section needs plugin.version ${MIN_PRACTICES_PLUGIN} or newer` });
     }
   }
+  if (raw.workspace && (compareVersions(raw.plugin.version, MIN_WORKSPACE_PLUGIN) ?? -1) < 0) {
+    errors.push({ path: "/plugin/version", message: `the workspace section needs plugin.version ${MIN_WORKSPACE_PLUGIN} or newer` });
+  }
   if (raw.brain) {
     if ((compareVersions(raw.plugin.version, MIN_BRAIN_PLUGIN) ?? -1) < 0) {
       errors.push({ path: "/plugin/version", message: `the brain section needs plugin.version ${MIN_BRAIN_PLUGIN} or newer` });
@@ -14500,6 +14504,7 @@ function normalize(raw) {
     ...raw.tracker && { tracker: Object.keys(raw.tracker).length === 0 ? {} : normalizeTracker(raw.tracker) },
     ...raw.practices && { practices: normalizePractices(raw.practices) },
     ...raw.pilot && { pilot: { metrics: raw.pilot.metrics ?? true, required: raw.pilot.required ?? false } },
+    ...raw.workspace && { workspace: { exclude: [...raw.workspace.exclude ?? []] } },
     ...raw.build && { build: { git: raw.build.git ?? "assisted", required: raw.build.required ?? false } },
     ...raw.brain && {
       brain: {
@@ -15225,6 +15230,22 @@ var liftoff_schema_default = {
         }
       }
     },
+    workspace: {
+      type: "object",
+      additionalProperties: false,
+      description: "A project root that holds several repositories, each with its own .git folder.",
+      properties: {
+        exclude: {
+          type: "array",
+          description: "Repositories LiftOff leaves alone: folder names directly below the root. A name with no folder is allowed (a repository not cloned here).",
+          items: {
+            type: "string",
+            pattern: "^(?!\\.\\.?$)[^/\\\\\\u0000-\\u001f\\u007f]+$"
+          },
+          uniqueItems: true
+        }
+      }
+    },
     pilot: {
       type: "object",
       additionalProperties: false,
@@ -15401,6 +15422,7 @@ var copilotFile = (constraintsFile, generatorVersion) => ({
 
 // src/render/index.ts
 var normalizeModulePath = (p) => p.split(/[\\/]+/).filter((segment) => segment !== "" && segment !== ".").join("/");
+var inLeftOutRepo = (exclude, modulePath) => exclude?.includes(normalizeModulePath(modulePath).split("/")[0]) ?? false;
 var byPath = (a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
 function renderAgentFiles(config, opts) {
   const items = config.modules?.items ?? [];
@@ -15426,7 +15448,8 @@ function renderAgentFiles(config, opts) {
   if (errors.length > 0) return { ok: false, errors };
   const files = [];
   if (config.agents.targets.includes("claude-code")) {
-    files.push(claudeFile("CLAUDE.md", opts.generatorVersion), ...paths.map((p) => claudeFile(`${p}/CLAUDE.md`, opts.generatorVersion)));
+    const written = paths.filter((p) => !inLeftOutRepo(config.workspace?.exclude, p));
+    files.push(claudeFile("CLAUDE.md", opts.generatorVersion), ...written.map((p) => claudeFile(`${p}/CLAUDE.md`, opts.generatorVersion)));
   }
   if (wantsCopilot) files.push(copilotFile(constraintsFile, opts.generatorVersion));
   return { ok: true, value: files.sort(byPath) };
@@ -15688,7 +15711,8 @@ function applyRender(root, opts) {
   const plannedReal = new Set(generated.map((f) => join5(resolveReal(dirname2(join5(realRoot, f.path))), basename2(f.path))));
   const needed = ["AGENTS.md"];
   if (config.agents.targets.includes("claude-code")) {
-    needed.push(...(config.modules?.items ?? []).map((m) => `${normalizeModulePath(m.path)}/AGENTS.md`));
+    const items = (config.modules?.items ?? []).filter((m) => !inLeftOutRepo(config.workspace?.exclude, m.path));
+    needed.push(...items.map((m) => `${normalizeModulePath(m.path)}/AGENTS.md`));
   }
   const preflight2 = checkAgentsMd(realRoot, needed, plannedReal);
   if (preflight2.length > 0) return fatal(...preflight2);
@@ -18176,7 +18200,7 @@ function planPromotion(input) {
   const rulesOf = (path) => {
     if (next.has(path)) return next.get(path);
     const f = input.files[path];
-    if (!f) return { error: fail5("lesson-invalid", `${path} does not exist: create it first (Init)`, path) };
+    if (!f) return { error: fail5("lesson-invalid", `${path} does not exist: ${input.whyAbsent?.(path) ?? "create it first (Init)"}`, path) };
     const block = parseBlock(f.text);
     if (block.errors.length > 0) return { error: fail5("lessons-block-invalid", `${path}: ${block.errors[0].message} (line ${block.errors[0].line})`, path) };
     kinds.set(path, f.kind);
@@ -18298,7 +18322,9 @@ var lessonPromote = ({ root, file, write }) => {
   }
   const { lessons } = readLessons(realRoot);
   const date = today();
-  const plan = planPromotion({ selection, lessons, agentsFile: moduleFile, constraintsFile, files, inBlocks, maxRules: settings.maxRules, today: date });
+  const leftOut = new Set((config.modules?.items ?? []).filter((m) => inLeftOutRepo(config.workspace?.exclude, m.path)).map((m) => moduleFile(m.id)));
+  const whyAbsent = (path) => leftOut.has(path) ? "its repository is left out (workspace.exclude), so LiftOff writes nothing there. Include it again and apply the setup, or keep the lesson personal" : void 0;
+  const plan = planPromotion({ selection, lessons, whyAbsent, agentsFile: moduleFile, constraintsFile, files, inBlocks, maxRules: settings.maxRules, today: date });
   if (!plan.ok) return lessonFail(plan.code, plan.message, plan.file ? { file: plan.file } : {});
   if (write) {
     ensureSelfIgnore(realRoot);

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cleanUrl, ignoreLine, workspaceDoc } from "../../ui/workspace.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { cleanUrl, ignoreLine, workspaceDoc, workspaceRepos } from "../../ui/workspace.js";
+import { tempDir } from "../helpers.js";
 
 describe("the clone address written for the team", () => {
   it.each([
@@ -31,4 +34,22 @@ describe("the clone address written for the team", () => {
     expect(ignoreLine("api")).toBe("/api/");
     expect(ignoreLine("a[1]*")).toBe("/a\\[1\\]\\*/");
   });
+});
+
+describe("the repositories of a workspace", () => {
+  const root = (gitmodules?: string) => {
+    const dir = tempDir("liftoff-repos-");
+    for (const f of ["api", "web", "libs", "plain", ".hidden"]) mkdirSync(join(dir, f, f === "plain" ? "src" : ".git"), { recursive: true });
+    if (gitmodules !== undefined) writeFileSync(join(dir, ".gitmodules"), gitmodules);
+    return dir;
+  };
+
+  it("are the folders with their own .git, minus the ones left out", () => {
+    expect(workspaceRepos(root())).toEqual(["api", "libs", "web"]);
+    expect(workspaceRepos(root(), ["web", "gone"])).toEqual(["api", "libs"]);
+  });
+
+  it.each([
+    ['[submodule "l"]\n\tpath = libs\n'], ['[submodule "l"]\r\n  path=./libs/\r\n'], ['[submodule "l"]\n\tpath = "libs" # shared\n'], ['[submodule "l"]\n\tpath = libs ; shared\n'],
+  ])("leave out a submodule written as %j", (text) => expect(workspaceRepos(root(text))).toEqual(["api", "web"]));
 });

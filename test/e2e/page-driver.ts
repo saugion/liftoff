@@ -121,6 +121,11 @@ export function openPanel(pageFile: string, address: string) {
       handlers.input!({ target: { dataset: { l: list, i: String(i), f: field }, value, tagName: "INPUT" } });
       await api.settle();
     },
+    // any other field of the panel, named by its data attributes
+    async edit(dataset: Record<string, string>, value: string) {
+      handlers.input!({ target: { dataset, value, tagName: "INPUT" } });
+      await api.settle();
+    },
     // a single field (data-k) or the token box (data-tk)
     async fill(key: string, value: string) {
       handlers.input!({ target: { dataset: key === "token" ? { tk: "" } : { k: key }, value, tagName: "INPUT" } });

@@ -12,10 +12,10 @@ export function slugify(s: string, max = 40): string {
   return slug || "work";
 }
 
-const fill = (pattern: string, values: Record<string, string>) => pattern.replace(/\{(key|slug|type|summary|commitType)\}/g, (_m, k: string) => values[k] ?? "");
+export const fill = (pattern: string, values: Record<string, string>) => pattern.replace(/\{(key|slug|type|summary|commitType)\}/g, (_m, k: string) => values[k] ?? "");
 
 // A git ref the shell and git both accept, whatever literal text the pattern had.
-function safeBranch(name: string): string {
+export function safeBranch(name: string): string {
   const b = name.replace(/[^A-Za-z0-9._/-]+/g, "-").replace(/\.{2,}/g, ".").replace(/\/{2,}/g, "/").replace(/^[-/.]+|[/.-]+$/g, "").replace(/\.lock$/, "");
   return b || "work";
 }
